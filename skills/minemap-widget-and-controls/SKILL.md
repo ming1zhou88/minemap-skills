@@ -1,0 +1,320 @@
+---
+name: minemap-widget-and-controls
+description: MineMap 控件与 widget 体系。涵盖 IControl 协议、map.addControl/removeControl/hasControl、自定义控件，以及 Navigation/Scale/Fullscreen/Geolocate/Attribution、Thumbnail、FPSControl、ModelTransformationControl、BatchAddInstanceControl 的使用边界。
+---
+
+# MineMap Widget And Controls
+
+## Quick Start
+
+```javascript
+const map = new minemap.Map({
+	container: "map",
+	style,
+	center: [116.39, 39.9],
+	zoom: 12
+});
+
+const navigation = new minemap.Navigation();
+const scale = new minemap.Scale({ unit: "metric" });
+const thumbnail = new minemap.Thumbnail({
+	url: "https://example.com/thumbnail.jpg",
+	clickCallback: ({ lnglat }) => {
+		map.easeTo({ center: lnglat, zoom: 2, duration: 1500 });
+	}
+});
+
+map.on("load", () => {
+	if (!map.hasControl(navigation)) map.addControl(navigation, "top-right");
+	if (!map.hasControl(scale)) map.addControl(scale, "bottom-left");
+	if (!map.hasControl(thumbnail)) map.addControl(thumbnail, "bottom-right");
+});
+```
+
+## Architecture Positioning
+
+### 1) 控件统一走 `IControl` 协议
+
+MineMap 的地图控件不是图层，也不是 scene component，而是挂在地图容器 DOM 上的一类 UI 组件。
+
+标准控件协议来自 `IControl`：
+
+-   `onAdd(map)`：控件挂载时调用，必须返回一个 `HTMLElement`
+-   `onRemove(map)`：控件移除时调用，负责解绑事件与清理 DOM
+-   `getDefaultPosition()`：返回默认停靠位
+
+合法位置只有四个：
+
+-   `top-left`
+-   `top-right`
+-   `bottom-left`
+-   `bottom-right`
+
+### 2) 生命周期入口只有三个
+
+控件管理主入口都在 `Map` 上：
+
+-   `map.addControl(control, position?)`
+-   `map.removeControl(control)`
+-   `map.hasControl(control)`
+
+源码约束非常直接：
+
+-   传入对象如果没有 `onAdd` / `onRemove`，`addControl()` / `removeControl()` 会抛出错误事件
+-   `position` 不传时，优先调用控件自己的 `getDefaultPosition()`
+-   重复添加前应先用 `hasControl()` 判断，避免重复 DOM 和重复监听器
+
+### 3) 产品级控件 vs 调试/编辑控件
+
+产品级常驻控件：
+
+-   `Navigation`
+-   `Scale`
+-   `Fullscreen`
+-   `Geolocate`
+-   `Attribution`
+
+调试/编辑/演示控件：
+
+-   `FPSControl`
+-   `Thumbnail`
+-   `ModelTransformationControl`
+-   `BatchAddInstanceControl`
+
+推荐把后者看成“工作台工具”，不要默认常驻线上页面。
+
+### 4) `EarthRotationControl` 不是标准 `IControl` widget
+
+虽然 `EarthRotationControl` 也从 `source/index.js` 对外导出，但它的真实用法不是 `map.addControl()`。
+
+它的构造方式是：
+
+```javascript
+const rotationController = new minemap.EarthRotationControl(map, options);
+rotationController.start();
+rotationController.stop();
+```
+
+也就是说：
+
+-   它是“地图行为控制器”
+-   不是返回 DOM 的标准控件
+-   不要把它当 `IControl` 传给 `map.addControl()`
+
+## Common Patterns
+
+### 常规地图工具栏
+
+```javascript
+map.on("load", () => {
+	map.addControl(new minemap.Navigation(), "top-right");
+	map.addControl(new minemap.Fullscreen(), "top-right");
+	map.addControl(new minemap.Scale({ unit: "metric" }), "bottom-left");
+});
+```
+
+适合常规业务地图页面。`ScaleControl.html` 和常规 demo 都按这个模式组织。
+
+### `Scale` 的稳定用法
+
+`Scale` 是标准 `IControl`，默认位置是 `bottom-left`，支持：
+
+-   `maxWidth`
+-   `unit: 'imperial' | 'metric' | 'nautical'`
+-   运行时 `setUnit(...)`
+
+推荐：
+
+-   国内业务默认 `metric`
+-   海事或航运专题再用 `nautical`
+-   不要自己手写比例尺 DOM 去同步缩放
+
+### `Thumbnail` 作为鹰眼/导航 widget
+
+`Thumbnail` 是一个完整控件，不是 demo 私有脚本。
+
+源码和 demo 已验证的关键参数：
+
+-   `url`
+-   `width`
+-   `height`
+-   `clickCallback`
+
+典型用途：
+
+-   显示全球或区域缩略图
+-   点击缩略图后联动主地图 `easeTo(...)`
+-   在主图移动时同步更新视口指示
+
+```javascript
+const thumbnail = new minemap.Thumbnail({
+	url: thumbnailUrl,
+	clickCallback: ({ lnglat }) => {
+		map.easeTo({ center: lnglat, zoom: 0, pitch: 0, bearing: 0, duration: 2000 });
+	}
+});
+
+map.addControl(thumbnail, "bottom-right");
+```
+
+### `ModelTransformationControl` 作为模型编辑 widget
+
+这个控件适合运行时调整三维对象的位置、旋转、缩放。
+
+源码与 demo 共同表明：
+
+-   支持 `onTransform(result)`
+-   支持 `onTransformEnd(result)`
+-   默认停靠位是 `top-right`
+-   应配合可拾取目标使用，至少要保证被编辑对象能被交互命中
+
+```javascript
+const transformControl = new minemap.ModelTransformationControl({
+	onTransformEnd(result) {
+		console.log(result.position, result.rotation, result.scale);
+	}
+});
+
+map.on("load", () => {
+	map.addSceneComponent({
+		id: "building",
+		type: "3d-model",
+		data: modelUrl,
+		position: [116.39, 39.9, 10],
+		allowPick: true
+	});
+
+	map.addControl(transformControl, "top-left");
+});
+```
+
+适用场景：
+
+-   模型摆位校准
+-   编辑器内姿态修正
+-   调试阶段记录 position / rotation / scale 快照
+
+不建议直接当最终用户常驻控件。
+
+### `BatchAddInstanceControl` 作为批量布点工具
+
+这个控件本质上是“实例模型批量生成面板 + 地图交互工具”。
+
+已验证能力：
+
+-   默认位置 `top-right`
+-   支持点/线/面三类生成方式
+-   可通过 `getData()` 读取工具生成的实例结果
+-   可与 `ModelTransformationControl` 组合成“先批量生成，再局部校准”的流程
+
+推荐工作流：
+
+1. `map.addControl(new minemap.BatchAddInstanceControl())`
+2. 用工具在地图上绘制生成区域/路径/点位
+3. 用 `getData()` 导出 position / rotation / scale
+4. 需要微调时再挂 `ModelTransformationControl`
+
+### `FPSControl` 只用于性能观察
+
+`FPSControl` 适合本地调试：
+
+-   看帧率波动
+-   粗看不同后处理/阴影/模型量级下的性能变化
+
+不建议：
+
+-   作为正式产品 UI 一部分上线
+-   用它代替真实 profiling
+
+### 自定义 widget 的最小实现
+
+```javascript
+class CustomControl {
+	onAdd(map) {
+		this._map = map;
+		this._container = document.createElement("div");
+		this._container.className = "minemap-ctrl my-widget";
+		this._container.textContent = "Reset";
+		this._container.onclick = () => {
+			map.easeTo({ center: [116.39, 39.9], zoom: 12, bearing: 0, pitch: 0 });
+		};
+		return this._container;
+	}
+
+	onRemove() {
+		this._container?.remove();
+		this._map = undefined;
+	}
+
+	getDefaultPosition() {
+		return "top-left";
+	}
+}
+
+map.addControl(new CustomControl());
+```
+
+约束：
+
+-   `onAdd()` 必须返回真实 DOM
+-   `onRemove()` 必须释放事件和引用
+-   不要在控件内部偷偷改地图私有字段
+
+## Failure Cases
+
+### 1) 把非 `IControl` 对象传给 `map.addControl()`
+
+错误示例：
+
+```javascript
+map.addControl({ start() {}, stop() {} });
+```
+
+这类对象没有 `onAdd` / `onRemove`，不符合控件协议。
+
+### 2) 不做判重，反复添加同一个控件实例
+
+错误模式：
+
+```javascript
+button.onclick = () => {
+	map.addControl(scale);
+};
+```
+
+正确做法：
+
+```javascript
+if (!map.hasControl(scale)) {
+	map.addControl(scale);
+}
+```
+
+### 3) 在 `onRemove()` 里不清监听器
+
+控件是 DOM + map 事件的组合体。只删 DOM 不解绑地图事件，会留下隐藏监听器和状态泄漏。
+
+### 4) 把调试控件当长期业务 UI
+
+`FPSControl`、`ModelTransformationControl`、`BatchAddInstanceControl`、`Thumbnail` 都更接近工具型 widget。
+
+若直接常驻线上：
+
+-   会抬高界面复杂度
+-   可能暴露调试能力
+-   会让业务页面承担不必要的交互与渲染成本
+
+## Demo-backed References
+
+-   `demo/html/ScaleControl.html`
+-   `demo/html/Thumbnail.html`
+-   `demo/html/ModelTransformControl.html`
+-   `demo/html/BatchAddInstanceControl.html`
+-   `demo/html/EarthRotation.html`
+
+## See Also
+
+-   `minemap-fundamentals`
+-   `minemap-scene-components`
+-   `minemap-events-and-picking`
+-   `minemap-performance-and-backend`
