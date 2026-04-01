@@ -1,0 +1,240 @@
+<!--
+ * @Author: lsw
+ * @Date: 2022-04-22 14:20:37
+ * @LastEditTime: 2024-09-10 14:51:01
+ * @LastEditors: liwei
+ * @Description:
+ * @FilePath: \MineMap3DEngine\demo\html\FrustumGeometry.html
+-->
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<title>视锥体几何对象</title>
+		<script src="../../dist/minemap-dev.js"></script>
+		<script type="text/javascript" src="../js/lil-gui.umd.min.js"></script>
+		<style>
+			html,
+			#map,
+			body {
+				margin: 0;
+				padding: 0;
+				width: 100%;
+				height: 100%;
+			}
+		</style>
+	</head>
+	<body>
+		<div id="map"></div>
+		<script>
+			/**
+			 * 全局参数设置
+			 */
+			minemap.domainUrl = "https://minedata.cn";
+			minemap.dataDomainUrl = "https://minedata.cn";
+			minemap.serverDomainUrl = "https://minedata.cn";
+			minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+			minemap.serviceUrl = "https://minedata.cn/service/";
+
+			minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+			minemap.solution = 11001;
+			window.minemapCDN = "https://minedata.cn/minemapapi/minemap-CDN";
+
+			// 定义空底图样式
+			var style = {
+				glyphs: "minemap://fonts/{fontstack}/{range}",
+				sprite: "minemap://sprite/sprite",
+				sources: {},
+				layers: [],
+				version: 8
+			};
+
+			/**
+			 * 初始化地图实例
+			 */
+			var map = new minemap.Map({
+				container: "map",
+				style: style,
+				/*球面矢量底图样式*/
+				center: [116.24487230680099, 40.07492989660957],
+				/*地图中心点*/
+				bearing: 0,
+				zoom: 14,
+				/*地图默认缩放等级*/
+				pitch: 50,
+				/*地图俯仰角度*/
+				maxZoom: 22,
+				/*地图最大缩放等级*/
+				minZoom: 1,
+				/*地图最小缩放等级*/
+				projection: "MERCATOR",
+				OIT: true, // 开启OIT
+			});
+			map.repaint = true;
+
+			map.on("load", function () {
+				/*添加栅格图*/
+				map.addSource("IMAGERY_SOURCE", {
+					type: "raster", //数据源类型：栅格数据源
+					tiles: ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+					tileSize: 512 //瓦片尺寸
+				});
+
+				map.addLayer({
+					id: "IMAGERY",
+					type: "raster", //图层类型为"raster"
+					source: "IMAGERY_SOURCE",
+					minzoom: 1,
+					maxzoom: 23,
+					paint: {
+						"raster-opacity": 1
+					},
+					"depth-test": true
+				});
+				addFrustum();
+				initializeGUI();
+			});
+
+			const params = {
+				projectionType: "透视投影",
+				longitude: 116.24544236500333,
+				latitude: 40.07254296210216,
+				height: 1000,
+				heading: 0,
+				pitch: 0,
+				roll: 0,
+				fov: 45,
+				aspect: 2,
+				near: 100,
+				far: 1000,
+				addFrustum: addFrustum,
+				removeFurstum: removeFurstum
+			};
+
+			let frustumProjectionType = "透视投影";
+			let cameraPosition, frustumPrimitive, frustumOutlinePrimitive, camTransformMatrix;
+			function addFrustum() {
+				if (frustumPrimitive !== undefined) {
+					return;
+				}
+
+				let camera;
+				if (frustumProjectionType === "透视投影") {
+					// 透视投影
+					camera = new minemap.PerspectiveCamera(30, params.aspect, params.near, params.far); // fov aspect near far
+				} else {
+					// 正交投影
+					camera = new minemap.OrthographicCamera(1000, 1, params.near, params.far); // width, aspect, near, far
+				}
+
+				cameraPosition = minemap.Math.Vector3.fromDegrees(params.longitude, params.latitude, params.height); //投影相机位置
+				// 计算相机矩阵
+				camTransformMatrix = minemap.Transforms.headingPitchRollToFixedFrame(
+					cameraPosition,
+					new minemap.Math.HeadingPitchRoll(
+						minemap.Math.toRadians(params.heading),
+						minemap.Math.toRadians(params.pitch),
+						minemap.Math.toRadians(params.roll)
+					)
+				);
+
+				camera.setMatrix(camTransformMatrix);
+				frustumPrimitive = new minemap.Primitive({
+					geometry: new minemap.Geometries.FrustumGeometry(camera),
+					material: minemap.StandardMaterial.fromType("Color", {
+						color: new minemap.Color(0.0, 1.0, 1.0, 0.5)
+					}),
+					modelMatrix: camTransformMatrix
+				});
+				map.addPrimitive(frustumPrimitive);
+
+				frustumOutlinePrimitive = new minemap.Primitive({
+					geometry: new minemap.Geometries.FrustumOutlineGeometry(camera),
+					material: minemap.StandardMaterial.fromType("Color", {
+						color: new minemap.Color(1.0, 0.0, 0.0, 1)
+					}),
+					modelMatrix: camTransformMatrix
+				});
+				map.addPrimitive(frustumOutlinePrimitive);
+			}
+
+			function removeFurstum() {
+				if (frustumPrimitive !== undefined) {
+					map.removePrimitive(frustumPrimitive);
+					frustumPrimitive = undefined;
+				}
+
+				if (frustumOutlinePrimitive !== undefined) {
+					map.removePrimitive(frustumOutlinePrimitive);
+					frustumOutlinePrimitive = undefined;
+				}
+			}
+
+			function initializeGUI() {
+				const gui = new lil.GUI({ title: "视频投影", width: 300 });
+				gui.onChange((event) => {
+					params[event.property] = event.value;
+				});
+
+				gui.add(params, "projectionType")
+					.options(["透视投影", "正交投影"])
+					.onChange((value) => {
+						frustumProjectionType = value;
+						removeFurstum();
+						addFrustum();
+					});
+
+				gui.add(params, "longitude", 116.245, 116.246, 0.00000001).onChange((value) => {
+					params.longitude = value;
+					updateFrustum();
+				});
+
+				gui.add(params, "latitude", 40.072, 40.073, 0.00000001).onChange((value) => {
+					params.latitude = value;
+					updateFrustum();
+				});
+
+				gui.add(params, "height", 0, 2000, 0.1).onChange((value) => {
+					params.height = value;
+					updateFrustum();
+				});
+
+				gui.add(params, "heading", 0, 360, 1).onChange((value) => {
+					params.heading = value;
+					updateFrustum();
+				});
+
+				gui.add(params, "pitch", 0, 180, 1).onChange((value) => {
+					params.pitch = value;
+					updateFrustum();
+				});
+
+				gui.add(params, "roll", 0, 300, 0.1).onChange((value) => {
+					params.roll = value;
+					updateFrustum();
+				});
+
+				gui.add(params, "addFrustum");
+
+				gui.add(params, "removeFurstum");
+			}
+
+			function updateFrustum() {
+				cameraPosition = minemap.Math.Vector3.fromDegrees(params.longitude, params.latitude, params.height);
+				camTransformMatrix = minemap.Transforms.headingPitchRollToFixedFrame(
+					cameraPosition,
+					new minemap.Math.HeadingPitchRoll(
+						minemap.Math.toRadians(params.heading),
+						minemap.Math.toRadians(params.pitch),
+						minemap.Math.toRadians(params.roll)
+					)
+				);
+
+				frustumPrimitive.setMatrix(camTransformMatrix);
+				frustumPrimitive.updateMatrixWorld(true);
+				frustumOutlinePrimitive.setMatrix(camTransformMatrix);
+				frustumOutlinePrimitive.updateMatrixWorld(true);
+			}
+		</script>
+	</body>
+</html>

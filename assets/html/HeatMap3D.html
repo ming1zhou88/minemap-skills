@@ -1,0 +1,122 @@
+<!--
+ * @Author: wuhaoyuan
+ * @Date: 2021-10-15 14:38:30
+ * @LastEditTime: 2022-10-15 14:38:30
+ * @LastEditors: Lee_90125
+ * @Description:
+ * @FilePath: \MineMap3DEngine\demo\heatmap-layer\heatmap-layer.html
+*/
+-->
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>三维热力图图层</title>
+    <!-- 引入MineMap API插件 -->
+    <link rel="stylesheet" href="../../dist/minemap.css">
+    <script src="../../dist/minemap-dev.js"></script>
+    <style>
+        html,
+        body,
+        #map {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="map"></div>
+    <script>
+        /**
+         * 全局参数设置
+         */
+        minemap.domainUrl = 'https://minedata.cn';
+        minemap.dataDomainUrl = 'https://minedata.cn';
+        minemap.serverDomainUrl = 'https://minedata.cn';
+        minemap.spriteUrl = 'https://minedata.cn/minemapapi/v2.1.0/sprite/sprite';
+        minemap.serviceUrl = 'https://minedata.cn/service/';
+
+        minemap.key = '0c6ac62182404e5ebc7a789981f6db72';
+        minemap.solution = 12878;
+
+        var map = new minemap.Map({
+            container: 'map',
+            style: 'https://minedata.cn/service/solu/style/id/12878',
+            center: [116.40264611530694, 39.94940769430899],
+            zoom: 12,
+            pitch: 70,
+            maxZoom: 17,
+            minZoom: 3,
+            projection: 'MERCATOR'
+        });
+
+        /**
+         * 创建地图对象后，开始加载地图资源，地图资源加载完成后触发load事件
+         */
+        map.on('load', function () {
+            /*添加栅格图*/
+            map.addSource("IMAGERY_SOURCE", {
+                "type": "raster",//数据源类型：栅格数据源
+                "tiles": ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+                "tileSize": 512,//瓦片尺寸
+            });
+
+            // 增加自定义数据源、自定义图层
+            addSources();
+            addLayers();
+        });
+
+        function addSources() {
+            //添加数据源,该热力图效果，数据源类型支持geojson或vector两种形式
+            map.addSource("heatmapSource", {
+                type: "geojson",
+                data: "../data/heatmap_point.json"
+            });
+        }
+
+        function addLayers() {
+            map.addLayer({
+                "id": "heatmapLayer",
+                "type": "heatmap",
+                "source": "heatmapSource",
+                "layout": {
+                    "visibility": "visible",
+					"display-mode": "3d" // 默认二维展示（“2d”），可选择展示三维（“3d”）
+                },
+                "paint": {
+                    // 一个热力图数据点的模糊范围，单位是像素，默认值30；要求：值大于等于1，可根据zoom level进行插值设置
+                    "heatmap-radius": 100,
+                    //一个热力图单个数据点的热力程度，默认值为1；要求：值大于等于0，支持使用property中某个的热力值
+                    "heatmap-weight": {
+                        "property": "mag",
+                        "stops": [[0, 0], [10, 1]]
+                    },
+                    // 用于统一控制热力值的强度，默认值1；要求：值大于等于0，可根据zoom level进行插值设置
+                    "heatmap-intensity": 1,
+                    // 表示热力图颜色阶梯，阶梯的值域范围为0-1，默认值为["interpolate",["linear"],["heatmap-density"],0,"rgba(0, 0, 255, 0)",0.1,"royalblue",0.3,"cyan",0.5,"lime",0.7,"yellow",1,"red"]
+                    "heatmap-color": [
+                        "interpolate",
+                        ["linear"],
+                        ["heatmap-density"],
+                        0, "rgba(0, 0, 255, 0)", 0.1, "royalblue", 0.3, "cyan", 0.5, "lime", 0.7, "yellow", 1, "red"
+                    ],
+                    // 表示热力图的不透明度，默认值1；值域范围0-1，可根据zoom level进行插值设置
+                    "heatmap-opacity": 1,
+					// 表示三维热力图以米为单位的缩放比例，默认值100，仅display-mode为3d时生效
+					"heatmap-height-factor": [
+						"interpolate",
+						["linear"],
+						["zoom"],
+						0, 10000, 10, 1000, 15, 100, 17, 10
+					]
+                }
+            });
+        }
+
+    </script>
+</body>

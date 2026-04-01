@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+	<head>
+		<meta charset="UTF-8" />
+		<title>Radar Hemisphere Geometry Demo</title>
+		<link rel="stylesheet" href="../../dist/minemap.css" />
+		<script src="../../dist/minemap-dev.js"></script>
+		<script src="../js/lil-gui.umd.min.js"></script>
+		<style>
+			html,
+			body,
+			#map {
+				margin: 0;
+				padding: 0;
+				width: 100%;
+				height: 100%;
+			}
+			.gui-container {
+				position: absolute;
+				top: 16px;
+				right: 16px;
+				z-index: 10;
+			}
+		</style>
+	</head>
+	<body>
+		<div id="map"></div>
+		<script>
+			minemap.domainUrl = "https://minedata.cn";
+			minemap.dataDomainUrl = "https://minedata.cn";
+			minemap.serverDomainUrl = "https://minedata.cn";
+			minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+			minemap.serviceUrl = "https://minedata.cn/service/";
+			minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+			minemap.solution = 11001;
+
+			const style = {
+				glyphs: "minemap://fonts/{fontstack}/{range}",
+				sprite: "minemap://sprite/sprite",
+				sources: {},
+				layers: [],
+				version: 8
+			};
+
+			const map = new minemap.Map({
+				container: "map",
+				style,
+				center: [116.2455, 40.0727],
+				zoom: 15.3,
+				pitch: 52,
+				maxZoom: 22,
+				minZoom: 1,
+				projection: "MERCATOR",
+				// OIT: true
+			});
+			map.repaint = true;
+			map.enableLight();
+
+			let surfaceGeometry;
+			let surfaceOutlineGeometry;
+			let surfacePrimitive;
+			let surfaceOutlinePrimitive;
+			let surfaceMaterial;
+			let surfaceOutlineMaterial;
+
+			let volumeGeometry;
+			let volumeOutlineGeometry;
+			let volumePrimitive;
+			let volumeOutlinePrimitive;
+			let volumeMaterial;
+			let volumeOutlineMaterial;
+
+			const globalParams = {
+				animationEnabled: true
+			};
+
+			const baseParams = {
+				radius: 900,
+				aperture: 360,
+				azimuthSegments: 72,
+				polarSegments: 48,
+				outlineAzimuthSegments: 72,
+				outlinePolarSegments: 48
+			};
+
+			const outlineParams = {
+				color: "rgba(255, 11, 33, 1)",
+				opacity: 1
+			};
+
+			const surfaceParams = {
+				baseColor: "#00ffc4",
+				baseOpacity: 0.0,
+				count: 2,
+				sweepColor: "#40ff80",
+				sweepOpacity: 1,
+				sweepSpeed: 36,
+				autoRotate: true
+			};
+
+			const volumeParams = {
+				baseColor: "#ffb366",
+				baseOpacity: 0.0,
+				count: 1,
+				sweepColor: "#ff8032",
+				sweepOpacity: 1,
+				sweepSpeed: 50,
+				sweepWidth: 16,
+				autoRotate: true
+			};
+
+			function ensureSurfaceFanCount(target) {
+				if (!surfaceGeometry) return;
+				const current = surfaceGeometry.scanFans ? surfaceGeometry.scanFans.length : 0;
+				if (target > current) {
+					for (let i = current; i < target; i++) {
+						surfaceGeometry.addScanFan({
+							color: surfaceParams.sweepColor,
+							opacity: surfaceParams.sweepOpacity,
+							speed: surfaceParams.sweepSpeed,
+							autoRotate: globalParams.animationEnabled && surfaceParams.autoRotate
+						});
+					}
+				} else if (target < current) {
+					const removable = surfaceGeometry.scanFans.slice(target);
+					removable.forEach(item => surfaceGeometry.removeScanFan(item.id));
+				}
+				surfaceGeometry.update({});
+				syncSurfaceOutline();
+				map.triggerRepaint();
+			}
+
+			function ensureVolumeConeCount(target) {
+				if (!volumeGeometry) return;
+				const current = volumeGeometry.scanCones ? volumeGeometry.scanCones.length : 0;
+				if (target > current) {
+					for (let i = current; i < target; i++) {
+						volumeGeometry.addScanCone({
+							color: volumeParams.sweepColor,
+							opacity: volumeParams.sweepOpacity,
+							speed: volumeParams.sweepSpeed,
+							width: volumeParams.sweepWidth,
+							autoRotate: globalParams.animationEnabled && volumeParams.autoRotate
+						});
+					}
+				} else if (target < current) {
+					const removable = volumeGeometry.scanCones.slice(target);
+					removable.forEach(item => volumeGeometry.removeScanCone(item.id));
+				}
+				volumeGeometry.update({});
+				syncVolumeOutline();
+				map.triggerRepaint();
+			}
+
+			function updateSurfaceFans(patch) {
+				if (!surfaceGeometry || !surfaceGeometry.scanFans) return;
+				surfaceGeometry.scanFans.forEach(fan => {
+					surfaceGeometry.updateScanFan(fan.id, patch);
+				});
+				surfaceGeometry.update({});
+				syncSurfaceOutline();
+				map.triggerRepaint();
+			}
+
+			function updateVolumeCones(patch) {
+				if (!volumeGeometry || !volumeGeometry.scanCones) return;
+				volumeGeometry.scanCones.forEach(cone => {
+					volumeGeometry.updateScanCone(cone.id, patch);
+				});
+				volumeGeometry.update({});
+				syncVolumeOutline();
+				map.triggerRepaint();
+			}
+
+			function syncSurfaceOutline() {
+				if (!surfaceOutlineGeometry || !surfaceGeometry) return;
+				surfaceOutlineGeometry.syncFromSurface(surfaceGeometry);
+				surfaceOutlineGeometry.update({
+					outlineAzimuthSegments: baseParams.outlineAzimuthSegments,
+					outlinePolarSegments: baseParams.outlinePolarSegments
+				});
+			}
+
+			function syncVolumeOutline() {
+				if (!volumeOutlineGeometry || !volumeGeometry) return;
+				volumeOutlineGeometry.syncFromSurface(volumeGeometry);
+				volumeOutlineGeometry.update({
+					outlineAzimuthSegments: baseParams.outlineAzimuthSegments,
+					outlinePolarSegments: baseParams.outlinePolarSegments
+				});
+			}
+
+			function createOutlineMaterial(color, opacity) {
+				return minemap.StandardMaterial.fromType("Color", {
+					color,
+					opacity,
+					doubleSided: true,
+					lightingModel: minemap.LightingModelType.NONE
+				});
+			}
+
+			function updateSurfaceOutlineMaterial() {
+				if (!surfaceOutlinePrimitive) return;
+				const previous = surfaceOutlineMaterial;
+				surfaceOutlineMaterial = createOutlineMaterial(outlineParams.color, outlineParams.opacity);
+				surfaceOutlinePrimitive.material = surfaceOutlineMaterial;
+				if (previous && typeof previous.destroy === "function" && previous !== surfaceOutlineMaterial) {
+					previous.destroy();
+				}
+				map.triggerRepaint();
+			}
+
+			function updateVolumeOutlineMaterial() {
+				if (!volumeOutlinePrimitive) return;
+				const previous = volumeOutlineMaterial;
+				volumeOutlineMaterial = createOutlineMaterial(outlineParams.color, outlineParams.opacity);
+				volumeOutlinePrimitive.material = volumeOutlineMaterial;
+				if (previous && typeof previous.destroy === "function" && previous !== volumeOutlineMaterial) {
+					previous.destroy();
+				}
+				map.triggerRepaint();
+			}
+
+			function updateOutlineMaterials() {
+				updateSurfaceOutlineMaterial();
+				updateVolumeOutlineMaterial();
+			}
+
+			function applyGlobalAnimationState() {
+				const surfaceAuto = globalParams.animationEnabled && surfaceParams.autoRotate;
+				const volumeAuto = globalParams.animationEnabled && volumeParams.autoRotate;
+				updateSurfaceFans({ autoRotate: surfaceAuto });
+				updateVolumeCones({ autoRotate: volumeAuto });
+			}
+
+			function initializeGUI() {
+				const guiContainer = document.createElement("div");
+				guiContainer.className = "gui-container";
+				document.body.appendChild(guiContainer);
+
+				const gui = new lil.GUI({ title: "雷达半球控制", width: 320, container: guiContainer });
+
+				const globalFolder = gui.addFolder("全局控制");
+				globalFolder
+					.add(globalParams, "animationEnabled")
+					.name("启用动画")
+					.onChange(value => {
+						globalParams.animationEnabled = value;
+						applyGlobalAnimationState();
+					});
+
+				const baseFolder = gui.addFolder("主体参数");
+				baseFolder
+					.add(baseParams, "radius", 300, 2000, 10)
+					.name("半径")
+					.onChange(value => {
+						[surfaceGeometry, volumeGeometry].forEach(geo => {
+							if (geo) {
+								geo.update({ radius: value });
+							}
+						});
+						syncSurfaceOutline();
+						syncVolumeOutline();
+						map.triggerRepaint();
+					});
+				baseFolder
+					.add(baseParams, "aperture", 60, 360, 1)
+					.name("开口角(°)")
+					.onChange(value => {
+						[surfaceGeometry, volumeGeometry].forEach(geo => {
+							if (geo) {
+								geo.update({ aperture: value });
+							}
+						});
+						syncSurfaceOutline();
+						syncVolumeOutline();
+						map.triggerRepaint();
+					});
+
+				const densityFolder = gui.addFolder("网格密度");
+				densityFolder
+					.add(baseParams, "azimuthSegments", 8, 180, 1)
+					.name("水平分段")
+					.onChange(value => {
+						const segments = Math.max(3, Math.floor(value));
+						baseParams.azimuthSegments = segments;
+						[surfaceGeometry, volumeGeometry].forEach(geo => {
+							if (geo) {
+								geo.update({ azimuthSegments: segments });
+							}
+						});
+						syncSurfaceOutline();
+						syncVolumeOutline();
+						map.triggerRepaint();
+					});
+				densityFolder
+					.add(baseParams, "polarSegments", 4, 90, 1)
+					.name("垂直分段")
+					.onChange(value => {
+						const segments = Math.max(2, Math.floor(value));
+						baseParams.polarSegments = segments;
+						[surfaceGeometry, volumeGeometry].forEach(geo => {
+							if (geo) {
+								geo.update({ polarSegments: segments });
+							}
+						});
+						syncSurfaceOutline();
+						syncVolumeOutline();
+						map.triggerRepaint();
+					});
+
+				const outlineFolder = gui.addFolder("轮廓线");
+				outlineFolder
+					.addColor(outlineParams, "color")
+					.name("线框颜色")
+					.onChange(value => {
+						outlineParams.color = value;
+						updateOutlineMaterials();
+					});
+				outlineFolder
+					.add(outlineParams, "opacity", 0.05, 1, 0.01)
+					.name("线框透明")
+					.onChange(value => {
+						outlineParams.opacity = value;
+						updateOutlineMaterials();
+					});
+				outlineFolder
+					.add(baseParams, "outlineAzimuthSegments", 4, 180, 1)
+					.name("线框水平分段")
+					.onChange(value => {
+						const segments = Math.max(3, Math.floor(value));
+						baseParams.outlineAzimuthSegments = segments;
+						syncSurfaceOutline();
+						syncVolumeOutline();
+						map.triggerRepaint();
+					});
+				outlineFolder
+					.add(baseParams, "outlinePolarSegments", 2, 90, 1)
+					.name("线框垂直分段")
+					.onChange(value => {
+						const segments = Math.max(2, Math.floor(value));
+						baseParams.outlinePolarSegments = segments;
+						syncSurfaceOutline();
+						syncVolumeOutline();
+						map.triggerRepaint();
+					});
+
+				const surfaceFolder = gui.addFolder("扇形扫描");
+				surfaceFolder
+					.add(surfaceParams, "count", 0, 12, 1)
+					.name("扇形数量")
+					.onChange(value => {
+						surfaceParams.count = value;
+						ensureSurfaceFanCount(value);
+					});
+				surfaceFolder
+					.addColor(surfaceParams, "baseColor")
+					.name("主体颜色")
+					.onChange(value => {
+						surfaceParams.baseColor = value;
+						if (surfaceGeometry) {
+							surfaceGeometry.update({ color: value });
+						}
+						map.triggerRepaint();
+					});
+				surfaceFolder
+					.add(surfaceParams, "baseOpacity", 0.0, 0.9, 0.01)
+					.name("主体透明")
+					.onChange(value => {
+						surfaceParams.baseOpacity = value;
+						if (surfaceGeometry) {
+							surfaceGeometry.update({ opacity: value });
+						}
+						map.triggerRepaint();
+					});
+				surfaceFolder
+					.addColor(surfaceParams, "sweepColor")
+					.name("扇形颜色")
+					.onChange(value => {
+						surfaceParams.sweepColor = value;
+						updateSurfaceFans({ color: value });
+					});
+				surfaceFolder
+					.add(surfaceParams, "sweepOpacity", 0.05, 1, 0.01)
+					.name("扇形透明")
+					.onChange(value => {
+						surfaceParams.sweepOpacity = value;
+						updateSurfaceFans({ opacity: value });
+					});
+				surfaceFolder
+					.add(surfaceParams, "sweepSpeed", 5, 120, 1)
+					.name("旋转速度")
+					.onChange(value => {
+						surfaceParams.sweepSpeed = value;
+						updateSurfaceFans({ speed: value });
+					});
+				surfaceFolder
+					.add(surfaceParams, "autoRotate")
+					.name("自动旋转")
+					.onChange(value => {
+						surfaceParams.autoRotate = value;
+						applyGlobalAnimationState();
+					});
+
+				const volumeFolder = gui.addFolder("扇形体扫描");
+				volumeFolder
+					.add(volumeParams, "count", 0, 12, 1)
+					.name("扇形体数量")
+					.onChange(value => {
+						volumeParams.count = value;
+						ensureVolumeConeCount(value);
+					});
+				volumeFolder
+					.addColor(volumeParams, "baseColor")
+					.name("主体颜色")
+					.onChange(value => {
+						volumeParams.baseColor = value;
+						if (volumeGeometry) {
+							volumeGeometry.update({ color: value });
+						}
+						map.triggerRepaint();
+					});
+				volumeFolder
+					.add(volumeParams, "baseOpacity", 0.0, 0.9, 0.01)
+					.name("主体透明")
+					.onChange(value => {
+						volumeParams.baseOpacity = value;
+						if (volumeGeometry) {
+							volumeGeometry.update({ opacity: value });
+						}
+						map.triggerRepaint();
+					});
+				volumeFolder
+					.addColor(volumeParams, "sweepColor")
+					.name("扇形体颜色")
+					.onChange(value => {
+						volumeParams.sweepColor = value;
+						updateVolumeCones({ color: value });
+					});
+				volumeFolder
+					.add(volumeParams, "sweepOpacity", 0.05, 1, 0.01)
+					.name("扇形体透明")
+					.onChange(value => {
+						volumeParams.sweepOpacity = value;
+						updateVolumeCones({ opacity: value });
+					});
+				volumeFolder
+					.add(volumeParams, "sweepSpeed", 5, 120, 1)
+					.name("旋转速度")
+					.onChange(value => {
+						volumeParams.sweepSpeed = value;
+						updateVolumeCones({ speed: value });
+					});
+				volumeFolder
+					.add(volumeParams, "sweepWidth", 5, 60, 1)
+					.name("张角(°)")
+					.onChange(value => {
+						volumeParams.sweepWidth = value;
+						updateVolumeCones({ width: value });
+					});
+				volumeFolder
+					.add(volumeParams, "autoRotate")
+					.name("自动旋转")
+					.onChange(value => {
+						volumeParams.autoRotate = value;
+						applyGlobalAnimationState();
+					});
+
+				globalFolder.open();
+				surfaceFolder.open();
+				volumeFolder.open();
+			}
+
+			let lastFrameTime = 0;
+
+			function handleRenderFrame() {
+				const hasAnimatedSurfaceFans =
+					surfaceGeometry && (surfaceGeometry.scanFans || []).some(fan => fan.autoRotate);
+				const hasAnimatedVolumeCones =
+					volumeGeometry && (volumeGeometry.scanCones || []).some(cone => cone.autoRotate);
+
+				if (!hasAnimatedSurfaceFans && !hasAnimatedVolumeCones) {
+					lastFrameTime = performance.now();
+					return;
+				}
+
+				const now = performance.now();
+				if (!lastFrameTime) {
+					lastFrameTime = now;
+					return;
+				}
+
+				let deltaSeconds = (now - lastFrameTime) / 1000;
+				lastFrameTime = now;
+
+				if (!isFinite(deltaSeconds) || deltaSeconds <= 0) {
+					return;
+				}
+
+				deltaSeconds = Math.min(deltaSeconds, 0.25);
+
+				if (hasAnimatedSurfaceFans) {
+					surfaceGeometry.update({ deltaSeconds });
+					syncSurfaceOutline();
+				}
+
+				if (hasAnimatedVolumeCones) {
+					volumeGeometry.update({ deltaSeconds });
+					syncVolumeOutline();
+				}
+			}
+
+			map.on("load", () => {
+				map.addSource("IMAGERY_SOURCE", {
+					type: "raster",
+					tiles: ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"],
+					tileSize: 512
+				});
+
+				map.addLayer({
+					id: "IMAGERY",
+					type: "raster",
+					source: "IMAGERY_SOURCE",
+					minzoom: 1,
+					maxzoom: 23,
+					paint: { "raster-opacity": 1 }
+				});
+
+				const surfacePosition = new minemap.Math.Vector3([116.2254, 40.07255, 0]);
+				const volumePosition = new minemap.Math.Vector3([116.2488, 40.07255, 0]);
+				const surfaceMatrix = minemap.Transforms.cartographicToFixedFrame(surfacePosition);
+				const volumeMatrix = minemap.Transforms.cartographicToFixedFrame(volumePosition);
+
+				globalParams.animationEnabled = true;
+
+				surfaceGeometry = new minemap.Geometries.RadarHemisphereGeometry({
+					radius: baseParams.radius,
+					aperture: baseParams.aperture,
+					azimuthSegments: baseParams.azimuthSegments,
+					polarSegments: baseParams.polarSegments,
+					color: surfaceParams.baseColor,
+					opacity: surfaceParams.baseOpacity
+				});
+
+				volumeGeometry = new minemap.Geometries.RadarHemisphereGeometry({
+					radius: baseParams.radius,
+					aperture: baseParams.aperture,
+					azimuthSegments: baseParams.azimuthSegments,
+					polarSegments: baseParams.polarSegments,
+					color: volumeParams.baseColor,
+					opacity: volumeParams.baseOpacity
+				});
+
+				surfaceOutlineGeometry = new minemap.Geometries.RadarHemisphereOutlineGeometry({
+					surfaceGeometry,
+					outlineAzimuthSegments: baseParams.outlineAzimuthSegments,
+					outlinePolarSegments: baseParams.outlinePolarSegments
+				});
+
+				volumeOutlineGeometry = new minemap.Geometries.RadarHemisphereOutlineGeometry({
+					surfaceGeometry: volumeGeometry,
+					outlineAzimuthSegments: baseParams.outlineAzimuthSegments,
+					outlinePolarSegments: baseParams.outlinePolarSegments
+				});
+
+				surfaceMaterial = minemap.StandardMaterial.fromType("Color", {
+					vertexColor: true,
+					doubleSided: true,
+					opacity: 1,
+					lightingModel: minemap.LightingModelType.NONE
+				});
+
+				volumeMaterial = minemap.StandardMaterial.fromType("Color", {
+					vertexColor: true,
+					doubleSided: true,
+					opacity: 1,
+					lightingModel: minemap.LightingModelType.NONE
+				});
+
+				surfaceOutlineMaterial = createOutlineMaterial(outlineParams.color, outlineParams.opacity);
+				volumeOutlineMaterial = createOutlineMaterial(outlineParams.color, outlineParams.opacity);
+
+				surfacePrimitive = new minemap.Primitive({
+					modelMatrix: surfaceMatrix,
+					geometry: surfaceGeometry,
+					material: surfaceMaterial,
+					receiveShadow: false,
+					castShadow: false
+				});
+
+				volumePrimitive = new minemap.Primitive({
+					modelMatrix: volumeMatrix,
+					geometry: volumeGeometry,
+					material: volumeMaterial,
+					receiveShadow: false,
+					castShadow: false
+				});
+
+				surfaceOutlinePrimitive = new minemap.Primitive({
+					modelMatrix: surfaceMatrix,
+					geometry: surfaceOutlineGeometry,
+					material: surfaceOutlineMaterial,
+					receiveShadow: false,
+					castShadow: false
+				});
+
+				volumeOutlinePrimitive = new minemap.Primitive({
+					modelMatrix: volumeMatrix,
+					geometry: volumeOutlineGeometry,
+					material: volumeOutlineMaterial,
+					receiveShadow: false,
+					castShadow: false
+				});
+
+				map.addPrimitive(surfacePrimitive);
+				map.addPrimitive(surfaceOutlinePrimitive);
+				map.addPrimitive(volumePrimitive);
+				map.addPrimitive(volumeOutlinePrimitive);
+
+				ensureSurfaceFanCount(surfaceParams.count);
+				ensureVolumeConeCount(volumeParams.count);
+				applyGlobalAnimationState();
+				initializeGUI();
+
+				lastFrameTime = performance.now();
+				map.on("render", handleRenderFrame);
+			});
+		</script>
+	</body>
+</html>

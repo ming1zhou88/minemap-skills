@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+	<title>经纬度DEM数字高程模型</title>
+	<!-- 引入MineMap API插件 -->
+	<link rel="stylesheet" href="../../dist/minemap.css">
+	<script src="../../dist/minemap-dev.js"></script>
+	<style>
+		html, body, #map {
+			margin: 0;
+			padding: 0;
+			width: 100%;
+			height: 100%;
+		}
+	</style>
+</head>
+<body>
+<div id="map"></div>
+<script>
+	/**
+	 * 全局参数设置
+	 */
+	minemap.domainUrl = 'https://minemap.minedata.cn';
+	minemap.dataDomainUrl = 'https://minemap.minedata.cn';
+	minemap.serverDomainUrl = 'https://sd-data.minedata.cn';
+	minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+	minemap.serviceUrl = 'https://service.minedata.cn/service';
+
+	/**
+	 * token、solution设置
+	 */
+	minemap.key = '0c6ac62182404e5ebc7a789981f6db72';
+	minemap.solution = 11001;
+
+	// 定义空底图样式
+	var style = {
+		"glyphs": "minemap://fonts/{fontstack}/{range}",
+		"sprite": "minemap://sprite/sprite",
+		"sources": {},
+		"layers": [{
+			"id": "background",
+			"type": "background",
+			"source": "",
+			"paint": {
+				"background-color": "#005100"
+			}
+		}],
+		"version": 8
+	};
+
+	/**
+	 * 初始化地图实例
+	 */
+	var map = new minemap.Map({
+		container: 'map',
+		style: style, /*球面矢量底图样式*/
+		center: [111.8954638441416, 37.7292318289203], /*地图中心点*/
+		// 太原
+		zoom: 12.613105805449946,
+		pitch: 67.85220686834269,
+		bearing: 0.0000314663228664358,
+		maxZoom: 22, /*地图最大缩放等级*/
+		minZoom: 1,  /*地图最小缩放等级*/
+		projection: 'LATLON',
+		transformRequest: (url, type) => {
+
+			// 起烜出品
+			if (url.includes("terrain") && type === "Tile") {
+				// console.log(url)
+				const urlObj1 = new URL(url);
+
+				var x = urlObj1.searchParams.get("x");
+				var y = urlObj1.searchParams.get("y");
+				var z = urlObj1.searchParams.get("z");
+				y = parseInt(y.replace(".terrain", ""))
+				z = parseInt(z)
+
+				var host = urlObj1.host
+				var pathname = urlObj1.pathname
+
+				y = Math.pow(2, z - 1) - y - 1;
+				z = z - 1
+
+				var url_new = `http://${host}` + `${pathname}/${z}/${x}/${y}.terrain`//?extensions=watermask-metadata&v=1.2.0
+
+				// console.log(url_new)
+				return {
+					url: url_new,
+					headers: {
+						// referer: "http://mars3d.cn/",
+						// Authorization:"Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiJlMTA2NDU2OC0xYzA2LTQxMmItOWY1Yy02YjkwNGFjNmQwYzAiLCJpZCI6MTQ4MiwiYXNzZXRJZCI6MSwiYXNzZXRzIjp7IjEiOnsidHlwZSI6IlRFUlJBSU4iLCJleHRlbnNpb25zIjpbdHJ1ZSx0cnVlLHRydWVdLCJwdWxsQXBhcnRUZXJyYWluIjpmYWxzZX19LCJzcmMiOiJlZDJjMTcwNS04ZDVmLTQzNWQtYWUyZC0yMTJkMDkyMzkyMjMiLCJpYXQiOjE3MDAwMTY5NzcsImV4cCI6MTcwMDAyMDU3N30.V4VTDqnR4PTJp7fOnoEAMgC5y8jjU1qUM_ld510MzCc"
+						// "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI4MDQxYTFiOC0wOThjLTQ0YTItYWIwZC1iYTFmNjQ1MmM5YmYiLCJpZCI6MzgxNywic2NvcGVzIjpbImFzciIsImdjIl0sImlhdCI6MTUzODk4MjM2N30.uh3IqH3dD5TEUyIjSYLQqYvmdRRJ4rQihHjNYQCqdd8",
+						// "Content-Type": "application/vnd.quantized-mesh;extensions=watermask-metadata",
+						// "Accept": "application/vnd.quantized-mesh,application/octet-stream;q=0.9,*/*;q=0.01",
+					},
+				};
+			}
+
+
+			return {
+				url,
+			};
+
+		},
+		requestInterval: 60 // 请求时间间隔，以秒为单位，目前仅请求地形时生效，默认60秒
+	});
+
+	map.setTerrain({
+		type: "terrain", //DEM的数据类型为"raster"
+		// Cesiumlab地形瓦片-OK--太原
+		tiles: [
+			"http://192.168.152.227:16855/Cesiumlab3_terrain-v2-Taiyuan-PGIS?z={z}&x={x}&y={y}.terrain"
+		], //瓦片服务地址
+		tileSize: 512, //瓦片大小
+		maxzoom: 14, //dem最高切分zoom，30米一般是14级；12.5米一般是16级
+	});
+
+	map.on('load', function () {
+		map.addSource("3D_SOURCE", {
+			"type": "raster",
+			"tiles": ["https://gamap.minedata.cn:11085/service/data/satellite?x={x}&y={y}&z={z}&datasource=satellite&key=0c6ac62182404e5ebc7a789981f6db72&solu=1270753269589749760"], //瓦片服务地址
+			"tileSize": 512,  //瓦片大小
+		});
+		map.addLayer({
+			"type": "raster",
+			"id": "3d-layer",
+			"source": "3D_SOURCE",
+			"minzoom": 0,
+			"maxzoom": 20,
+			"layout": {}
+		})
+	})
+</script>
+</body>

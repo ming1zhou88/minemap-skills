@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+	<title>流动线材质</title>
+	<!-- demo样式文件 -->
+	<link rel="stylesheet" href="../style/demo.css">
+	<!-- 引入MineMap API插件 -->
+	<link rel="stylesheet" href="../../dist/minemap.css">
+	<script src="../../dist/minemap-dev.js"></script>
+	<script type="text/javascript" src="../js/lil-gui.umd.min.js"></script>
+	<style>
+		#map {
+			width: 100%;
+			height: 100%;
+		}
+	</style>
+</head>
+<body>
+<div id="map"></div>
+<script>
+	/**
+	 * 全局参数设置
+	 */
+	minemap.domainUrl = 'https://minemap.minedata.cn';
+	minemap.dataDomainUrl = 'https://minemap.minedata.cn';
+	minemap.serverDomainUrl = 'https://sd-data.minedata.cn';
+	minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+	minemap.serviceUrl = 'https://service.minedata.cn/service';
+
+	minemap.key = '0c6ac62182404e5ebc7a789981f6db72';
+	minemap.solution = 11003;
+
+	// 定义空底图样式
+	const style = {
+		"glyphs": "minemap://fonts/{fontstack}/{range}",
+		"sprite": "minemap://sprite/sprite",
+		"sources": {},
+		"layers": [],
+		"version": 8
+	};
+
+	/**
+	 * 初始化地图实例
+	 */
+	const map = new minemap.Map({
+		container: 'map',
+		style: 'https://service.minedata.cn/map/solu/style/11003', /*球面矢量底图样式*/
+		center: [116.397, 39.907], /* 北京中心 */
+		zoom: 9.5, /* 调整缩放级别以查看五环 */
+		pitch: 0, /*地图俯仰角度*/
+		maxZoom: 22, /*地图最大缩放等级*/
+		minZoom: 1,  /*地图最小缩放等级*/
+		projection: 'MERCATOR'
+	});
+
+	map.on('load', function() {
+		map.repaint = true;
+
+		// 尝试开启辉光效果 (如果支持)
+		if (map.setPostProcessStage) {
+			map.setPostProcessStage({
+				bloom: {
+					enabled: true,
+					intensity: 2.0,
+					threshold: 0.1
+				}
+			});
+		}
+
+		// 北京五环路控制点 (来自 001.html)
+		const controlPoints = [
+			[116.465, 40.032], [116.495, 40.028], [116.525, 40.015], [116.545, 40.005],
+			[116.555, 39.965], [116.556, 39.925], [116.552, 39.865], [116.545, 39.825],
+			[116.525, 39.810], [116.450, 39.785], [116.350, 39.765], [116.280, 39.768],
+			[116.225, 39.795], [116.210, 39.850], [116.205, 39.880], [116.205, 39.925],
+			[116.208, 39.955], [116.215, 40.005], [116.250, 40.018], [116.285, 40.025],
+			[116.385, 40.035], [116.435, 40.033]
+		];
+
+		// Catmull-Rom 样条插值函数
+		function getSplinePoints(points, totalPoints) {
+			const result = [];
+			const n = points.length;
+
+			// Catmull-Rom 算法
+			function catmullRom(p0, p1, p2, p3, t) {
+				const v0 = (p2 - p0) * 0.5;
+				const v1 = (p3 - p1) * 0.5;
+				const t2 = t * t;
+				const t3 = t * t * t;
+				return (2 * p1 - 2 * p2 + v0 + v1) * t3 + (-3 * p1 + 3 * p2 - 2 * v0 - v1) * t2 + v0 * t + p1;
+			}
+
+			const segmentsPerPoint = Math.ceil(totalPoints / n);
+
+			for (let i = 0; i < n; i++) {
+				const p0 = points[(i - 1 + n) % n];
+				const p1 = points[i];
+				const p2 = points[(i + 1) % n];
+				const p3 = points[(i + 2) % n];
+
+				for (let j = 0; j < segmentsPerPoint; j++) {
+					const t = j / segmentsPerPoint;
+					const x = catmullRom(p0[0], p1[0], p2[0], p3[0], t);
+					const y = catmullRom(p0[1], p1[1], p2[1], p3[1], t);
+					result.push([x, y]);
+				}
+			}
+			// 闭合回路
+			result.push(result[0]);
+			return result;
+		}
+
+		// 生成平滑路径点
+		const splinePoints = getSplinePoints(controlPoints, 500);
+		const height = 0;
+		const positionsArray = [];
+		splinePoints.forEach(p => {
+			positionsArray.push(p[0], p[1], height);
+		});
+
+		const polyline = new minemap.Geometries.PolylineGeometry({
+			positions: minemap.Math.Vector3.fromDegreesArrayHeights(positionsArray),
+			width: 56, // 调整为 56，与 001.html 一致
+			arcType: minemap.ARCTYPE.GEODESIC
+		});
+
+		const params = {
+			color: "#00a5ff", // 中心颜色
+			edgeColor: "#a5faff", // 边缘颜色
+			headColor: "#ffffff", // 高亮颜色
+			speed: 0.1, // 流动速度
+			trail: 0.3, // 拖尾长度
+			glowExp: 1.0, // 辉光指数调整为 1.0，配合 smoothstep
+			coreExp: 50.0, // 提高核心指数以收窄亮部
+			alongPow: 0.0, // 修改为 0.0，消除首尾亮度差异
+			opacity: 0.9 // 透明度
+		};
+
+		const material = minemap.PolylineMaterial.fromType("FlowGlow", params);
+
+		map.addPrimitive(new minemap.Primitive({
+			geometry: polyline,
+			material: material,
+			name: "polyline"
+		}));
+
+		// 初始化 lil-gui
+		const gui = new lil.GUI();
+		gui.addColor(params, 'color').name('中心颜色').onChange(v => { material.uniformMap.color = v; map.repaint = true; });
+		gui.addColor(params, 'edgeColor').name('边缘颜色').onChange(v => { material.uniformMap.edgeColor = v; map.repaint = true; });
+		gui.addColor(params, 'headColor').name('高亮颜色').onChange(v => { material.uniformMap.headColor = v; map.repaint = true; });
+		gui.add(params, 'speed', 0.0, 5.0).name('流动速度').onChange(v => { material.uniformMap.speed = v; map.repaint = true; });
+		gui.add(params, 'trail', 0.0, 1.0).name('拖尾长度').onChange(v => { material.uniformMap.trail = v; map.repaint = true; });
+		gui.add(params, 'glowExp', 0.1, 5.0).name('辉光指数').onChange(v => { material.uniformMap.glowExp = v; map.repaint = true; });
+		gui.add(params, 'coreExp', 1.0, 100.0).name('核心指数').onChange(v => { material.uniformMap.coreExp = v; map.repaint = true; });
+		gui.add(params, 'alongPow', 0.0, 5.0).name('沿线衰减').onChange(v => { material.uniformMap.alongPow = v; map.repaint = true; });
+		gui.add(params, 'opacity', 0.0, 1.0).name('透明度').onChange(v => { material.uniformMap.opacity = v; map.repaint = true; });
+
+	})
+</script>
+</body>

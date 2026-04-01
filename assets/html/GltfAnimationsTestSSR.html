@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>gltf模型基础动画</title>
+    <!-- demo样式文件 -->
+    <link rel="stylesheet" href="../style/demo.css" />
+    <!-- 引入MineMap API插件 -->
+	<link rel="stylesheet" href="../../dist/minemap.css" />
+    <script src='../../dist/minemap-dev.js'></script>
+	<script src="../js/lil-gui.umd.min.js"></script>
+    <style>
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+    <script>
+        minemap.domainUrl = "https://minedata.cn";
+        minemap.dataDomainUrl = "https://minedata.cn";
+        minemap.serverDomainUrl = "https://minedata.cn";
+        minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+        minemap.serviceUrl = "https://minedata.cn/service/";
+        minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+        minemap.solution = 11001;
+        window.minemapCDN = "http://192.168.152.123/minemap-engine/minemap-CDN/"; // minemapCDN 配置 http://192.168.152.123/
+
+        // 定义空底图样式
+        var style = {
+            glyphs: "minemap://fonts/{fontstack}/{range}",
+            sprite: "minemap://sprite/sprite",
+            sources: {},
+            layers: [{
+                "id": "background",
+                "type": "background",
+                "source": "",
+                "paint": {
+                    "background-color": "green"
+                }
+            }],
+            version: 8
+        };
+
+        /**
+         * 初始化地图实例
+         */
+        var map = new minemap.Map({
+            container: "map",
+            style: style,
+			position: [120.24747778999128, 29.714768506873817, 49.10486420107024],
+			bearing:56.29087891309264,
+			pitch:61.457497217144095,
+            /*地图默认缩放等级*/
+            // pitch: 70,
+            /*地图俯仰角度*/
+            maxZoom: 22,
+            /*地图最大缩放等级*/
+            minZoom: 1,
+            /*地图最小缩放等级*/
+            projection: "MERCATOR",
+			SSR: true
+        });
+        map.repaint = true;
+		map.enableLight();
+
+        map.on("load", function () {
+            map.addSource("IMAGERY_SOURCE", {
+                type: "raster", //数据源类型：栅格数据源
+                tiles: ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+				maxzoom: 15,
+                tileSize: 512 //瓦片尺寸
+            });
+
+            map.addLayer({
+                id: "IMAGERY",
+                type: "raster", //图层类型为"raster"
+                source: "IMAGERY_SOURCE",
+                minzoom: 1,
+                maxzoom: 23,
+                // "depth-test": true,
+                paint: {
+                    "raster-opacity": 1
+                }
+            });
+
+            addModel(modelOptions[0]);
+        })
+
+        const optionMode = ["Drone"];
+        const modelOptions = [{
+            key: "Drone",
+            url: "../data/uav.glb",
+            height: 0.5,
+            range: 20
+        }]
+
+        let lastIndex = 0;
+        function selectOperation(selectedIndex) {
+            removeModel(modelOptions[lastIndex].key);
+            addModel(modelOptions[selectedIndex]);
+            lastIndex = selectedIndex;
+        }
+
+        function removeModel(key) {
+            if (map.getSceneComponent(key)) {
+                map.removeSceneComponent(key);
+            }
+        }
+
+        function addModel(options) {
+            const model = map.addSceneComponent({
+                id: options.key,
+                type: "3d-model", // 数据类型为“3d-model”
+                data: options.url, // 动画无法加载
+                scale: [10, 10, 10], // 在xyz轴方向上的缩放比例
+                rotation: [90, 0, 0], // 绕xyz轴方向上的旋转，单位为度
+                position: new minemap.Math.Vector3(120.24805053680325, 29.715189931766076, options.height),
+                activeAnimation: true,
+				minimumPixelSize: 512, // 最小屏幕像素尺寸
+                loaded: function (sceneModel) {
+                    // 基础动画可能有多个，此处设置全部运行，如果不设置默认运行第一个
+                    model.currentAnimations = model.animationsName;
+                    // map.flyTo({
+                    //     target: sceneModel,
+                    //     bearing: 0,
+                    //     pitch: 0,
+                    //     duration: 2000,
+                    //     range: options.range
+                    // });
+                }
+            });
+
+
+        }
+
+		const model1 = map.addSceneComponent({
+			id: Math.random(),
+			type: "3d-model", // 数据类型为“3d-model”
+			data: "../data/Cesium_Air.glb", // 动画无法加载
+			scale: [10, 10, 10], // 在xyz轴方向上的缩放比例
+			rotation: [90, 0, 0], // 绕xyz轴方向上的旋转，单位为度
+			position: new minemap.Math.Vector3(120.24695053680325, 29.715119931766076, 5),
+			activeAnimation: true,
+			minimumPixelSize: 512, // 最小屏幕像素尺寸
+			loaded: function (sceneModel) {
+				// 基础动画可能有多个，此处设置全部运行，如果不设置默认运行第一个
+				model1.currentAnimations = model1.animationsName;
+				// map.flyTo({
+				//     target: sceneModel,
+				//     bearing: 0,
+				//     pitch: 0,
+				//     duration: 2000,
+				//     range: options.range
+				// });
+			}
+		});
+
+		let model3 = map.addSceneComponent({
+			id: "idd",
+			type: "3d-model", // 数据类型为“3d-model”
+			data: "../data/knife/BoomBox.glb",
+			modelFolder: "../data/knife",
+			scale: [2000, 2000, 2000], // 在xyz轴方向上的缩放比例
+			rotation: [90, 0, 0], // 绕xyz轴方向上的旋转，单位为度
+			position: new minemap.Math.Vector3(120.24835053680325, 29.715219931766076, 5), // 锚点（模型局部坐标原点）的经纬度位置
+			lightingModel: minemap.LightingModelType.PBR,
+			activeAnimation: true,
+			accurateBounding: true,
+			loaded: function (sceneModel) {
+
+			}
+		});
+
+
+		// 添加glb
+		sceneModel = map.addSceneComponent({
+			id: "glbModel",
+			type: "3d-model", // 数据类型为“3d-model”
+			data: "../data/knife/ferrari.glb", // 要加载的gltf格式数据
+			data: "../data/test-gltf/gporsche_turbo_2.glb",
+			modelFolder: "", // 该数据引用图片等资源的文件夹路径
+			scale: [10, 10, 10], // 在xyz轴方向上的缩放比例
+			rotation: [90, 0, 0], // 绕xyz轴方向上的旋转，单位为度
+			position: [120.24835053680325, 29.714819931766076, 5], // 锚点（模型局部坐标原点）的经纬度位置
+		});
+
+		const gui = new lil.GUI();
+
+		const params = {
+			ssrOpacity: 1.0,
+			ssrMaxDistance:10,
+			ssrThickness: 0.018,
+			ssrDelta: 1.0,
+			ssrSigma: 2.0,
+			ssrStepSize: 1.0,
+			SSR: true
+		};
+
+		gui.add(params, "SSR", 0, 1, 0.01).name("屏幕空间反射(SSR)").onChange((v) => {
+			map.SSR = v;
+		});
+		gui.add(params, "ssrOpacity", 0, 1, 0.01).onChange((v) => {
+			map.painter.ssrPass.ssrOpacity = v;
+		});
+
+		gui.add(params, "ssrMaxDistance", 0, 20000, 1).onChange((v) => {
+			map.painter.ssrPass.ssrMaxDistance = v;
+		});
+		gui.add(params, "ssrThickness", 0, 0.1, 0.001).onChange((v) => {
+			map.painter.ssrPass.ssrThickness = v;
+		});
+		gui.add(params, "ssrDelta", 0, 4, 0.1).onChange((v) => {
+			map.painter.ssrPass.ssrDelta = v;
+		});
+		gui.add(params, "ssrSigma", 0, 4, 0.1).onChange((v) => {
+			map.painter.ssrPass.ssrSigma = v;
+		});
+		gui.add(params, "ssrStepSize", 1, 4, 0.1).onChange((v) => {
+			map.painter.ssrPass.ssrStepSize = v;
+		});
+
+	</script>
+</body>
+
+</html>

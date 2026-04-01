@@ -1,0 +1,376 @@
+<!--
+ * @Author: defineconst
+ * @Date: 2025-06-03 11:18:24
+ * @LastEditors: defineconst
+ * @LastEditTime: 2025-06-03 14:48:36
+ * @Description:
+-->
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+    <title>图层监听事件</title>
+	<link rel="stylesheet" href="https://minedata.cn/mine-support/assets/web/support-data/css/demo.css"/>
+    <!-- 引入MineMap API -->
+    <link rel="stylesheet" href="../../dist/minemap.css">
+    <script src="../../dist/minemap-dev.js"></script>
+	<script src="../js/lil-gui.umd.min.js"></script>
+    <style>
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="map"></div>
+    <script>
+        /*全局参数设置*/
+        minemap.domainUrl = 'https://minedata.cn';
+        minemap.dataDomainUrl = 'https://minedata.cn';
+        minemap.serverDomainUrl = 'https://ol-data.minedata.cn';
+        minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+        minemap.serviceUrl = 'https://service.minedata.cn/service';
+
+        minemap.key = '<您的 key>';
+        minemap.solution = 11001;
+        window.minemapCDN = 'https://minedata.cn/minemapapi/minemap-CDN'; // minemapCDN 配置
+
+        /*定义空底图样式*/
+        var style = {
+            "glyphs": "minemap://fonts/{fontstack}/{range}",
+            "sprite": "minemap://sprite/sprite",
+            "sources": {},
+            "layers": [],
+            "version": 8
+        };
+		var center = [116.3918209754059, 39.90984826212655]
+        /*初始化地图实例*/
+        var map = new minemap.Map({
+            "container": 'map',
+            "style": style,
+            center,
+            zoom: 15,
+            pitch: 45,
+            maxZoom: 22,
+            minZoom: 1,
+            projection: 'MERCATOR'
+        });
+		map.repaint = true;
+		let tileset, sceneModel, boxPrimitive;
+
+		const tilesetObj = {
+			addTileset: function() {
+				if (tileset) {
+					alert('已存在倾斜摄影数据');
+					return;
+				}
+				tileset = map.addSceneComponent({
+					id: "serve-tileset",
+					type: "3d-tiles",
+					show: true,
+					translation: new minemap.Math.Vector3(0, 0, 0),
+					url: "../data/天河科技园/tileset.json",
+					skipLevelOfDetail: true, //跨层调度
+					maximumScreenSpaceError: 8,
+					lightingModel: minemap.LightingModelType.PBR,
+				});
+			},
+			addTilesetEventListener: function() {
+				if (!tileset) {
+					alert('倾斜摄影数据不存在，请先添加数据');
+					return;
+				}
+				tileset.addEventListener("click", function (e) {
+					alert('倾斜摄影click事件触发');
+				});
+			},
+			removeTilesetEventListener: function() {
+				if (!tileset) {
+					alert('倾斜摄影数据不存在，请先添加数据');
+					return;
+				}
+				tileset.removeEventListener("click");
+			},
+			removeTileset: function() {
+				if (!tileset) {
+					alert('倾斜摄影数据不存在，请先添加数据');
+					return;
+				}
+				map.removeSceneComponent("serve-tileset");
+				tileset = null;
+			}
+		}
+		const modelObj = {
+			addModel: function() {
+				if (sceneModel) {
+					alert('已存在3d-model');
+					return;
+				}
+				sceneModel = map.addSceneComponent({
+					id: "glbModel",
+					type: "3d-model", // 数据类型为“3d-model”
+					data: "../data/AudiCar.glb",
+					scale: [10, 10, 10], // 在xyz轴方向上的缩放比例
+					rotation: [90, 0, 0], // 绕xyz轴方向上的旋转，单位为度
+					position: [116.4, 39.90984826212655], // 锚点（模型局部坐标原点）的经纬度位置
+					allowPick: true
+				});
+			},
+			addModelEventListener: function() {
+				if (!sceneModel) {
+					alert('3d-model数据不存在，请先添加数据');
+					return;
+				}
+				sceneModel.addEventListener("click", function (e) {
+					alert('3d-model click事件触发');
+				});
+			},
+			removeModelEventListener: function() {
+				if (!sceneModel) {
+					alert('3d-model不存在，请先添加数据');
+					return;
+				}
+				sceneModel.removeEventListener("click");
+			},
+			removeModel: function() {
+				if (!sceneModel) {
+					alert('3d-model不存在，请先添加数据');
+					return;
+				}
+				map.removeSceneComponent("glbModel");
+				sceneModel = null;
+			}
+		};
+		const primitiveObj = {
+			addPrimitive: function() {
+				if (boxPrimitive) {
+					alert('已存在primitive');
+					return;
+				}
+				const cartographicForGreen = new minemap.Math.Vector3([116.396, 39.90984826212655, 200]);
+				const matrixForGreen = minemap.Transforms.cartographicToFixedFrame(cartographicForGreen);
+
+				const greenBoxGeometry = new minemap.Geometries.BoxGeometry({
+					width: 100,
+					height: 100,
+					depth: 100
+				});
+				boxPrimitive = map.addPrimitive(
+					new minemap.Primitive({
+						modelMatrix: matrixForGreen,
+						geometry: greenBoxGeometry,
+						material: minemap.StandardMaterial.fromType("Color", {
+							color: "green",
+							opacity: 0.5,
+							doubleSided: true
+						}),
+						allowPick: true
+					})
+				);
+			},
+			addPrimitiveEventListener: function() {
+				if (!boxPrimitive) {
+					alert('primitive数据不存在，请先添加数据');
+					return;
+				}
+				boxPrimitive.addEventListener("click", function (e) {
+					alert('primitive click事件触发');
+				});
+			},
+			removePrimitiveEventListener: function() {
+				if (!boxPrimitive) {
+					alert('primitive不存在，请先添加数据');
+					return;
+				}
+				boxPrimitive.removeEventListener("click");
+			},
+			removePrimitive: function() {
+				if (!boxPrimitive) {
+					alert('primitive不存在，请先添加数据');
+					return;
+				}
+				map.removePrimitive(boxPrimitive);
+				boxPrimitive = null;
+			}
+		};
+		const symbolObj = {
+			addSymbol: function() {
+				if (map.getLayer("symbolPointLayer") || map.getSource("symbolPointSource")) {
+					alert('已存在symbol数据');
+					return;
+				}
+				addSymbolSource();
+				addSymbolLayer();
+			},
+			addSymbolEventListener: function() {
+				if (!map.getLayer("symbolPointLayer")) {
+					alert('symbol数据不存在，请先添加数据');
+					return;
+				}
+				map.getLayer("symbolPointLayer").addEventListener("click", function (e, e1) {
+					alert(JSON.stringify(e1));
+				});
+			},
+			removeSymbolEventListener: function() {
+				if (!map.getLayer("symbolPointLayer")) {
+					alert('symbol数据不存在，请先添加数据');
+					return;
+				}
+				map.getLayer("symbolPointLayer").removeEventListener("click");
+			},
+			removeSymbol: function() {
+				if (!map.getLayer("symbolPointLayer") || !map.getSource("symbolPointSource")) {
+					alert('symbol数据不存在，请先添加数据');
+					return;
+				}
+				map.removeLayer("symbolPointLayer");
+				map.removeSource("symbolPointSource");
+			}
+		};
+		const gui = new lil.GUI({ title: "参数调节面板" });
+		const folder1 = gui.addFolder("倾斜摄影");
+		folder1.add(tilesetObj, "addTileset").name("加载倾斜摄影");
+		folder1.add(tilesetObj, "addTilesetEventListener").name("添加监听事件");
+		folder1.add(tilesetObj, "removeTilesetEventListener").name("移除监听事件");
+		folder1.add(tilesetObj, "removeTileset").name("移除倾斜摄影");
+
+		const folder2 = gui.addFolder("3d-model");
+		folder2.add(modelObj, "addModel").name("加载3d-model");
+		folder2.add(modelObj, "addModelEventListener").name("添加监听事件");
+		folder2.add(modelObj, "removeModelEventListener").name("移除监听事件");
+		folder2.add(modelObj, "removeModel").name("移除3d-model");
+
+		const folder3 = gui.addFolder("primitive");
+		folder3.add(primitiveObj, "addPrimitive").name("加载primitive");
+		folder3.add(primitiveObj, "addPrimitiveEventListener").name("添加监听事件");
+		folder3.add(primitiveObj, "removePrimitiveEventListener").name("移除监听事件");
+		folder3.add(primitiveObj, "removePrimitive").name("移除primitive");
+
+		const folder4 = gui.addFolder("symbol");
+		folder4.add(symbolObj, "addSymbol").name("加载symbol");
+		folder4.add(symbolObj, "addSymbolEventListener").name("添加监听事件");
+		folder4.add(symbolObj, "removeSymbolEventListener").name("移除监听事件");
+		folder4.add(symbolObj, "removeSymbol").name("移除symbol");
+
+
+		function addSymbolSource() {
+			var center = map.getCenter();
+			var jsonData = {
+				"type": "FeatureCollection",
+				"features": [
+					{
+						"type": "Feature",
+						"geometry": {
+							"type": "Point",
+							"coordinates": [center.lng + 0.003, center.lat + 0.002]
+						},
+						"properties": {
+							"title": "大学",
+							"kind": "school",
+							"icon":"university-icon",
+							"height": 100
+						},
+					}, {
+						"type": "Feature",
+						"geometry": {
+							"type": "Point",
+							"coordinates": [center.lng + 0.001, center.lat - 0.003]
+						},
+						"properties": {
+							"title": "公园",
+							"kind": "park",
+							"icon":"park-icon",
+							"height": 200
+						},
+					}, {
+						"type": "Feature",
+						"geometry": {
+							"type": "Point",
+							"coordinates": [center.lng - 0.006, center.lat - 0.005]
+						},
+						"properties": {
+							"title": "医院",
+							"kind": "hospital",
+							"icon":"hospital-icon",
+							"height": 300
+						}
+					}
+				]
+			};
+			map.addSource("symbolPointSource", {
+				"type": "geojson",
+				"data": jsonData
+			});
+		}
+
+		function addSymbolLayer() {
+			map.addLayer({
+				"id": "symbolPointLayer",
+				"type": "symbol",//图层类型为"symbol"
+				"source": "symbolPointSource",
+				"layout": {
+					//"icon-image": "traffic_light_18",
+					"icon-image": "{icon}",
+					"text-field": "{title}",
+					"text-size": 14,
+					"visibility": "visible",
+					"icon-pitch-alignment": "viewport",
+					"text-pitch-alignment": "viewport",
+					"icon-anchor":"bottom",
+					"icon-size":0.6,
+					"symbol-height-key": "height" //设置高度字段, 不设置此字段时，symbol不带高程
+				},
+				"paint": {
+					"icon-color": "#ff0000",
+					"text-color": "#fff"
+				},
+			});
+		}
+
+        map.on('load', function () {
+            /*添加栅格图*/
+            map.addSource("IMAGERY_SOURCE", {
+                "type": "raster",
+                "tiles": ["https://ol-data.minedata.cn/service/data/satellite?x={x}&y={y}&z={z}"], //瓦片服务地址
+                "tileSize": 512, //瓦片尺寸
+            });
+
+            map.addLayer({
+                "id": "IMAGERY",
+                "type": "raster",
+                "source": "IMAGERY_SOURCE",
+                "paint": {
+                    "raster-opacity": 1
+                },
+            });
+
+
+
+            Promise.all([
+                addImage("https://minedata.cn/nce-static/support/demo/js-3d-ultra/zh/images/symbol-hospital-icon.png", "hospital-icon"),
+                addImage("https://minedata.cn/nce-static/support/demo/js-3d-ultra/zh/images/symbol-park-icon.png", "park-icon"),
+                addImage("https://minedata.cn/nce-static/support/demo/js-3d-ultra/zh/images/symbol-university-icon.png", "university-icon")]
+            ).then((res) => {
+            })
+        });
+
+
+        function addImage(url, name) {
+            return new Promise((resolve, reject) => {
+                map.loadImage(url, (err, images) => {
+                    if (err) throw err;
+                    // 添加自定义图标
+                    map.addImage(name, images);
+                    resolve(name);
+                });
+            })
+        }
+
+    </script>
+</body>
+
+</html>

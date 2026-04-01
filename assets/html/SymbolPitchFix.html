@@ -1,0 +1,184 @@
+<!--
+ * @Author: zhoumingrui
+ * @Date: 2023-10-26 14:17:30
+ * @LastEditTime: 2023-10-26 14:17:30
+ * @LastEditors: zhoumingrui
+ * @Description:
+ * @FilePath: MineMap3DEngine\demo\html\SymbolLayout.html
+*/
+-->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no"/>
+	<title>文字的布局设定</title>
+	<link rel="stylesheet" href="../style/demo.css">
+	<!-- 引入MineMap API插件 -->
+	<link rel="stylesheet" href="https://minemap.minedata.cn/minemapapi/v2.1.1/minemap.css">
+	<script src="../../dist/minemap-dev.js"></script>
+	<style>
+		#map {
+			width: 100%;
+			height: 100%;
+		}
+	</style>
+</head>
+
+<body>
+<div id="map">
+
+</div>
+<script>
+	/**
+	 * 全局参数设置
+	 */
+	minemap.domainUrl = 'https://minemap.minedata.cn';
+	minemap.dataDomainUrl = 'https://minemap.minedata.cn';
+	minemap.serverDomainUrl = 'https://sd-data.minedata.cn';
+	minemap.spriteUrl = 'http://192.168.152.123/minemap-engine/v4.0.0/sprite/sprite';
+	minemap.serviceUrl = 'https://service.minedata.cn/service';
+
+	minemap.key = '0c6ac62182404e5ebc7a789981f6db72';
+	minemap.solution = 11001;
+
+	var style = {
+		// glyphs: "http://192.168.152.123/minemap-engine/v4.0.0/fonts/{fontstack}/{range}.pbf",
+		glyphs: "minemap://fonts/{fontstack}/{range}",
+		sprite: "minemap://sprite/sprite",
+		sources: {},
+		layers: [],
+		version: 8
+	};
+
+	var map = new minemap.Map({
+		container: 'map',
+		// style: 'https://service.minedata.cn/map/solu/style/11001',
+		style: style,
+		position: [116.44460659486207, 39.94803522250039, 614.0462411570988],
+		pitch: 85.68822850971853,
+		maxZoom: 22,
+		minZoom: 0,
+		projection: 'MERCATOR',
+		// localIdeographFontFamily: "PingFang SC,Microsoft YaHei,微软雅黑,Arial,sans-serif,黑体",
+	});
+
+	/**
+	 * 创建地图对象后，开始加载地图资源，地图资源加载完成后触发load事件
+	 */
+	map.on('load', function () {
+		/*添加栅格图*/
+		map.addSource("IMAGERY_SOURCE", {
+			"type": "raster",//数据源类型：栅格数据源
+			"tiles": ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+			"tileSize": 512,//瓦片尺寸
+		});
+
+		map.addLayer({
+			"id": "IMAGERY",
+			"type": "raster", //图层类型为"raster"
+			"source": "IMAGERY_SOURCE",
+			"minzoom": 1,
+			"maxzoom": 23,
+		})
+
+		// 增加自定义数据源、自定义图层
+		addSources();
+		addLayers();
+	});
+
+	function addSources() {
+		var center = {lng:116.44507871724674, lat:39.965701920792384};
+		var jsonData = {
+			"type": "FeatureCollection",
+			"features": [
+				{
+					"type": "Feature",
+					"geometry": {
+						"type": "LineString",
+						"coordinates": [[center.lng, center.lat + 0.001], [center.lng, center.lat - 0.001]]
+					},
+					"properties": {
+						"title": "路线一",
+						"kind": 1
+					},
+				}
+			]
+		};
+		map.addSource("lineSource", {
+			"type": "geojson",
+			"data": jsonData
+		});
+	}
+
+	map.atmosphere = false;
+
+	function addLayers() {
+		map.addLayer({
+			id: "lineLayer",
+			type: "line", //图层类型为"line"
+			source: "lineSource",
+			layout: {
+				"line-join": "round",
+				"line-cap": "round-butt",
+				"border-visibility": "none",
+				"line-miter-limit": 2,
+				"line-round-limit": 1.05,
+				visibility: "visible"
+			},
+			paint: {
+				"line-width": 20,
+				"line-width": [
+					'case',
+					['==', ['get', 'kind'], 1], 15,
+					['==', ['get', 'kind'], 2], 20,
+					20 // 默认值
+				],
+				// "line-color": "#ff0000",
+				"line-opacity": [
+					'case',
+					['==', ['get', 'kind'], 1], 1.0,
+					['==', ['get', 'kind'], 2], 0.5,
+					1.0 // 默认值
+				],
+				// "line-offset": 0,
+				// "line-blur": 0,
+				// "line-dasharray": '',
+				"line-pattern": [
+					'case',
+					['==', ['get', 'kind'], 1], 'pattern_1',
+					['==', ['get', 'kind'], 2], 'pattern_3',
+					'pattern_1' // 默认值
+				],
+				"line-translate": [0, 0],
+				"line-translate-anchor": "map",
+				// "line-pattern": "pattern_1",
+				"line-border-color": "#f9bd09ff",
+				"line-border-width": 10,
+				"line-border-opacity": 1
+			},
+			minzoom: 1,
+			maxzoom: 24
+		});
+
+		map.addLayer({
+			"id": "symbolLayer",
+			"type": "symbol",
+			"source": "lineSource",
+			"layout": {
+				"text-field": "{title}",
+				"text-size": 10,
+				"symbol-placement": "line"
+			},
+			"paint": {
+				"text-color": "#000000",
+				"text-halo-color": "#ffffff",
+				"text-halo-width": 0.8,
+			},
+			"minzoom": 7,
+			"maxzoom": 24
+		});
+	}
+</script>
+</body>

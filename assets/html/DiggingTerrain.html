@@ -1,0 +1,289 @@
+<!--
+ * @Author: liwei
+ * @Date: 2022-11-08 14:00:30
+ * @LastEditTime: 2026-01-27 15:32:14
+ * @LastEditors: defineconst
+ * @Description:
+ * @FilePath: \MineMap3DEngine\demo\html\DiggingTerrain.html
+-->
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<title>地形挖坑</title>
+		<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+		<!-- 引入MineMap API插件 -->
+		<link rel="stylesheet" href="../../dist/minemap.css" />
+		<script src="../../dist/minemap-dev.js"></script>
+		<script src="../js/lil-gui.umd.min.js"></script>
+		<style>
+			html,
+			#map,
+			body {
+				margin: 0;
+				padding: 0;
+				width: 100%;
+				height: 100%;
+			}
+		</style>
+	</head>
+
+	<body>
+		<div id="map"></div>
+		<script>
+			minemap.domainUrl = "//192.168.152.123";
+			minemap.dataDomainUrl = "https://minedata.cn";
+			minemap.serverDomainUrl = "https://minedata.cn";
+			minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+			minemap.serviceUrl = "https://minedata.cn/service/";
+
+			minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+			minemap.solution = 11001;
+			window.minemapCDN = "https://minedata.cn/minemapapi/minemap-CDN";
+
+			// 定义空底图样式
+			var style = {
+				glyphs: "minemap://fonts/{fontstack}/{range}",
+				sprite: "minemap://sprite/sprite",
+				sources: {},
+				layers: [],
+				version: 8
+			};
+			var map = new minemap.Map({
+				container: "map",
+				style: style,
+				center: [108.9652522927147, 34.218349962339516],
+				zoom: 16.5,
+				bearing: 0,
+				maxZoom: 22, //地图最大缩放级别限制
+				minZoom: 1, //地图最小缩放级别限制
+				logDepth: true,
+				enableUnderGround: true //是否开启地下模式
+			});
+
+			//gui
+			const myObject = {
+				"开挖深度(米)": 50,
+				"设定开挖深度(100米)": depth,
+				"顶点加密(米/个)": 5,
+				"设定顶点加密(1米/个)": sample,
+				"👉点击开始地形开挖操作": drawDiggingArea,
+				"显示/隐藏": enabled,
+				修改顶点: modifyPositions,
+				移除: remove,
+				清空: removeAll,
+				添加图层: addLayer,
+				移除图层: removeLayer
+			};
+
+			const gui = new lil.GUI({ title: "参数调节面板" });
+			gui.add(myObject, "开挖深度(米)", 1, 1000);
+			gui.add(myObject, "设定开挖深度(100米)");
+			gui.add(myObject, "顶点加密(米/个)", 1, 100);
+			gui.add(myObject, "设定顶点加密(1米/个)");
+			gui.add(myObject, "👉点击开始地形开挖操作");
+			gui.add(myObject, "显示/隐藏");
+			gui.add(myObject, "修改顶点");
+			gui.add(myObject, "移除");
+			gui.add(myObject, "清空");
+			gui.add(myObject, "添加图层");
+			gui.add(myObject, "移除图层");
+
+			//设置地形数据
+			map.setTerrain({
+				tiles: ["https://staticdata-b.minedata.cn:14434/dem/{z}/{r}/{c}/{z}_{x}_{y}.terrain"], //瓦片服务地址
+				tileSize: 512, //瓦片大小
+				maxzoom: 14 //dem最高切分zoom，30米一般是14级；12.5米一般是16级
+			});
+
+			map.repaint = true;
+
+			let polygonPrimitive,
+				polylinePrimitive,
+				primitive,
+				startDraw = false, //开始绘制
+				positions = [],
+				tempPoint = []; // polygon点
+			function drawDiggingArea() {
+				positions = [];
+				startDraw = true;
+				const polygonMat = minemap.StandardMaterial.fromType("Color", {
+					color: "red",
+					doubleSided: true
+				});
+				polygonMat.depthTest = false;
+				polygonPrimitive = new minemap.Primitive({
+					geometry: new minemap.Geometries.PolygonGeometry({
+						polygonHierarchy: {
+							positions: []
+						},
+						perPositionHeight: true
+					}),
+					material: polygonMat
+				});
+				map.addPrimitive(polygonPrimitive);
+
+				polylinePrimitive = new minemap.Primitive({
+					geometry: new minemap.Geometries.PolylineGeometry({
+						positions: function () {
+							return positions.concat(tempPoint);
+						},
+						width: 2,
+						arcType: minemap.ARCTYPE.GEODESIC
+					}),
+					material: new minemap.PolylineMaterial({
+						color: "red"
+					}),
+					name: "polyline"
+				});
+
+				map.addPrimitive(polylinePrimitive);
+			}
+
+			// leftClick
+			map.on("click", function (e) {
+				if (startDraw) {
+					const point = map.painter.getPositionByGPUPick(e.point);
+					positions.push(minemap.Math.Vector3.fromDegrees(point.x, point.y, point.z));
+					polygonPrimitive.geometry.setData({
+						polygonHierarchy: {
+							positions: positions
+						},
+						perPositionHeight: true
+					});
+
+					if (positions.length > 1 && polylinePrimitive !== undefined) {
+						map.removePrimitive(polylinePrimitive);
+						polylinePrimitive = undefined;
+					}
+				}
+			});
+
+			// mouseMove
+			map.on("mousemove", function (e) {
+				if (startDraw) {
+					tempPoint = [];
+					const point = map.painter.getPositionByGPUPick(e.point);
+					tempPoint.push(minemap.Math.Vector3.fromDegrees(point.x, point.y, point.z));
+					tempPoint = positions.concat(tempPoint);
+
+					polygonPrimitive.geometry.setData({
+						polygonHierarchy: {
+							positions: tempPoint
+						},
+						perPositionHeight: true
+					});
+				}
+			});
+
+			// rightClick
+			map.on("contextmenu", function (e) {
+				if (startDraw) {
+					startDraw = false;
+					tempPoint = [];
+					map.removePrimitive(polygonPrimitive);
+					if (polylinePrimitive !== undefined) {
+						map.removePrimitive(polylinePrimitive);
+						polylinePrimitive = undefined;
+					}
+					drawExcavation();
+				}
+			});
+
+			function drawExcavation() {
+				const excavation = new minemap.Excavation({
+					positions: positions,
+					depth: myObject["开挖深度(米)"],
+					sampleDistance: myObject["顶点加密(米/个)"],
+					enabled: true
+				});
+				map.analysis.excavationCollection.add(excavation);
+			}
+
+			function enabled() {
+				map.analysis.excavationCollection.getByIndex(map.analysis.excavationCollection.length - 1).enabled =
+					!map.analysis.excavationCollection.getByIndex(map.analysis.excavationCollection.length - 1).enabled;
+			}
+
+			function sample() {
+				map.analysis.excavationCollection.getByIndex(
+					map.analysis.excavationCollection.length - 1
+				).sampleDistance = 1;
+			}
+
+			function modifyPositions() {
+				map.analysis.excavationCollection.getByIndex(map.analysis.excavationCollection.length - 1).positions =
+					minemap.Math.Vector3.fromDegreesArrayHeights([
+						108.96462798089243, 34.219070120750324, 377.5518959059644, 108.96457814492656,
+						34.217864529053436, 373.497602389596, 108.9662727804116, 34.21782900501772, 376.0355021292822,
+						108.96629746352075, 34.21898053119609, 376.0076777020192
+					]);
+			}
+
+			function depth() {
+				map.analysis.excavationCollection.getByIndex(map.analysis.excavationCollection.length - 1).depth = 100;
+			}
+
+			function remove() {
+				const excavation = map.analysis.excavationCollection.getByIndex(
+					map.analysis.excavationCollection.length - 1
+				);
+				map.analysis.excavationCollection.remove(excavation);
+				excavation.destroy();
+			}
+
+			function removeAll() {
+				map.analysis.excavationCollection.removeAll();
+			}
+
+			function addLayer() {
+				map.addLayer({
+					id: "IMAGERY",
+					type: "raster", //图层类型为"raster"
+					source: "IMAGERY_SOURCE",
+					minzoom: 1,
+					maxzoom: 23,
+					"depth-test": true,
+					paint: {
+						"raster-opacity": 1
+					}
+				});
+			}
+
+			function removeLayer() {
+				map.removeLayer("IMAGERY");
+			}
+
+			map.on("load", function () {
+				/*添加栅格图*/
+				map.addSource("IMAGERY_SOURCE", {
+					type: "raster", //数据源类型：栅格数据源
+					tiles: ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+					tileSize: 512 //瓦片尺寸
+				});
+
+				map.addLayer({
+					id: "IMAGERY",
+					type: "raster", //图层类型为"raster"
+					source: "IMAGERY_SOURCE",
+					minzoom: 1,
+					maxzoom: 23,
+					"depth-test": true,
+					paint: {
+						"raster-opacity": 1
+					}
+				});
+
+				/*添加地下管线数据*/
+				map.addSceneComponent({
+					id: "pipeline",
+					type: "3d-model",
+					data: "http://192.168.152.123:11187/demo-data/UndergroundTube/pipeline.gltf",
+					modelFolder: "http://192.168.152.123:11187/demo-data/UndergroundTube/",
+					rotation: [90, 0, 0],
+					position: [108.9652522927147, 34.218349962339516, 360]
+				});
+			});
+		</script>
+	</body>
+</html>

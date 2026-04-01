@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+	<title>3D Tiles Next数据加载</title>
+	<link rel="stylesheet" href="../../dist/minemap.css" />
+	<script src="../../dist/minemap-dev.js"></script>
+	<script src="../js/lil-gui.umd.min.js"></script>
+	<style>
+		html, body, #map {
+			margin: 0;
+			padding: 0;
+			width: 100%;
+			height: 100%;
+		}
+	</style>
+</head>
+
+<body>
+<div id="map"></div>
+<script>
+	minemap.domainUrl = "https://minedata.cn";
+	minemap.serverDomainUrl = "https://minedata.cn";
+	minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+	window.minemapCDN = 'https://minedata.cn/minemapapi/minemap-CDN';
+
+	minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+
+	const style = {
+		glyphs: "minemap://fonts/{fontstack}/{range}",
+		sprite: "minemap://sprite/sprite",
+		sources: {},
+		layers: [],
+		version: 8
+	};
+	const map = new minemap.Map({
+		container: "map",
+		style: style,
+		bearing: 0,
+		center: [119.3699, 26.0378],
+		pitch: 45,
+		zoom: 15,
+		maxZoom: 22,
+		minZoom: 1
+	});
+	map.repaint = true;
+
+	const skyAtmosphere = map.getSky();
+	skyAtmosphere.useAerialPerspective = true;
+
+	map.on("load", function() {
+		addTerrain();
+		addRasterLayer();
+		initializeGUI();
+		// 添加3D-Tiles
+		addTileset();
+	});
+
+	function addTileset() {
+		// 添加3D-Tiles
+		map.addSceneComponent({
+			id: "serve",
+			type: "3d-tiles",
+			show: true,
+			translation: new minemap.Math.Vector3(0, 0, 20),
+			minzoom: 0,
+			maxzoom: 21,
+			urls: [
+				{
+					url: "http://192.168.152.227:3333/mw2/tileset.json",
+					name: "数据1"
+				},
+				{
+					url: "http://192.168.152.227:3333/changdi-3dtiles-next/tileset.json",
+					name: "数据2"
+				}
+				//, {
+				// 	url: "http://192.168.152.227:3333/nantong/tileset.json",
+				// 	name: "数据3"
+				// }
+			],
+			skipLevelOfDetail: false,
+			maximumScreenSpaceError: 8,
+			sourceLoaded: (tileset) => {
+			},
+			allowPick: true,
+			lightingModel: minemap.LightingModelType.NONE
+		});
+	}
+
+	function addRasterLayer() {
+		map.addSource("IMAGERY_SOURCE", {
+			"type": "raster",
+			"tiles": ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"],
+			"tileSize": 512
+		});
+
+		map.addLayer({
+			"id": "IMAGERY",
+			"type": "raster",
+			"source": "IMAGERY_SOURCE",
+			"minzoom": 1,
+			"maxzoom": 23,
+			"depth-test": true
+		});
+	}
+
+	function addTerrain() {
+		map.setTerrain({
+			"tiles": ["https://staticdata-b.minedata.cn:14434/dem/{z}/{r}/{c}/{z}_{x}_{y}.terrain"],
+			"tileSize": 512,
+			"maxzoom": 14
+		});
+	}
+
+	function initializeGUI() {
+		const gui = new lil.GUI({ width: 300 });
+		const camera = gui.addFolder("Camera");
+		const cameraParams = {
+			flyToData1: () => {
+				map.flyTo({ target: [119.3699, 26.0378, 1000] });
+			},
+			flyToData2: () => {
+				map.flyTo({ target: [119.32298665128941, 26.05067424546972, 1000] });
+
+			},
+			// flyToData3: () => {
+			// 	map.flyTo({ target: [120.8917593284974, 31.97288451993594, 1149.1000610403717] });
+			// }
+		};
+
+		camera.add(cameraParams, "flyToData1");
+		camera.add(cameraParams, "flyToData2");
+		// camera.add(cameraParams, "flyToData3");
+	}
+</script>
+</body>
+
+</html>

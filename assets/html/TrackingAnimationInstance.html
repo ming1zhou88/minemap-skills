@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+		<title>实例化模型跟踪动画</title>
+		<!-- demo样式文件 -->
+		<link rel="stylesheet" href="../style/demo.css" />
+		<!-- 引入MineMap API插件 -->
+		<link rel="stylesheet" href="https://minemap.minedata.cn/minemapapi/v4.0.0/minemap.css" />
+		<script src="../../dist/minemap-dev.js"></script>
+		<script type="text/javascript" src="../js/lil-gui.umd.min.js"></script>
+		<style>
+			html,
+			body,
+			#map {
+				margin: 0;
+				padding: 0;
+				width: 100%;
+				height: 100%;
+			}
+		</style>
+	</head>
+	<body>
+		<div id="map"></div>
+		<script>
+			/*全局参数设置*/
+			// import tempPolylinePrimitive from './Animation_primitive.js';
+			minemap.domainUrl = "https://minedata.cn";
+			minemap.dataDomainUrl = "https://minedata.cn";
+			minemap.serverDomainUrl = "https://minedata.cn";
+			minemap.spriteUrl = "http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite";
+			minemap.serviceUrl = "https://minedata.cn/service/";
+
+			minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+			minemap.solution = 11001;
+			window.minemapCDN = "https://minedata.cn/minemapapi/minemap-CDN";
+			const trackPositions0 = [
+				116.24507676996595, 40.07234186217006, 0.009957959676769218, 116.24513797310654, 40.07224385696942,
+				-0.017727868592822583, 116.24520576561667, 40.07213509700437, 0.01060008932709239, 116.24525858655865,
+				40.07203699289697, 0.010811848353628839, 116.24530935220811, 40.071943047117, -0.014249374634267672,
+				116.24536839224534, 40.07184439530465, 0.012651840036516697, 116.24540561026795, 40.071778599321,
+				-0.01293000959233477, 116.2454363127162, 40.07173952238382, 0.012777120767707364, 116.2454906427488,
+				40.07172902972878, 0.013011641027975583, 116.24554456665189, 40.07173229939369, 0.013151338141385614,
+				116.2456476022383, 40.07176258700107, -0.012541873793742183, 116.2457839849838, 40.071812595931576,
+				0.2766160981130801, 116.24600544176627, 40.071880328643125, 0.15880324661641024, 116.2461877488984,
+				40.071940274159665, 0.061445065160814404, 116.24633946779272, 40.07198365535367, 0.14233497520449104,
+				116.2463733894471, 40.07199488185645, 0.16748225942545264, 116.24638983390196, 40.0720012679662,
+				0.005051378398010234, 116.24638814849004, 40.07201338698121, 0.005348109621055547, 116.24637419915746,
+				40.07203662541534, 0.004929460670298261, 116.24634028282273, 40.07209536746013, 0.004742774422717042,
+				116.24629741829305, 40.07216929101323, 0.0034958623051099843, 116.24625918623643, 40.072236111065315,
+				0.0030321761063965085, 116.24621608874217, 40.07230642278072, 0.0029957726266830976, 116.24617465840345,
+				40.072378938406196, -0.009782537452727717, 116.24612402220362, 40.07246974127756, 0.0017207694886205247,
+				116.24607277300815, 40.07255809867695, 0.0011273820573862235, 116.2460255033094, 40.07263777704901,
+				0.0006477157411581884, 116.24597098031752, 40.07273485598965, -0.013275540395196423, 116.24594782700134,
+				40.07277385485663, -0.005926470267004671, 116.24593400418067, 40.072796488852234, -0.006279872656885001,
+				116.24592574620819, 40.07281135346086, 0.0008692404979843819, 116.24593478153699, 40.07282108596284,
+				-0.006740922424175156, 116.24600872598444, 40.07284852410252, 0.03776920595504634, 116.24609853346412,
+				40.07288215435568, -0.013265424737463623, 116.24615365156419, 40.072899586069454, -0.01372268460099372,
+				116.2461812373492, 40.07290166927896, -0.013672873487633007, 116.24619693877742, 40.07286536455157,
+				0.0024731699198524693, 116.24622330526562, 40.0728088691797, 0.0021681690163533477, 116.24626279743404,
+				40.072738983573075, 0.0028884003649725484, 116.24630329430782, 40.0726578657252, -0.011469803829824179,
+				116.2463492460111, 40.072563486752784, 0.0037467003270835334, 116.24640583171077, 40.07244810642381,
+				-0.009881382510247994, 116.24645538754775, 40.07235227678943, 0.005692327129816291, 116.24651018040586,
+				40.07224167580266, 0.004991782993100395, 116.24656887160614, 40.07212281465288, 0.0052809384092946,
+				116.2466241131777, 40.07201632766116, -0.011956748951924992, 116.24667760479986, 40.071903287798236,
+				0.006898347914850321, 116.24672065702207, 40.07181879285572, 0.007258228107538949, 116.24657052585115,
+				40.07177617754089, -0.00980215526885332, 116.24638399776629, 40.071712333934016, 0.007625296337162824,
+				116.24623323651787, 40.071666290057046, -0.009846114443179064, 116.24608089291566, 40.07162294299488,
+				0.0075008256625801305, 116.2459492888998, 40.07158455973637, 0.007477384341519159, 116.2458073563594,
+				40.07154131213032, -0.009935978128022584, 116.24568572433964, 40.07150768865533, 0.007498369541123569,
+				116.24554460200294, 40.071469567310565, -0.010218701166480413, 116.24542257889851, 40.07143258541672,
+				0.007340813069195627, 116.2453638161603, 40.07141400325572, 0.006863549596964496, 116.24534345209776,
+				40.071430381757054, 0.007054138099305722, 116.24532170703104, 40.07147126106491, -0.010799174514042118,
+				116.24526489084812, 40.07157626961168, 0.006061362018929734, 116.24520739924333, 40.071669409123025,
+				0.005512781320384701, 116.24515603722801, 40.07176425928826, 0.0055837443832038695, 116.24508983872407,
+				40.07186721014432, -0.01381426222391534, 116.2450372111806, 40.07196494111381, -0.01510257086202898,
+				116.2449711807305, 40.072075761146685, 0.0033651947846157497, 116.24490601499258, 40.0721893723569,
+				0.002189008695892973, 116.24480132435014, 40.07236925770491, 0.001823638908718433, 116.24469746095292,
+				40.07255827454377, 0.00046376506917633083, 116.24456285570844, 40.072799063922915,
+				-0.0005454523499068215, 116.24445272781787, 40.072985643740644, 0.004451986342757628,
+				116.24436776606714, 40.07313501182288, 0.00237531541974415, 116.24430918080778, 40.073239429859576,
+				-0.02134794987311284, 116.24423261731735, 40.07337704001301, 0.0018239098982734798, 116.24420825854281,
+				40.0734163359216, -0.007923580271490092, 116.24417898484373, 40.073453168240796, 0.003289562364760356,
+				116.24413498279579, 40.073487439926254, 0.0031687739137365124, 116.24407800365954, 40.07349626282703,
+				-0.008494946262976364, 116.24398248114726, 40.073491978721435, -0.008934727099070785,
+				116.24388731950837, 40.07348330230393, -0.0090466231996745, 116.2438083772094, 40.07347869359466,
+				0.0030047098468487833, 116.24371697628251, 40.07346671750611, 0.0029031396235452886, 116.24363543677137,
+				40.073453095590935, 0.0027444980460505147, 116.24352895851386, 40.07343655475022, 0.002302285089044224,
+				116.24340666237161, 40.07341884105701, 0.0022079468493736727, 116.24332221869199, 40.07340455508542,
+				0.0024533220721043537, 116.24320899150267, 40.07338269298523, 0.002963970016546978, 116.24311130352294,
+				40.07336294257183, -0.012875153305244422, 116.24293798559592, 40.0733144809947, -0.012704084493278684,
+				116.24266431232894, 40.073232640939004, 0.0028872244690579373, 116.24242925090613, 40.07316144034145,
+				-0.011611154690655524, 116.2422192788524, 40.07309929434058, 0.002702949942822147
+			];
+
+			const trackPositions1 = [
+				116.24582386092445, 40.07362481459856, 0.0010401573037356999, 116.24587413950754, 40.073523204209714,
+				-0.009892787634910668, 116.24591816615802, 40.07343674003194, 0.0022348782615768006, 116.24596843582836,
+				40.07333262430818, 0.0025931833148693487, 116.2460325463087, 40.07320690913417, 0.003542557698656468,
+				116.24607646070386, 40.07311568706289, 0.0039028569982655814, 116.2461165158897, 40.07303870508928,
+				0.001503518621754109, 116.24613919333619, 40.0729890180782, -0.006363278056089079, 116.246158241366,
+				40.07295260042425, 0.001846756846680629, 116.24617083461237, 40.07292528153873, 0.0019301139109028748,
+				116.2461810695322, 40.07290468566003, -0.00569666832037385, 116.24619678928046, 40.072875502646205,
+				0.000542936532041371, 116.2462157718932, 40.07283698259314, 0.0008712128593828885, 116.24624291423284,
+				40.07278190535997, 0.0009658776039691141, 116.24627686581053, 40.07271302525387, -0.005433593310078984,
+				116.24630778968687, 40.07265193690639, -0.00454467900335975, 116.24634351851218, 40.07258100050506,
+				-0.004069971544206181, 116.24636480705045, 40.072537726212424, 0.0027608982443791384, 116.2464023333454,
+				40.07246235431532, 0.002446486076981659, 116.24642868537505, 40.07240806947612, -0.003317328669938892,
+				116.24649079757761, 40.07228439094333, 0.003139037454445331, 116.24654415278201, 40.072184431763596,
+				0.003772814845826274, 116.24660085157707, 40.0720678727057, -0.007362072416625043, 116.24665721584438,
+				40.07195650703034, 0.004286681162784138, 116.24669119371106, 40.071889668535015, 0.004895865599258039,
+				116.24671199988863, 40.0718454356832, 0.005189437244524096, 116.24672329676996, 40.07182405832538,
+				-0.004856153070652617, 116.24672709329951, 40.07181334755028, 0.005486155883980179, 116.24671659857486,
+				40.0718045555969, 0.005480254763118284, 116.24668293095395, 40.071795732019716, 0.005473526406552124,
+				116.24657151364396, 40.071763542377475, 0.005042564695872081, 116.24649367734217, 40.07173892909684,
+				0.004994972343779346, 116.24639963592566, 40.071706389831085, -0.00523102478086611, 116.24631356218705,
+				40.07167823336451, 0.004905428121030322, 116.24618638368896, 40.07163988590354, 0.0045630312330996285,
+				116.24609109847788, 40.071612565324585, -0.00561824679123982, 116.24598034911318, 40.07157847982067,
+				-0.005051730122019985, 116.2458837486685, 40.07155074087692, 0.005158503706724762, 116.24578868381687,
+				40.07152443530411, 0.004879153494133431, 116.24569718820725, 40.07149832846517, -0.0052815735499949145,
+				116.24566516513092, 40.07148732252746, -0.007355741909350718, 116.24565336177322, 40.07147164222252,
+				0.004049882711822855, 116.24566242856785, 40.071446565640485, 0.004051461008964897, 116.24567238490378,
+				40.07141685003088, -0.007044623491674013, 116.2456847174366, 40.071393528846286, -0.006973367689449706,
+				116.24570906230824, 40.0713929162166, -0.006745606564129845, 116.24575757211338, 40.07140618329487,
+				-0.006824238201347406, 116.24585697624543, 40.07143761354389, -0.004061814066740126, 116.24597241011206,
+				40.07147306720367, 0.006251846138438384, 116.24609694215884, 40.07150830958952, 0.005608145123943522,
+				116.24620699750332, 40.07154415605763, -0.0031603642366029782, 116.24634169138766, 40.071582618057484,
+				-0.004769100889314436, 116.24647540847376, 40.07162307691971, -0.00803961498965848, 116.24657256843243,
+				40.07165743525447, 0.0050613588717285905, 116.24670327631047, 40.07170106242773, 0.12817933128025666,
+				116.246819170527, 40.07173659182946, 0.041883432864592986, 116.24697067868942, 40.07178329665122,
+				0.031400944836791185, 116.24710783404345, 40.07181940480329, 0.005681684120879648, 116.24723619427233,
+				40.07186116913749, 0.04170243016405507, 116.24736761856363, 40.071903982054884, 0.005259989099451031,
+				116.2475082181826, 40.07194601577501, 0.002811020300093992, 116.24761548779333, 40.07197871921315,
+				0.005307119093928062, 116.24774384767557, 40.072018996535085, 0.006220936319895075, 116.2479012465716,
+				40.07206394824516, -0.010739505918547963, 116.24806767080658, 40.07211657321138, -0.01001781093407794,
+				116.24826525499421, 40.072177417450206, 0.006457491797800943, 116.24843524826963, 40.07223117109359,
+				0.006648357330775177, 116.24867993124253, 40.07230500308846, 0.010733859794559798, 116.24894359422635,
+				40.072385754181035, -0.01648552993555099, 116.24926241817089, 40.07247857089228, 0.011183982647362586,
+				116.24960327708594, 40.072583735091555, -0.01666398296325439, 116.24984551411328, 40.07265768004363,
+				-0.016657450448108433
+			];
+
+			const trackPositions2 = [
+				116.2441745365141, 40.07346648243375, -0.05011378289784596, 116.24452844430986, 40.0735603413731,
+				0.005103579797526403, 116.24508417248799, 40.07372425046198, 0.00550901632932168, 116.24562415937403,
+				40.07388910862074, 0.0041378443982177235, 116.24614366635087, 40.07404157711989, 0.0037139037199217725,
+				116.24673616202445, 40.074211518611676, -0.05100236288129745, 116.24727529358589, 40.074364039069685,
+				0.004970786998818371, 116.24789288398892, 40.074547563235015, 0.005608619284776981, 116.24847395220056,
+				40.07470780980283, 0.0044602478258681435, 116.24896164487087, 40.07486203637885, 0.0030506991551144127,
+				116.24957506974806, 40.07505042435687, -0.052195098420875295, 116.24995917359296, 40.07516572401969,
+				0.005820719989679315, 116.25038421794513, 40.075294544093005, -0.049147539703288244, 116.25049125926796,
+				40.07527546808277, 0.007818481299735178, 116.25055653504955, 40.075180001517424, 0.007509935957529574,
+				116.25061366636814, 40.07507169546165, 0.008344050506680658, 116.25069041662327, 40.07491463262579,
+				0.009877176709348446, 116.2507637115661, 40.074781518077216, 0.008814336998811121, 116.25083985791427,
+				40.074640523813564, 0.0106003799295449, 116.25090537877763, 40.07450936505573, 0.011614822484627,
+				116.25095863155644, 40.074408324585406, 0.01255252230150235, 116.25097757160218, 40.07436114759795,
+				0.01326468136104567, 116.25091813805376, 40.07433723058979, -0.040207014412777756, 116.25080260065148,
+				40.0743113092605, -0.04166884108428076, 116.25064972291094, 40.07426809754142, 0.01125233912451553,
+				116.25055313556074, 40.07422694056357, 0.012128033649750652, 116.2504470268107, 40.07419338856156,
+				0.011881394394589552, 116.25035058696353, 40.07415229376111, 0.011153163308115872, 116.25027802156531,
+				40.074129348138555, 0.011002927573751462, 116.25022922496588, 40.07412451835746, 0.011422144944006018,
+				116.25019309464138, 40.07417692171406, 0.011189614911787087, 116.25014623358025, 40.07425316466053,
+				0.01152804570222758, 116.25012510886057, 40.07430043509169, 0.010815976509450514, 116.25011026089223,
+				40.07433366804996, 0.008595460221276439
+			];
+
+			const animationPositions0 = minemap.Math.Vector3.fromDegreesArrayHeights(trackPositions0);
+			const animationPositions1 = minemap.Math.Vector3.fromDegreesArrayHeights(trackPositions1);
+			const animationPositions2 = minemap.Math.Vector3.fromDegreesArrayHeights(trackPositions2);
+
+			const geometry0 = new minemap.Geometries.PolylineGeometry({
+				positions: minemap.Math.Vector3.fromDegreesArrayHeights(trackPositions0),
+				width: 10,
+				arcType: minemap.ARCTYPE.NONE
+			});
+			const geometry1 = new minemap.Geometries.PolylineGeometry({
+				positions: minemap.Math.Vector3.fromDegreesArrayHeights(trackPositions1),
+				width: 10,
+				arcType: minemap.ARCTYPE.NONE
+			});
+			const geometry2 = new minemap.Geometries.PolylineGeometry({
+				positions: minemap.Math.Vector3.fromDegreesArrayHeights(trackPositions2),
+				width: 10,
+				arcType: minemap.ARCTYPE.NONE
+			});
+
+			var center = [116.40717, 39.90469];
+			/*初始化地图实例*/
+			const map = new minemap.Map({
+				container: "map",
+				style: "https://minedata.cn/service/solu/style/id/12878",
+				position: [116.2501484241892, 40.06913236377791, 454],
+				bearing: -20, //地图默认缩放等级
+				pitch: 45, //地图俯仰角度
+				maxZoom: 22, //地图最大缩放等级
+				minZoom: 1, //地图最小缩放等级
+				logarithmicDepthBuffer: false,
+				projection: "MERCATOR"
+			});
+			map.repaint = true;
+
+			let carModel,
+				animationBlender,
+				currentModel = "police_car1";
+			map.on("load", function () {
+				carModel = map.addSceneComponent({
+					id: "police_car", // 唯一标识
+					position: new minemap.Math.Vector3(116.24507676996595, 40.07234186217006, 0),
+					rotation: [90, 90, 0],
+					scale: [0.1, 0.1, 0.1],
+					type: "3d-model",
+					data: "../data/police_car.glb",
+					castShadow: true,
+					receiveShadow: true
+				});
+				initializeGUI();
+				createTrackingPath();
+				playAnimation();
+			});
+
+			let pickTolerance = 50;
+			const params = {
+				播放速度: 1,
+				时间轴: 0,
+				暂停: pause,
+				停止: stop,
+				复位: reset,
+				拾取容差: pickTolerance,
+				"拾取并拖动模型(左键按下拖动，抬起结束)": pickAndDragModel,
+				当前拾取模型: "",
+				自由模式: free,
+				视野跟随: follow,
+				视野锁定: lock,
+				跟踪模型: "police_car1"
+			};
+
+			let timeAxis, pickAndDragButton;
+			let dragModel = false;
+			function initializeGUI() {
+				const gui = new lil.GUI({ width: 300 });
+				gui.onChange((event) => {
+					params[event.property] = event.value;
+				});
+
+				const animationMode = gui.addFolder("动画设置");
+				animationMode.open();
+				animationMode.add(params, "播放速度", 0.1, 10).onChange((value) => {
+					updateSpeed(value);
+				});
+				pauseButton = animationMode.add(params, "暂停");
+				animationMode.add(params, "停止");
+				animationMode.add(params, "复位");
+
+				const animationEdit = gui.addFolder("动画编辑");
+				timeAxis = animationEdit.add(params, "时间轴", 0, 20).onChange((value) => {
+					if (!animationBlender) {
+						return;
+					}
+
+					if (pauseButton.$button.children[0].innerText === "暂停") {
+						animationBlender.currentTime = value; // 设置当前动画运行的时间(动画起止时间差值，单位：秒)
+					} else if (pauseButton.$button.children[0].innerText === "继续") {
+						carModel.modelInstanceCollection.instances.forEach((instance) => {
+							let instancePositions;
+							switch (instance.instanceName) {
+								case "police_car1":
+									instancePositions = animationPositions0;
+									break;
+								case "police_car2":
+									instancePositions = animationPositions1;
+									break;
+								case "police_car3":
+									instancePositions = animationPositions2;
+									break;
+							}
+							if (instancePositions !== null) {
+								updateModelAnimationByTime(instance, animationBlender, value, instancePositions);
+							}
+						});
+					}
+				});
+				animationEdit.add(params, "拾取容差", 0.1, 100).onChange((value) => {
+					pickTolerance = value;
+				});
+				pickAndDragButton = animationEdit.add(params, "拾取并拖动模型(左键按下拖动，抬起结束)");
+				modelNameButton = animationEdit.add(params, "当前拾取模型");
+				modelNameButton.$widget.children[0].style.color = "red";
+				modelNameButton.disable();
+
+				const trackingModelFolder = gui.addFolder("跟踪模型");
+				trackingModelFolder.open();
+				trackingModelFolder
+					.add(params, "跟踪模型")
+					.options(["police_car1", "police_car2", "police_car3"])
+					.onChange(function (value) {
+						currentModel = value;
+						map.animationManager.animationTracking.name = currentModel;
+					});
+
+				const cameraMode = gui.addFolder("相机模式");
+				cameraMode.open();
+				cameraMode.add(params, "自由模式");
+				cameraMode.add(params, "视野跟随");
+				cameraMode.add(params, "视野锁定");
+			}
+
+			// 自由模式动画
+			function free() {
+				map.animationManager.animationTracking.enabled = false;
+			}
+
+			// 视野跟随动画
+			function follow() {
+				// 引擎自带动画跟踪配置，根据需要设置不同的效果和模式，也可以根据需求进行创建设置
+				map.animationManager.animationTracking.name = currentModel;
+				map.animationManager.animationTracking.mode = minemap.AnimationTrackingMode.FOLLOW;
+				map.animationManager.animationTracking.effect = minemap.AnimationTrackingEffects.STABLE;
+				map.animationManager.animationTracking.headingPitchRoll = new minemap.Math.HeadingPitchRoll(
+					minemap.Math.toRadians(0),
+					minemap.Math.toRadians(60),
+					0
+				);
+				map.animationManager.animationTracking.distance = 100;
+				map.animationManager.animationTracking.enabled = true;
+
+				// 自主创建动画跟踪配置
+				// map.animationManager.animationTracking = new minemap.AnimationTracking({
+				// 	distance: 100,
+				// 	effects: minemap.AnimationTrackingEffects.STABLE,
+				// 	enabled: true,
+				// 	mode: minemap.AnimationTrackingMode.FOLLOW,
+				// 	name: currentModel,
+				// 	headingPitchRoll: new minemap.Math.HeadingPitchRoll(
+				// 		minemap.Math.toRadians(0),
+				// 		minemap.Math.toRadians(60),
+				// 		0
+				// 	)
+				// });
+			}
+
+			// 视野锁定动画
+			function lock() {
+				// 引擎自带动画跟踪配置，根据需要设置不同的效果和模式，也可以根据需求进行创建设置
+				map.animationManager.animationTracking.name = currentModel;
+				map.animationManager.animationTracking.mode = minemap.AnimationTrackingMode.LOCK;
+				map.animationManager.animationTracking.effect = minemap.AnimationTrackingEffects.STABLE;
+				map.animationManager.animationTracking.headingPitchRoll = new minemap.Math.HeadingPitchRoll(
+					minemap.Math.toRadians(0),
+					minemap.Math.toRadians(60),
+					0
+				);
+				map.animationManager.animationTracking.distance = 100;
+				map.animationManager.animationTracking.enabled = true;
+
+				// 自主创建动画跟踪配置
+				// map.animationManager.animationTracking = new minemap.AnimationTracking({
+				// 	distance: 100,
+				// 	effects: minemap.AnimationTrackingEffects.PRECISE,
+				// 	enabled: true,
+				// 	mode: minemap.AnimationTrackingMode.LOCK,
+				// 	name: currentModel,
+				// 	headingPitchRoll: new minemap.Math.HeadingPitchRoll(
+				// 		minemap.Math.toRadians(0),
+				// 		minemap.Math.toRadians(6),
+				// 		0
+				// 	)
+				// });
+			}
+
+			// 创建跟踪路径
+			const animationPathPrimitives = [];
+			function createTrackingPath() {
+				// red route
+				const redRoute = new minemap.Geometries.PolylineGeometry({
+					positions: minemap.Math.Vector3.fromDegreesArrayHeights(trackPositions0),
+					width: 2,
+					arcType: minemap.ARCTYPE.NONE
+				});
+
+				const redRouteMaterial = new minemap.PolylineMaterial({
+					color: "red"
+				});
+
+				const redRoutePrimitive = new minemap.Primitive({
+					geometry: redRoute,
+					material: redRouteMaterial,
+					name: "redRoutePrimitive"
+				});
+
+				animationPathPrimitives.push(map.addPrimitive(redRoutePrimitive));
+
+				// yellow route
+				const blueRoute = new minemap.Geometries.PolylineGeometry({
+					positions: minemap.Math.Vector3.fromDegreesArrayHeights(trackPositions1),
+					width: 2,
+					arcType: minemap.ARCTYPE.NONE
+				});
+
+				const yellowRouteMaterial = new minemap.PolylineMaterial({
+					color: "blue"
+				});
+
+				const blueRoutePrimitive = new minemap.Primitive({
+					geometry: blueRoute,
+					material: yellowRouteMaterial,
+					name: "yellowRoutePrimitive"
+				});
+
+				animationPathPrimitives.push(map.addPrimitive(blueRoutePrimitive));
+
+				// lime route
+				const limeRoute = new minemap.Geometries.PolylineGeometry({
+					positions: minemap.Math.Vector3.fromDegreesArrayHeights(trackPositions2),
+					width: 2,
+					arcType: minemap.ARCTYPE.NONE
+				});
+
+				const limeRouteMaterial = new minemap.PolylineMaterial({
+					color: "lime"
+				});
+
+				const limeRoutePrimitive = new minemap.Primitive({
+					geometry: limeRoute,
+					material: limeRouteMaterial,
+					name: "limeRoutePrimitive"
+				});
+
+				animationPathPrimitives.push(map.addPrimitive(limeRoutePrimitive));
+			}
+
+			// 创建动画并播放
+			function playAnimation() {
+				const modelInstanceContent = {
+					id: "police_car",
+					type: "modelInstance",
+					trackIds: ["police_car1", "police_car2", "police_car3"], //实例化模型id
+					reference: "ellipsoid",
+					positions: [trackPositions0, trackPositions1, trackPositions2],
+					times: {
+						start: "2023-08-21T11:30:00.000Z",
+						end: "2023-08-21T11:30:20.000Z"
+						// "steps":[
+						// [0, 3, 5, 10, 13, 18, 21], //可选
+						// [0, 3, 5, 10, 13, 18, 21], //可选
+						// [0, 3, 5, 10, 13, 18, 21] //可选
+						// ], //可选
+					},
+					loop: "repeat", //repeat, once, none
+					autoPlay: true // 默认:false
+				};
+
+				const animationJson = {
+					documnet: "Animation",
+					contents: [modelInstanceContent]
+				};
+
+				animation = map.animationManager.add(animationJson);
+
+				animation.then((values) => {
+					values.forEach((value) => {
+						animationBlender = value;
+						timeAxis.max(animationBlender.duration); // 设置时间轴最大值
+						// animationBlender.onPlay = (event) => {
+						// 	console.log("Play", event);
+						// }; // 开始播放时的回调
+						animationBlender.onPlaying = (event) => {
+							timeAxis.setValue(event.time);
+							// console.log("Playing", event);
+						}; // 播放时的回调，参数包含动画时间和模型状态
+						// animationBlender.onPause = (event) => {
+						// 	console.log("Pause", event);
+						// }; // 暂停播放时的回调
+						// animationBlender.onStop = (event) => {
+						// 	console.log("Stop", event);
+						// }; // 停止播放时的回调
+						// animationBlender.onReset = (event) => {
+						// 	console.log("Reset", event);
+						// }; // 重置播放时的回调
+					});
+				});
+			}
+
+			// 暂停、停止、复位
+			function pause() {
+				if (!animationBlender) {
+					return;
+				}
+
+				if (pauseButton.$button.children[0].innerText === "暂停") {
+					pauseButton.$button.children[0].innerText = "继续";
+					animationBlender.pause();
+				} else {
+					pauseButton.$button.children[0].innerText = "暂停";
+					animationBlender.play();
+				}
+			}
+
+			function stop() {
+				if (!animationBlender) {
+					return;
+				}
+				animationBlender.stop();
+			}
+
+			function reset() {
+				if (!animationBlender) {
+					return;
+				}
+				animationBlender.reset();
+			}
+			function updateSpeed(value) {
+				if (!animationBlender) {
+					return;
+				}
+				animationBlender.speed = value;
+			}
+
+			function pickAndDragModel() {
+				dragModel = true;
+				pickAndDragButton.$button.style.backgroundColor = "green";
+			}
+
+			const flickerMaterial = minemap.PolylineMaterial.fromType("Flicker", {
+				color: "yellow", // 颜色
+				speed: 3, // 可选，闪烁速度
+				opacity: 1.0 // 可选，透明度
+			});
+
+			let selectModelInstance, animationPositions, preGeometry, preMaterial, flickerPrimitive;
+			map.on("mousedown", (e) => {
+				if (dragModel) {
+					map.cameraController.enableInputs = false;
+					const feature = map.getFeatureByGPUPick(e.point);
+					if (feature instanceof minemap.ModelInstance) {
+						selectModelInstance = feature;
+						animationBlender.pause();
+						modelNameButton.setValue(selectModelInstance.instanceName);
+
+						let currentGeometry;
+						switch (selectModelInstance.instanceName) {
+							case "police_car1":
+								animationPositions = animationPositions0;
+								currentGeometry = geometry0;
+								flickerPrimitive = animationPathPrimitives[0];
+								break;
+							case "police_car2":
+								animationPositions = animationPositions1;
+								currentGeometry = geometry1;
+								flickerPrimitive = animationPathPrimitives[1];
+								break;
+							case "police_car3":
+								animationPositions = animationPositions2;
+								currentGeometry = geometry2;
+								flickerPrimitive = animationPathPrimitives[2];
+								break;
+						}
+
+						if (flickerPrimitive !== undefined) {
+							preGeometry = flickerPrimitive.geometry;
+							preMaterial = flickerPrimitive.material;
+							flickerPrimitive.geometry = currentGeometry;
+							flickerPrimitive.material = flickerMaterial;
+						}
+					}
+				}
+			});
+
+			map.on("mouseup", () => {
+				if (dragModel) {
+					dragModel = false;
+					selectModelInstance = undefined;
+					if (pauseButton.$button.children[0].innerText === "暂停") {
+						animationBlender.play();
+					}
+					map.cameraController.enableInputs = true;
+					modelNameButton.setValue("");
+					animationPositions = undefined;
+					if (flickerPrimitive !== undefined) {
+						flickerPrimitive.geometry = preGeometry;
+						flickerPrimitive.material = preMaterial;
+						flickerPrimitive = undefined;
+					}
+					preMaterial = undefined;
+					pickAndDragButton.$button.style.backgroundColor = "";
+				}
+			});
+
+			map.on("mousemove", function (e) {
+				if (
+					dragModel &&
+					selectModelInstance !== undefined &&
+					animationBlender !== undefined &&
+					animationPositions !== undefined
+				) {
+					const point = map.painter.getPositionByGPUPick(e.point);
+					const pickPosition = minemap.Math.Vector3.fromDegrees(point.x, point.y, point.z);
+					updateModelAnimationByPick(
+						selectModelInstance,
+						animationBlender,
+						pickPosition,
+						pickTolerance,
+						animationPositions
+					);
+				}
+			});
+
+			/**
+			 * 更新模型位置和动画运行时间
+			 * @param {SceneModel} model 模型对象
+			 * @param {AnimationBlender} blender 动画混合器对象
+			 * @param {Vector3} pickPosition 鼠标拾取点(世界坐标)
+			 * @param {number} tolerance 点吸附线容差
+			 * @param {Vector3[]} positions 轨迹点数组(世界坐标)
+			 */
+			function updateModelAnimationByPick(model, blender, pickPosition, tolerance, positions) {
+				let currentTime;
+				if (positions.length >= 2) {
+					const duration = blender.duration;
+					let minDist = Infinity;
+					// 点吸附线信息，包含吸附点索引和吸附点坐标
+					let adsorptionInformation = {
+						index: undefined,
+						point: undefined
+					};
+					let totalDist = 0;
+					let insectPointDist = 0;
+					for (let i = 1; i < positions.length; i++) {
+						// 计算拾取点到轨迹线段的投影
+						const segment = minemap.Math.Vector3.subtract(positions[i], positions[i - 1]);
+						const segmentToPoint = minemap.Math.Vector3.subtract(pickPosition, positions[i - 1]);
+						const projection =
+							minemap.Math.Vector3.dot(segmentToPoint, segment) /
+							minemap.Math.Vector3.magnitudeSquared(segment);
+						// 若投影在线段上，则计算拾取点到线段投影点的世界坐标
+						if (projection >= 0 && projection <= 1) {
+							// 计算投影点的世界坐标
+							const insectPoint = minemap.Math.Vector3.add(
+								positions[i - 1],
+								segment.multiplyScalar(projection)
+							);
+							// 计算拾取点到投影点的距离，若小于容差则吸附到该点
+							const dist = minemap.Math.Vector3.distance(pickPosition, insectPoint);
+							if (dist <= minDist && dist <= tolerance) {
+								minDist = dist;
+								adsorptionInformation.index = i;
+								adsorptionInformation.point = insectPoint;
+								insectPointDist = dist;
+							}
+						}
+						totalDist += minemap.Math.Vector3.distance(positions[i], positions[i - 1]);
+					}
+
+					if (adsorptionInformation.point !== undefined) {
+						model.position = adsorptionInformation.point;
+						// 计算投影点所对应的动画运行时间
+						currentTime = ((adsorptionInformation.index - 1) / (positions.length - 1)) * duration;
+						currentTime +=
+							(insectPointDist /
+								minemap.Math.Vector3.distance(
+									positions[adsorptionInformation.index],
+									positions[adsorptionInformation.index - 1]
+								) /
+								(positions.length - 1)) *
+							duration;
+
+						// 设置当前动画运行的时间(动画起止时间差值，单位：秒)
+						blender.currentTime = currentTime;
+					}
+				}
+			}
+
+			/**
+			 * 更新模型位置和动画运行时间
+			 * @param {SceneModel} model 模型对象
+			 * @param {AnimationBlender} blender 动画混合器对象
+			 * @param {number} currentTime 当前动画运行的时间(动画起止时间差值，单位：秒)
+			 * @param {Vector3[]} positions 轨迹点数组(世界坐标)
+			 */
+			function updateModelAnimationByTime(model, blender, currentTime, positions) {
+				const unitInterval = blender.duration / (positions.length - 1); // 计算轨迹段之间的时间间隔
+				const index = Math.floor(currentTime / unitInterval); // 计算当前时间所在的轨迹段起点索引
+				const periodOfTime = currentTime % unitInterval; // 计算当前时间在当前轨迹某一段轨迹中的时间
+				// 计算当前时间在当前轨迹段中的位置，并更新模型位置和设置动画运行时间
+				let position;
+				if (index < positions.length - 1) {
+					const direction = minemap.Math.Vector3.subtract(positions[index + 1], positions[index]).normalize();
+					position = positions[index].add(direction.multiplyScalar(periodOfTime));
+				} else {
+					position = positions[index];
+				}
+
+				model.position = position;
+				blender.currentTime = currentTime; // 设置当前动画运行的时间(动画起止时间差值，单位：秒)
+			}
+		</script>
+	</body>
+</html>

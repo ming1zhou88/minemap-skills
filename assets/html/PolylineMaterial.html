@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+	<title>Polyline材质</title>
+	<!-- demo样式文件 -->
+	<link rel="stylesheet" href="../style/demo.css">
+	<!-- 引入MineMap API插件 -->
+	<link rel="stylesheet" href="../../dist/minemap.css">
+	<script src="../../dist/minemap-dev.js"></script>
+	<script type="text/javascript" src="../js/lil-gui.umd.min.js"></script>
+	<style>
+		#map {
+			width: 100%;
+			height: 100%;
+		}
+	</style>
+</head>
+<body>
+<div id="map"></div>
+<script>
+	/**
+	 * 全局参数设置
+	 */
+	minemap.domainUrl = 'https://minemap.minedata.cn';
+	minemap.dataDomainUrl = 'https://minemap.minedata.cn';
+	minemap.serverDomainUrl = 'https://sd-data.minedata.cn';
+	minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+	minemap.serviceUrl = 'https://service.minedata.cn/service';
+
+	minemap.key = '0c6ac62182404e5ebc7a789981f6db72';
+	minemap.solution = 11001;
+
+	// 定义空底图样式
+	const style = {
+		"glyphs": "minemap://fonts/{fontstack}/{range}",
+		"sprite": "minemap://sprite/sprite",
+		"sources": {},
+		"layers": [],
+		"version": 8
+	};
+
+	/**
+	 * 初始化地图实例
+	 */
+	const map = new minemap.Map({
+		container: 'map',
+		style: style, /*球面矢量底图样式*/
+		center: [116.402167, 39.93585],
+		zoom: 15.8, /*地图默认缩放等级*/
+		pitch: 0, /*地图俯仰角度*/
+		maxZoom: 22, /*地图最大缩放等级*/
+		minZoom: 1,  /*地图最小缩放等级*/
+		projection: 'MERCATOR'
+	});
+
+	map.on('load', function() {
+		/*添加栅格图*/
+		map.addSource("IMAGERY_SOURCE", {
+			"type": "raster",//数据源类型：栅格数据源
+			"tiles": ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+			"tileSize": 512,//瓦片尺寸
+		});
+
+		map.addLayer({
+			"id": "IMAGERY",
+			"type": "raster", //图层类型为"raster"
+			"source": "IMAGERY_SOURCE",
+			"minzoom": 0,
+			"maxzoom": 23,
+		});
+		const arrowTexture1 = minemap.TextureLoader.load({ map, texUrl: "http://192.168.152.123/minemapapi/v4.0.0/assets/arrow1.png" });
+		const fireTexture = minemap.TextureLoader.load({ map, texUrl: "../data/image/fire.png" });
+		map.repaint = true;
+		const height = 5;
+		const lonlat = [116.398426, 39.935657, 116.398426, 39.93331, 116.400459, 39.93331];
+		const polyline = new minemap.Geometries.PolylineGeometry({
+			positions: minemap.Math.Vector3.fromDegreesArrayHeights([
+				lonlat[0],
+				lonlat[1],
+				height,
+				lonlat[2],
+				lonlat[3],
+				height,
+				lonlat[4],
+				lonlat[5],
+				height
+			]),
+			width: 10,
+			arcType: minemap.ARCTYPE.GEODESIC
+		});
+
+		const material = minemap.PolylineMaterial.fromType("Trail", {
+			color: "red", // 颜色
+			speed: 0.6, // 可选，流动速度，大于0正向，小于0反向
+			opacity: 1.0, // 可选，透明度
+		});
+
+		map.addPrimitive(new minemap.Primitive({
+			geometry: polyline,
+			material: material,
+			name: "polyline"
+		}));
+
+		const polyline2 = new minemap.Geometries.PolylineGeometry({
+			positions: minemap.Math.Vector3.fromDegreesArrayHeights([
+				lonlat[0] + 0.003,
+				lonlat[1],
+				height,
+				lonlat[2] + 0.003,
+				lonlat[3],
+				height,
+				lonlat[4] + 0.003,
+				lonlat[5],
+				height
+			]),
+			width: 10,
+			arcType: minemap.ARCTYPE.GEODESIC
+		});
+
+		const material2 = minemap.PolylineMaterial.fromType("OD", {
+			color: "green", // 底部颜色
+			speed: 0.4, // 可选，流动速度，大于0正向，小于0反向
+			topColor: "red", // 顶部颜色
+			opacity: 0.7, // 可选，透明度
+		});
+
+		map.addPrimitive(new minemap.Primitive({
+			geometry: polyline2,
+			material: material2,
+			name: "polyline2"
+		}));
+
+		const polyline3 = new minemap.Geometries.PolylineGeometry({
+			positions: minemap.Math.Vector3.fromDegreesArrayHeights([
+				lonlat[0] + 0.006,
+				lonlat[1],
+				height,
+				lonlat[2] + 0.006,
+				lonlat[3],
+				height,
+				lonlat[4] + 0.006,
+				lonlat[5],
+				height
+			]),
+			width: 10,
+			arcType: minemap.ARCTYPE.GEODESIC
+		});
+
+		const material3 = minemap.PolylineMaterial.fromType("Flicker", {
+			color: "blue", // 颜色
+			speed: 0.4, // 可选，闪烁速度
+			opacity: 1.0 // 可选，透明度
+		});
+
+		map.addPrimitive(new minemap.Primitive({
+			geometry: polyline3,
+			material: material3,
+			name: "polyline3"
+		}));
+
+		const polyline4 = new minemap.Geometries.PolylineGeometry({
+			positions: minemap.Math.Vector3.fromDegreesArrayHeights([
+				lonlat[0] + 0.009,
+				lonlat[1],
+				height,
+				lonlat[2] + 0.009,
+				lonlat[3],
+				height,
+				lonlat[4] + 0.009,
+				lonlat[5],
+				height
+			]),
+			width: 20,
+			arcType: minemap.ARCTYPE.GEODESIC
+		});
+
+		const material4 = minemap.PolylineMaterial.fromType("Glow", {
+			color: "pink", // 颜色
+			glowPower: 0.25, // 可选，发光强度，以总线宽的百分比表示（0 - 1.0）
+			taperPower: 1.0, // 可选，锥形效果的强度，以总线长度的百分比表示。如果为 1.0 或更高，则不使用锥度效果。
+			opacity: 1.0 // 可选，透明度
+		});
+
+		map.addPrimitive(new minemap.Primitive({
+			geometry: polyline4,
+			material: material4,
+			name: "polyline4"
+		}));
+
+		const polyline5 = new minemap.Geometries.PolylineGeometry({
+			positions: minemap.Math.Vector3.fromDegreesArrayHeights([
+				lonlat[0],
+				lonlat[1] + 0.003,
+				height,
+				lonlat[2],
+				lonlat[3] + 0.003,
+				height,
+				lonlat[4],
+				lonlat[5] + 0.003,
+				height
+			]),
+			width: 10,
+			arcType: minemap.ARCTYPE.GEODESIC
+		});
+
+		const material5 = minemap.PolylineMaterial.fromType("TextureFlow", {
+			baseColorMap: arrowTexture1, // 纹理
+			repeat: [15, 1], // 可选，纹理重复次数，第一个值为横向重复次数，第二个值为纵向重复次数，取值大于0
+			speed: 1, // 可选，流动速度，大于0正向，小于0反向
+			opacity: 1.0, // 可选，透明度
+		});
+
+		map.addPrimitive(new minemap.Primitive({
+			geometry: polyline5,
+			material: material5,
+			name: "polyline5"
+		}));
+
+		const polyline6 = new minemap.Geometries.PolylineGeometry({
+			positions: minemap.Math.Vector3.fromDegreesArrayHeights([
+				lonlat[0] + 0.003,
+				lonlat[1] + 0.003,
+				height,
+				lonlat[2] + 0.003,
+				lonlat[3] + 0.003,
+				height,
+				lonlat[4] + 0.003,
+				lonlat[5] + 0.003,
+				height
+			]),
+			width: 10,
+			arcType: minemap.ARCTYPE.GEODESIC
+		});
+
+		const material6 = minemap.PolylineMaterial.fromType("Dash", {
+			color: "orange", // 虚线颜色
+			dashLength: 20, // 可选，虚线长度，以像素为单位
+			gapColor: new minemap.Color(0.0, 0.0, 0.0, 0.0), // 可选，空隙颜色
+			opacity: 1.0, // 可选，透明度
+			dashPattern: 255.0, // 可选，线条的 16 位点画模式
+		});
+
+		map.addPrimitive(new minemap.Primitive({
+			geometry: polyline6,
+			material: material6,
+			name: "polyline6"
+		}));
+
+		const polyline7 = new minemap.Geometries.PolylineGeometry({
+			positions: minemap.Math.Vector3.fromDegreesArrayHeights([
+				lonlat[0] + 0.006,
+				lonlat[1] + 0.003,
+				height,
+				lonlat[2] + 0.006,
+				lonlat[3] + 0.003,
+				height,
+				lonlat[4] + 0.006,
+				lonlat[5] + 0.003,
+				height
+			]),
+			width: 10,
+			arcType: minemap.ARCTYPE.GEODESIC
+		});
+
+		const material7 = minemap.PolylineMaterial.fromType("Texture", {
+			baseColorMap: arrowTexture1, // 纹理
+			repeat: [20, 1], // 可选，纹理重复次数，第一个值为横向重复次数，第二个值为纵向重复次数，取值大于0
+			opacity: 1.0, // 可选，透明度
+			rotation: 0, // 可选，旋转角度
+			rotationCenter: [0.5, 0.5], // 可选，旋转纹理中心
+			offset: [0, 0], // 可选，uv上的偏移
+		});
+
+		const p = map.addPrimitive(new minemap.Primitive({
+			geometry: polyline7,
+			material: material7,
+			name: "polyline7"
+		}));
+
+		const polyline8 = new minemap.Geometries.PolylineGeometry({
+			positions: minemap.Math.Vector3.fromDegreesArrayHeights([
+				lonlat[0] + 0.009,
+				lonlat[1] + 0.003,
+				height,
+				lonlat[2] + 0.009,
+				lonlat[3] + 0.003,
+				height,
+				lonlat[4] + 0.009,
+				lonlat[5] + 0.003,
+				height
+			]),
+			width: 10,
+			arcType: minemap.ARCTYPE.GEODESIC
+		});
+
+		const material8 = minemap.PolylineMaterial.fromType("Color", {
+			color: "purple", // 颜色
+			opacity: 1.0, // 可选，透明度
+		});
+
+		map.addPrimitive(new minemap.Primitive({
+			geometry: polyline8,
+			material: material8,
+			name: "polyline8"
+		}));
+
+		const polyline9 = new minemap.Geometries.PolylineGeometry({
+			positions: minemap.Math.Vector3.fromDegreesArrayHeights([
+				lonlat[0],
+				lonlat[1] + 0.006,
+				height,
+				lonlat[2],
+				lonlat[3] + 0.006,
+				height,
+				lonlat[4],
+				lonlat[5] + 0.006,
+				height
+			]),
+			width: 10,
+			values: [80, 0, 60], // 每个顶点对应的业务值
+			arcType: minemap.ARCTYPE.GEODESIC
+		});
+
+		const material9 = minemap.PolylineMaterial.fromType("Gradient", {
+			gradientColor: [
+				[0, "rgba(0,255,0,1)"], // 业务值0 → 绿色
+				[50, "rgba(0,0,255,1)"], // 业务值50 → 蓝色
+				[100, "rgba(255,0,0,1)"] // 业务值100 → 红色
+			],
+			opacity: 1.0, // 可选，透明度
+		});
+
+		map.addPrimitive(new minemap.Primitive({
+			geometry: polyline9,
+			material: material9,
+			name: "polyline9"
+		}));
+
+		function updateMaterial(){
+			// 更新uniform变量
+			material.uniformMap.speed = -1;
+			material2.uniformMap.topColor = "blue";
+			material3.uniformMap.color = "yellow"
+			material4.uniformMap.taperPower = 0.6;
+			material5.uniformMap.baseColorMap = fireTexture;
+			material6.uniformMap.gapColor = "white";
+			material8.uniformMap.opacity = 0.5;
+			material9.uniformMap.gradientColor = [
+				[0, "rgba(255,255,0,1)"],
+				[50, "rgba(255,0,255,1)"],
+				[100, "rgba(0,128,0,1)"]
+			];
+			// 切换材质
+			p.material = minemap.PolylineMaterial.fromType("TextureFlow", {
+				baseColorMap: arrowTexture1,
+				repeat: [15, 1],
+				speed: 2
+			});
+		}
+
+		const gui = new lil.GUI({
+			title: "不同种类线",
+			width: 300
+		});
+		gui.open();
+
+		const params = {
+			更新材质: updateMaterial
+		};
+
+		gui.add(params, "更新材质");
+	})
+</script>
+</body>

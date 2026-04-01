@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+	<title>图层显示Symbol</title>
+	<!-- demo样式文件 -->
+	<link rel="stylesheet" href="https://minedata.cn/nce-static/support/demo/js-3d-ultra/zh/css/demo.css" />
+	<!-- 引入MineMap API插件 -->
+	<link rel="stylesheet" href="https://minemap.minedata.cn/minemapapi/v4.0.0/minemap.css" />
+	<script src="../../dist/minemap-dev.js"></script>
+	<script src="../js/lil-gui.umd.min.js"></script>
+	<script src="../../debug/收费路段.js"></script>
+	<style>
+		#map {
+			width: 100%;
+			height: 100%;
+		}
+	</style>
+</head>
+
+<body>
+<div id="map"></div>
+<script>
+	/**
+	 * 全局参数设置
+	 */
+	minemap.domainUrl = "https://minemap.minedata.cn";
+	minemap.dataDomainUrl = "https://minemap.minedata.cn";
+	minemap.serverDomainUrl = "https://sd-data.minedata.cn";
+	minemap.spriteUrl = "http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite";
+	minemap.serviceUrl = "https://service.minedata.cn/service";
+
+	minemap.key = "<您的 key>";
+	minemap.solution = 11001;
+
+	const style = {
+		glyphs: "minemap://fonts/{fontstack}/{range}",
+		sprite: "minemap://sprite/sprite",
+		sources: {},
+		layers: [],
+		version: 8
+	};
+
+	/**
+	 * 初始化地图实例
+	 */
+	const map = new minemap.Map({
+		container: "map",
+		style: style /*球面矢量底图样式*/,
+		position: [120.49021844562989, 36.324038487573084, 278395] /*地图中心点*/,
+		zoom: 7.750831021294844 /*地图默认缩放等级*/,
+		pitch: 0 /*地图俯仰角度*/,
+		maxZoom: 22 /*地图最大缩放等级*/,
+		minZoom: 1 /*地图最小缩放等级*/,
+		projection: "MERCATOR",
+		logDepth: true
+	});
+	map.repaint = true;
+
+	map.setTerrain({
+		tiles: ["https://staticdata-b.minedata.cn:14434/dem/{z}/{r}/{c}/{z}_{x}_{y}.terrain"], //瓦片服务地址
+		tileSize: 512, //瓦片大小
+		availabilities: ["https://staticdata-b.minedata.cn:14434/dem/layer.json"] //索引文件是可选项
+	});
+
+	map.on("load", function() {
+		map.addSource("IMAGERY_SOURCE", {
+			type: "raster",
+			tiles: ["https://services.minedata.cn/service/data/satellite?x={x}&y={y}&z={z}"], //瓦片服务地址
+			tileSize: 256 //瓦片尺寸
+		});
+
+		map.addLayer({
+			id: "IMAGERY",
+			type: "raster",
+			source: "IMAGERY_SOURCE",
+			minzoom: 1,
+			maxzoom: 23
+		});
+		addSourceLayer();
+		initializeGUI();
+	});
+
+	const dataSource = [{
+		cameraPosition: [120.49021844562989, 36.324038487573084, 278395],
+		data: "../data/geojsonName.json"
+	}, {
+		cameraPosition: [113.53572000000003, 23.13305000000002, 782318],
+		data: "../data/GuangdongExpressway.geojson"
+	}, {
+		cameraPosition: [104.45818066176523, 36.61747820201951, 6216713],
+		data: "../data/geojson-level.json",
+		centerProperty: "center" //数据源中包含的属性字段，用于设置文字位置，如果不设置就会引擎内部自己计算
+	}];
+	const sourceList = {
+		"青岛": 0,
+		"广东高速": 1,
+		"全国省份边界": 2
+	};
+	const params = {
+		dataSource: "青岛",
+		fontColor: "#FFFFFF",
+		fontOpacity: 1.0,
+		fontSize: 16,
+		wrap: "WRAP",
+		textMaxWidth: 10,
+		showSymbol: true,
+		borderColor: "#0d71f3",
+		borderWidth: 2,
+		borderOpacity: 1,
+		borderDash: false,
+		showBorder: true,
+		reload: reload
+	};
+	let currentIndex = 0;
+
+	function initializeGUI() {
+		const gui = new lil.GUI({ title: "图层管理", width: 300 });
+		const sourceFolder = gui.addFolder("数据源");
+		sourceFolder.add(params, "dataSource", sourceList).onChange(function(value) {
+			if (currentIndex === value) {
+				return;
+			}
+			currentIndex = value;
+			reload();
+			setCameraPosition();
+		});
+		sourceFolder.add(params, "wrap").onChange(() => {
+			reload();
+		});
+
+		const paramsFolder = gui.addFolder("symbol参数设置");
+		paramsFolder.addColor(params, "fontColor").onChange((value) => {
+			const supplementLayer = map.getLayer("supplementLayer");
+			if (supplementLayer && supplementLayer.symbolLayer) {
+				map.setPaintProperty(supplementLayer.symbolLayer.id, "text-color", value);
+			}
+		});
+
+		paramsFolder
+			.add(params, "fontOpacity", 0, 1, 0.1)
+			.onChange((value) => {
+				const supplementLayer = map.getLayer("supplementLayer");
+				if (supplementLayer && supplementLayer.symbolLayer) {
+					map.setPaintProperty(supplementLayer.symbolLayer.id, "text-opacity", value);
+				}
+			});
+		paramsFolder
+			.add(params, "fontSize", 0, 100, 1)
+			.onChange((value) => {
+				const supplementLayer = map.getLayer("supplementLayer");
+				if (supplementLayer && supplementLayer.symbolLayer) {
+					map.setLayoutProperty(supplementLayer.symbolLayer.id, "text-size", value);
+				}
+			});
+		paramsFolder
+			.add(params, "textMaxWidth", 0, 100, 1)
+			.onChange((value) => {
+				const supplementLayer = map.getLayer("supplementLayer");
+				if (supplementLayer && supplementLayer.symbolLayer) {
+					map.setLayoutProperty(supplementLayer.symbolLayer.id, "text-max-width", value);
+				}
+			});
+		paramsFolder.add(params, "showSymbol").onChange((value) => {
+			const supplementLayer = map.getLayer("supplementLayer");
+			if (supplementLayer && supplementLayer.symbolLayer) {
+				map.setLayoutProperty(supplementLayer.symbolLayer.id, "visibility", value ? "visible" : "none");
+			}
+		});
+		const params2Folder = gui.addFolder("border参数设置");
+		params2Folder.addColor(params, "borderColor").onChange((value) => {
+			const supplementLayer = map.getLayer("supplementLayer");
+			if (supplementLayer && supplementLayer.borderLayer) {
+				map.setPaintProperty(supplementLayer.borderLayer.id, "line-color", value);
+			}
+		});
+		params2Folder
+			.add(params, "borderWidth", 1, 10, 1)
+			.onChange((value) => {
+				const supplementLayer = map.getLayer("supplementLayer");
+				if (supplementLayer && supplementLayer.borderLayer) {
+					map.setPaintProperty(supplementLayer.borderLayer.id, "line-width", value);
+				}
+			});
+		params2Folder
+			.add(params, "borderOpacity", 0, 1, 0.1)
+			.onChange((value) => {
+				const supplementLayer = map.getLayer("supplementLayer");
+				if (supplementLayer && supplementLayer.borderLayer) {
+					map.setPaintProperty(supplementLayer.borderLayer.id, "line-opacity", value);
+				}
+			});
+		params2Folder.add(params, "borderDash").onChange((value) => {
+			const supplementLayer = map.getLayer("supplementLayer");
+			if (supplementLayer && supplementLayer.borderLayer) {
+				map.setPaintProperty(supplementLayer.borderLayer.id, "line-dasharray", value ? [10, 10] : null);
+			}
+		});
+		params2Folder.add(params, "showBorder").onChange((value) => {
+			const supplementLayer = map.getLayer("supplementLayer");
+			if (supplementLayer && supplementLayer.borderLayer) {
+				map.setLayoutProperty(supplementLayer.borderLayer.id, "visibility", value ? "visible" : "none");
+			}
+		});
+	}
+
+	function setCameraPosition() {
+		map.flyTo({
+			target: [
+				dataSource[currentIndex].cameraPosition[0],
+				dataSource[currentIndex].cameraPosition[1],
+				dataSource[currentIndex].cameraPosition[2]
+			],
+			bearing: 0,
+			pitch: 0,
+			roll: 0,
+			duration: 3000,
+			range: 0
+		});
+	}
+
+	function reload() {
+		removeSourceLayer();
+		addSourceLayer();
+	}
+
+	function addSourceLayer() {
+		// 添加geojson矢量面图层
+		if (!map.getSource("supplementSource")) {
+			map.addSource("supplementSource", {
+				type: "geojson",
+				data: dataSource[currentIndex].data,
+				adaptTerrain: true,
+				symbolSourceConfig: {
+					showSymbol: params.showSymbol, // 是否显示填充文字，默认false
+					wrap: params.wrap, // 换行使用的geojson数据中字段名称，可选
+					centerProperty: dataSource[currentIndex].centerProperty, // 文字位置使用的geojson数据中字段名称，可选，如果不设置就会引擎内部自己计算
+				},
+				borderSourceConfig: {
+					showBorder: params.showBorder,  // 是否显示边界线，默认false
+				}
+			});
+		}
+
+		if (!map.getLayer("supplementLayer")) {
+			const linePaint = {
+				"line-width": 2,
+				"line-color": ["match", ["get", "路段性"], "经营性", "#ff0000", "还贷性", "#00ff00", "#ff0000"]
+			};
+			const lineLayout = {
+				"line-join": "round",
+				"line-cap": "round"
+			};
+			const lineSymbolLayerConfig = {
+				layout: {
+					"text-allow-overlap": false,
+					"symbol-placement": "line-center",//标签放置在几何体所在的位置
+					"text-line-height": 1.2,
+					"text-size": params.fontSize,
+					"visibility": "visible",
+					"text-field": "{road_sec_1}",
+					"text-pitch-alignment": "auto",
+					"text-justify": "center",
+					"text-rotation-alignment": "map",
+					"text-letter-spacing": 0.5,
+					"text-max-angle": 180 // 会影响文字的显示，根据zoom设置
+				},
+				paint: {
+					"text-halo-color": "#05132e",
+					"text-translate-anchor": "map",
+					"text-halo-blur": 0,
+					"text-color": params.fontColor, // 字体颜色，默认"#000"
+					"text-halo-width": 1,
+					"text-opacity": params.fontOpacity // 字体透明度，默认1
+				},
+				minzoom: 1,
+				maxzoom: 22,
+				"depth-test": false, // 开启深度测试，默认不开启
+				"auto-height": true, // 开启自动赋高，默认开启
+				"auto-height-offset": 5, // 开启自动赋高后，在计算出的高度的基础上进行上下偏移的距离, 默认0米(适当增加一些高度可以减少与地形的遮挡冲突造成的闪烁问题)
+				hiddenType: minemap.SymbolHiddenType.SCENE // 开启按场景遮挡(默认：场景遮挡)
+			};
+
+			const fillPaint = {
+				"fill-color": "#00ff00",
+				"fill-opacity": 0.5
+			};
+			const fillLayout = {
+				visibility: "visible"
+			};
+			const fillSymbolLayerConfig = {
+				layout: {
+					"text-field": currentIndex === 0 ? "{NAME}" : "{name}",
+					"text-size": params.fontSize, // 字体大小，默认16px
+					"text-max-width": params.textMaxWidth, // 文字换行的最大宽度，默认10，
+					"text-line-height": 1.2, // 行高，默认1.2,值类型为number,单位是ems
+					"text-allow-overlap": false, //图标覆盖文字不允许压盖
+					"text-pitch-alignment": "viewport" // 文字与视口的平面对齐
+				},
+				paint: {
+					"text-color": params.fontColor, // 字体颜色，默认"#000"
+					"text-opacity": params.fontOpacity // 字体透明度，默认1
+				},
+				"depth-test": false, // 开启深度测试，默认不开启
+				"auto-height": true, // 开启自动赋高，默认开启
+				"auto-height-offset": 5, // 开启自动赋高后，在计算出的高度的基础上进行上下偏移的距离, 默认0米(适当增加一些高度可以减少与地形的遮挡冲突造成的闪烁问题)
+				hiddenType: minemap.SymbolHiddenType.SCENE // 开启按场景遮挡(默认：场景遮挡)
+			};
+
+			const borderPaint = {
+				"line-width": params.borderWidth,
+				"line-color": params.borderColor,
+				"line-opacity": params.borderOpacity,
+			}
+			if (params.borderDash){
+				borderPaint['line-dasharray'] = [10, 10];
+			}
+
+			map.addLayer({
+				id: "supplementLayer",
+				type: currentIndex === 1 ? "line" : "fill",
+				source: "supplementSource",
+				layout: currentIndex === 1 ? lineLayout : fillLayout,
+				paint: currentIndex === 1 ? linePaint : fillPaint,
+				// 线显示symbol参数设置
+				symbolLayerConfig: currentIndex === 1 ? lineSymbolLayerConfig : fillSymbolLayerConfig,
+				borderLayerConfig: {
+					"paint": borderPaint,
+					"layout": {
+						"visibility": params.showBorder ? "visible" : "none"
+					}
+				},
+				minzoom: 1,
+				maxzoom: currentIndex === 1 ? 22 : 17.5
+			});
+		}
+	}
+
+	function removeSourceLayer() {
+		// 移除geojson矢量面图层
+		if (map.getLayer("supplementLayer")) {
+			map.removeLayer("supplementLayer");
+		}
+
+		if (map.getSource("supplementSource")) {
+			map.removeSource("supplementSource");
+		}
+	}
+</script>
+</body>
+</html>

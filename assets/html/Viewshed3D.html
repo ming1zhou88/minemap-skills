@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>可视域分析</title>
+	<meta http-equiv="Access-Control-Allow-Origin" content="*" />
+	<meta charset="utf-8" />
+	<link rel="stylesheet" href="../../dist/minemap.css" />
+	<script src="../../dist/minemap-dev.js"></script>
+	<script src="../js/lil-gui.umd.min.js"></script>
+	<style>
+		html,
+		body,
+		#map {
+			margin: 0;
+			padding: 0;
+			width: 100%;
+			height: 100%;
+		}
+	</style>
+</head>
+<body>
+<div id="map"></div>
+<script>
+	minemap.domainUrl = "http://192.168.152.123";
+	minemap.dataDomainUrl = "https://minedata.cn";
+	minemap.serverDomainUrl = "https://minedata.cn";
+	minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+	minemap.serviceUrl = "https://minedata.cn/service/";
+	minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+	minemap.solution = 11001;
+	window.minemapCDN = "http://192.168.152.123//minemapapi/minemap-CDN";
+	var style = {
+		glyphs: "minemap://fonts/{fontstack}/{range}",
+		sprite: "minemap://sprite/sprite",
+		sources: {},
+		layers: [],
+		version: 8
+	};
+
+	var map = new minemap.Map({
+		container: "map",
+		style: style,
+		position: [108.93888723142777, 34.28238083242779, 515.1866912507315],
+		pitch: 71.0974576217,
+		bearing: -2.2590132203927986,
+		maxZoom: 22, //地图最大缩放级别限制
+		minZoom: 1, //地图最小缩放级别限制
+		logDepth: true
+	});
+	map.repaint = true;
+	map.setTerrain({
+		tiles: ["https://staticdata-b.minedata.cn:14434/dem/{z}/{r}/{c}/{z}_{x}_{y}.terrain"], //瓦片服务地址
+		tileSize: 512, //瓦片大小
+		availabilities: ["https://staticdata-b.minedata.cn:14434/dem/layer.json"] // 查询最高级别DEM时必须设定索引文件
+	});
+
+	window.map = map;
+	/**
+	 * 注意：
+	 * 可视域创建有两种方法：
+	 * 一、参数创建
+	 * viewerPosition是必须的，其余为可选
+	 * 参数意义：
+	 * viewerPosition: 经纬高
+	 * direction: 航向角(0°~360°)，0度朝北，180朝南
+	 * distance: 观察距离(默认100米),若鼠标创建设置一个大于0的值，如1.0
+	 * pitch: 俯仰角(0°~180°)，0度朝下，180朝上
+	 * horizontalFov: 水平视场角(0°~180°)
+	 * verticalFov: 垂直视场角(0°~180°)
+	 * visibleAreaColor: 可见区域颜色
+	 * hiddenAreaColor: 隐藏区域颜色
+	 * lineColor: 示意线颜色
+	 *
+	 * 二、鼠标跟随创建(详见示例)
+	 * 鼠标创建初始化可视域除设置可视距离distance外，无特殊需求不用其他参数
+	 * 本示例采用鼠标左键点击创建，并设置viewerPosition
+	 * 鼠标移动更新朝向与距离，设置setTargetPoint
+	 * 鼠标右键结束绘制状态
+	 */
+	let start = false;
+	let viewshed3D;
+	let viewshed3DId;
+	let addViewshed3D = false;
+
+	function createByParameter() {
+		const visibleAreaColor = minemap.Color.parse(params.可见区域颜色);
+		visibleAreaColor.a = 0.3;
+		const hiddenAreaColor = minemap.Color.parse(params.隐藏区域颜色);
+		hiddenAreaColor.a = 0.3;
+		const lineColor = minemap.Color.parse(params.线颜色);
+
+		viewshed3D = new minemap.Viewshed3D({
+			viewerPosition: new minemap.Math.Vector3(108.93902845433077, 34.28479351866025, params.高度),
+			direction: params.航向角,
+			distance: params.观察距离,
+			pitch: params.俯仰角,
+			horizontalFov: params.水平视场角,
+			verticalFov: params.垂直视场角,
+			visibleAreaColor: visibleAreaColor,
+			hiddenAreaColor: hiddenAreaColor,
+			lineColor: lineColor
+		});
+
+		map.analysis.viewshed3DCollection.add(viewshed3D);
+		viewshed3DId = viewshed3D.id;
+	}
+
+	function add() {
+		addViewshed3D = true;
+	}
+
+	function getByIndex() {
+		// 获取最后一个可视域
+		const viewshed = map.analysis.viewshed3DCollection.getByIndex(
+			map.analysis.viewshed3DCollection.length - 1
+		);
+		alert(viewshed !== undefined ? "已根据索引获取到可视域" : "未获取到可视域");
+	}
+
+	function getById() {
+		// 根据id获取可视域
+		const viewshed = map.analysis.viewshed3DCollection.getById(viewshed3DId);
+		alert(viewshed !== undefined ? "已根据id获取到可视域" : "未获取到可视域");
+	}
+
+	function remove() {
+		// 移除可视域
+		const result = map.analysis.viewshed3DCollection.remove(viewshed3D);
+		if (!result) {
+			removeByIndex();
+		}
+	}
+
+	function removeById() {
+		// 根据id移除可视域
+		map.analysis.viewshed3DCollection.removeById(viewshed3D.id);
+	}
+
+	function removeByIndex() {
+		// 移除最后一个可视域
+		map.analysis.viewshed3DCollection.removeByIndex(map.analysis.viewshed3DCollection.length - 1);
+	}
+
+	function removeAll() {
+		// 移除所有可视域
+		map.analysis.viewshed3DCollection.removeAll();
+	}
+
+	function jumpToViewshed() {
+		// 跳转到最后一个可视域
+		map.analysis.viewshed3DCollection
+			.getByIndex(map.analysis.viewshed3DCollection.length - 1)
+			.locateToViewer();
+	}
+
+	//leftClick
+	map.on("click", function(e) {
+		if (addViewshed3D && !start) {
+			viewshed3D = new minemap.Viewshed3D({
+				distance: 1
+			});
+			map.analysis.viewshed3DCollection.add(viewshed3D);
+			viewshed3DId = viewshed3D.id;
+			addViewshed3D = false;
+			start = true;
+		} else {
+			return;
+		}
+
+		viewshed3D.viewerPosition = map.painter.getPositionByGPUPick(e.point);
+	});
+
+	// mouseMove
+	map.on("mousemove", function(e) {
+		if (start) {
+			const targetPosition = map.painter.getPositionByGPUPick(e.point);
+			viewshed3D.setTargetPoint(targetPosition);
+		}
+	});
+
+	// rightClick
+	map.on("contextmenu", function(e) {
+		start = false;
+	});
+
+	/**
+	 * 添加基本球体图层，包括球体表面、天空盒、大气层
+	 *
+	 */
+	map.on("load", function() {
+		map.addSource("raster1", {
+			type: "raster", //数据源类型：栅格数据源
+			tiles: ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"],
+			maxzoom: 16,
+			tileSize: 512 //瓦片尺寸
+		});
+		map.addLayer({
+			id: "raster1",
+			type: "raster", //图层类型为"raster"
+			source: "raster1",
+			minzoom: 1,
+			maxzoom: 23,
+			"depth-test": true
+		});
+
+		const tileset = map.addSceneComponent({
+			id: "serve",
+			type: "3d-tiles",
+			show: true,
+			urls: [
+				{
+					url: `https://staticdata-b.minedata.cn:14434/oblique/tileset.json`,
+					name: "dyt_cesiumlab_v4"
+				}
+			]
+		});
+
+		/*添加BIM模型数据*/
+		map.addSceneComponent({
+			id: "BIM_SOURCE", // 唯一标识
+			position: new minemap.Math.Vector3(108.95830400330757, 34.22037047559517, 410),
+			rotation: [90, 0, 1],
+			scale: [1, 1, 1],
+			type: "3d-model",
+			data: "http://192.168.152.123:11187/demo-data/bim/only-building.gltf",
+			modelFolder: "http://192.168.152.123:11187/demo-data/bim/"
+		});
+
+		initializeGUI();
+		createByParameter();
+	});
+
+	const params = {
+		高度: 406.0114643213918,
+		观察距离: 2000,
+		偏航角: 0,
+		俯仰角: 90,
+		水平视场角: 60,
+		垂直视场角: 60,
+		可见区域颜色: "#00FF00",
+		隐藏区域颜色: "#FF0000",
+		示意线颜色: "#FFFFFF",
+		显示示意线: true,
+		是否显示: true,
+		是否添加指示器: true,
+		参数化创建: createByParameter,
+		点击添加: add,
+		移除最后一个: remove,
+		移除所有: removeAll,
+		定位到可视域视角: jumpToViewshed
+	};
+
+	function initializeGUI() {
+		const gui = new lil.GUI({ title: "可视域分析", width: 300 });
+		gui.onChange((event) => {
+			params[event.property] = event.value;
+		});
+
+		const paramsFolder = gui.addFolder("参数设置");
+		paramsFolder.open();
+		paramsFolder
+			.add(params, "高度", 1, 1000, 1)
+			.onChange((value) => {
+				if (viewshed3D) {
+					viewshed3D.viewerPosition = new minemap.Math.Vector3(
+						viewshed3D.viewerPosition.x,
+						viewshed3D.viewerPosition.y,
+						value
+					);
+				}
+			});
+
+		paramsFolder
+			.add(params, "观察距离", 1, 10000, 1)
+			.onChange((value) => {
+				if (viewshed3D) {
+					viewshed3D.distance = value;
+				}
+			});
+
+		paramsFolder.add(params, "偏航角", 0, 360, 1).onChange((value) => {
+			if (viewshed3D) {
+				viewshed3D.direction = value;
+			}
+		});
+		paramsFolder.add(params, "俯仰角", 0, 180, 1).onChange((value) => {
+			if (viewshed3D) {
+				viewshed3D.pitch = value;
+			}
+		});
+
+		paramsFolder.add(params, "水平视场角", 0, 180, 1).onChange((value) => {
+			if (viewshed3D) {
+				viewshed3D.horizontalFov = value;
+			}
+		});
+
+		paramsFolder.add(params, "垂直视场角", 0, 180, 1).onChange((value) => {
+			if (viewshed3D) {
+				viewshed3D.verticalFov = value;
+			}
+		});
+
+		paramsFolder.addColor(params, "可见区域颜色").onChange((value) => {
+			if (viewshed3D) {
+				const visibleColor = minemap.Color.parse(value);
+				visibleColor.a = 0.3;
+				viewshed3D.visibleAreaColor = visibleColor; // 调整可视域的可视区域颜色
+			}
+		});
+
+		paramsFolder.addColor(params, "隐藏区域颜色").onChange((value) => {
+			if (viewshed3D) {
+				const hiddenAreaColor = minemap.Color.parse(value);
+				hiddenAreaColor.a = 0.3;
+				viewshed3D.hiddenAreaColor = hiddenAreaColor; // 调整可视域的不可视区域颜色
+			}
+		});
+
+		paramsFolder.addColor(params, "示意线颜色").onChange((value) => {
+			if (viewshed3D) {
+				viewshed3D.lineColor = value;
+			}
+		});
+
+		const drawFolder = gui.addFolder("绘制");
+		drawFolder.open();
+		drawFolder.add(params, "点击添加");
+		drawFolder.add(params, "移除最后一个");
+		drawFolder.add(params, "移除所有");
+		drawFolder.add(params, "移除所有");
+		drawFolder.add(params, "定位到可视域视角");
+	}
+</script>
+</body>
+</html>

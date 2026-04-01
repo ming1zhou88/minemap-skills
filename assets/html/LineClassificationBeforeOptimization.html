@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+	<title>路网贴倾斜-优化前</title>
+	<link rel="stylesheet" href="https://minedata.cn/nce-static/support/demo/js-3d-ultra/zh/css/demo.css" />
+	<!-- 引入MineMap API插件 -->
+	<link rel="stylesheet" href="https://minemap.minedata.cn/minemapapi/v4.0.0/minemap.css" />
+	<script src="../../dist/minemap-dev.js"></script>
+
+	<style>
+		#map {
+			position: absolute;
+			top: 0;
+			bottom: 0;
+			width: 100%;
+			height: 100%;
+		}
+	</style>
+</head>
+
+<body>
+<div id="map"></div>
+<script>
+	/**
+	 * 全局参数设置
+	 */
+	minemap.domainUrl = 'https://minemap.minedata.cn';
+	minemap.dataDomainUrl = 'https://minemap.minedata.cn';
+	minemap.serverDomainUrl = 'https://sd-data.minedata.cn';
+	minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+	minemap.serviceUrl = 'https://service.minedata.cn/service';
+	window.minemapCDN = 'https://minemap.minedata.cn/minemapapi/minemap-CDN'; // minemapCDN 配置
+
+	minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+	minemap.solution = 11001;
+	// 定义空底图样式
+	var style = {
+		glyphs: "minemap://fonts/{fontstack}/{range}",
+		sprite: "minemap://sprite/sprite",
+		sources: {},
+		layers: [
+			{
+				id: "background",
+				type: "background",
+				source: "",
+				paint: {
+					"background-color": "#F9F5ED",
+				},
+			},
+		],
+		version: 8,
+	};
+
+	minemap.util.getJSON('https://service.minedata.cn/map/solu/style/1285894126959157248', function(err, data) {
+		const layers = [];
+		for(let i=0;i<data.layers.length;i++){
+			if(data.layers[i].type == "background" || data.layers[i].type == "line"){
+				layers.push(data.layers[i]);
+			}
+		}
+
+		data.layers = layers;
+
+
+		var map = new minemap.Map({
+			container: "map",
+
+			style: data,
+
+			"center": [120.37618100413485, 36.08727622472278],
+			zoom: 17,
+			pitch: 0,
+			classificationMinZoom: 4
+			// projection: minemap.ProjectionType.LATLON,
+			// projection: 'MERCATOR',
+		});
+
+		/**
+		 * 创建地图对象后，开始加载地图资源，地图资源加载完成后触发load事件
+		 */
+		map.on("load", () => {
+
+
+			// map.addSceneComponent({
+			// 	id: 'serve',
+			// 	type: "3d-tiles",
+			// 	url: "https://minemap.minedata.cn/earth_data/oblique/QD/tileset.json", // 要加载的数据
+			//
+			// 	minzoom: 1,
+			// 	maxzoom: 22,
+			// 	sourceLoaded: (config) => {
+			// 		console.log(config._geoCenters[0]);
+			// 	},
+			// });
+
+
+		});
+
+		map.on("click", onMouseClick);
+
+		function onMouseClick(e) {
+			var features = map.queryRenderedFeatures(e.point);
+
+			if (!features.length) {
+				return;
+			} else {
+				console.log(features);
+			}
+		}
+	})
+
+
+
+</script>
+</body>
+
+</html>

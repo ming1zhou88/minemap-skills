@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8"/>
+	<title>BIMAngle数据加载-3dtiles</title>
+	<!-- 引入MineMap API插件 -->
+	<link rel="stylesheet" href="../../dist/minemap.css"/>
+	<script src="../../dist/minemap-dev.js"></script>
+	<script src="../js/lil-gui.umd.min.js"></script>
+	<style>
+		html,
+		body,
+		#map {
+			margin: 0;
+			padding: 0;
+			width: 100%;
+			height: 100%;
+		}
+
+		.btns {
+			position: absolute;
+			top: 10px;
+			left: 10px;
+			z-index: 999;
+			background-color: rgba(255, 255, 255, 0.5);
+			padding: 10px;
+			border-radius: 5px;
+		}
+	</style>
+</head>
+
+<body>
+<div id="map"></div>
+<script>
+	minemap.domainUrl = "https://minedata.cn";
+	minemap.dataDomainUrl = "https://minedata.cn";
+	minemap.serverDomainUrl = "https://minedata.cn";
+	minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+	minemap.serviceUrl = "https://minedata.cn/service/";
+
+	minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+	minemap.solution = 11001;
+	window.minemapCDN = 'https://minedata.cn/minemapapi/minemap-CDN'; // minemapCDN 配置
+	// window.minemapCDN = "http://192.168.152.123/minemap-engine/minemap-CDN/"; // minemapCDN 配置 http://192.168.152.123/
+
+	// 定义空底图样式
+	var style = {
+		glyphs: "minemap://fonts/{fontstack}/{range}",
+		sprite: "minemap://sprite/sprite",
+		sources: {},
+		layers: [],
+		version: 8
+	};
+	/**
+	 * 初始化地图实例
+	 */
+
+	var map = new minemap.Map({
+		container: "map",
+		style: style,
+		position: [117.7925732416356, 38.98080556216896, 45.24971265431131],
+		pitch: 84.46903878642334,
+		bearing: -61.97811579990463,
+		maxZoom: 24 /*地图最大缩放等级*/,
+		minZoom: 1, /*地图最小缩放等级*/
+		// MSAASamples: 2,
+		logDepth: true
+	});
+
+	map.repaint = true;
+	map.enableLight();
+
+	map.on("load", function () {
+		/*添加栅格图*/
+		map.addSource("IMAGERY_SOURCE", {
+			"type": "raster",//数据源类型：栅格数据源
+			"tiles": ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+			"tileSize": 512,//瓦片尺寸
+		});
+
+		map.addLayer({
+			"id": "IMAGERY",
+			"type": "raster", //图层类型为"raster"
+			"source": "IMAGERY_SOURCE",
+			"minzoom": 1,
+			"maxzoom": 23,
+		});
+		const tileset = map.addSceneComponent({
+			id: "serve",
+			type: "3d-tiles",
+			show: true,
+			url: "../data/3dtiles/case-smart-port/tileset.json",
+			skipLevelOfDetail: false, //跨层调度
+			maximumScreenSpaceError: 8,
+			lightingModel: minemap.LightingModelType.PBR,
+			sourceLoaded: (tileset) => {
+
+			}
+		});
+		initializeGUI();
+		addWater();
+
+	});
+
+	const materialParams = {
+		depth: 1000,
+		reflectivity: 0.01,
+		flowSpeed: 1,
+		flowScale: 100
+	};
+
+	map.setSunLightTime({
+		year: 2024,
+		month: 6,
+		day: 6,
+		hours: 18,
+		minutes: 45,
+		seconds: 0,
+		castShadow: true,
+		intensity: 1,
+		autoRotate: true,
+		autoRotateSpeed: 5
+	})
+
+
+	function addWater() {
+		const geometry = new minemap.Geometries.PolygonGeometry({
+			polygonHierarchy: {
+				positions: minemap.Math.Vector3.fromDegreesArrayHeights([
+					117.77213277944162, 38.97730618155405, 1, 117.77179902170815, 38.9806250245736, 1, 117.78026153770965, 38.97769702350671, 1, 117.78059502639044, 38.97802239925972, 1, 117.7930580556115, 38.974605187602045, 1, 117.79393368128693, 38.97616690044834, 1, 117.79530915433072, 38.97567863747205, 1, 117.79435014112335, 38.97411693870173, 1, 117.7948919897372, 38.97395416774506, 1, 117.79643494360573, 38.977207743597866, 1, 117.79589304887413, 38.977240365088555, 1, 117.79560101291298, 38.97603651164708, 1, 117.79410045853864, 38.976394642583095, 1, 117.79460088462648, 38.977533390503325, 1, 117.79430916113134, 38.97789134193471, 1, 117.79489283751619, 38.97834678426035, 1, 117.79560141650634, 38.97802130892645, 1, 117.79606004867948, 38.97847676344971, 1, 117.78497250376083, 38.985733504649964, 1, 117.78580635347022, 38.98667702159899, 1, 117.77609215858257, 39.02097916831528, 1, 117.77019742313325, 39.023713149462765, 1, 117.76286860606268, 39.02520402402774, 1, 117.76398294050902, 39.0273170846229, 1, 117.77051517621014, 39.026696088962204, 1, 117.77497565434234, 39.0280634741307, 1, 117.76953471724586, 39.04726748581903, 1, 117.77144581262756, 39.04913330126393, 1, 117.78053223096005, 39.04540375204231, 1, 117.79823220117622, 38.9894640380826, 1, 117.809694125164, 38.97977106783983, 1, 117.83499986954105, 38.974921857036556, 1, 117.9065993794229, 38.9573682006488, 1, 117.88987205289105, 38.943960726234415, 1, 117.77123071097309, 38.97136796672325, 1, 117.74078352929043, 38.98129141628215, 1, 117.72880377955872, 38.98615354296482, 1, 117.72255034217217, 38.98919340168502, 1, 117.72202123614757, 38.992441089206345, 1, 117.72852816817006, 38.992446310371825, 1, 117.74805862857916, 38.98555900545923, 1, 117.75023565613937, 38.988268161179086, 1, 117.75370932425768, 38.98750036423401, 1, 117.75249498211976, 38.9833439640065, 1, 117.75550523778215, 38.982169627208776, 1, 117.75683545982977, 38.98664215524464, 1, 117.76106127224855, 38.98515147942517, 1, 117.76042536098007, 38.98031774614503, 1, 117.76366657658728, 38.97900781859555, 1, 117.76378179327467, 38.98424801689218, 1, 117.7685279172823, 38.9824410186488, 1, 117.76829651139404, 38.97778818422441, 1, 117.7722317584201, 38.9771556796054, 1
+				])
+			},
+			perPositionHeight: true,
+			arcType: minemap.ARCTYPE.GEODESIC
+		});
+
+		waterMaterial = new minemap.WaterMaterial({
+			normalMapA: minemap.TextureLoader.load({
+				map,
+				texUrl: "../data/image/Water_1_M_Normal.jpg",
+				minFilter: minemap.WebGLConstants.LINEAR,
+				magFilter: minemap.WebGLConstants.LINEAR
+			}),
+			normalMapB: minemap.TextureLoader.load({
+				map,
+				texUrl: "../data/image/Water_2_M_Normal.jpg",
+				minFilter: minemap.WebGLConstants.LINEAR,
+				magFilter: minemap.WebGLConstants.LINEAR
+			}),
+			flowMap: minemap.TextureLoader.load({
+				map,
+				texUrl: "../data/image/Water_1_M_Flow.jpg",
+				minFilter: minemap.WebGLConstants.LINEAR,
+				magFilter: minemap.WebGLConstants.LINEAR
+			}),
+			depth: materialParams.depth,
+			reflectivity: materialParams.reflectivity,
+			flowSpeed: materialParams.flowSpeed,
+			flowScale: materialParams.flowScale
+		});
+
+		const water = new minemap.Primitive({
+			geometry,
+			material: waterMaterial
+		});
+
+		map.addPrimitive(water);
+	}
+
+	const res = [];
+	map.on("click", function (e) {
+		res.push(e.lngLat.toArray());
+	});
+
+	function initializeGUI() {
+		const gui = new lil.GUI({width: 300});
+		const water = gui.addFolder("Water");
+		const ssr = gui.addFolder("SSR");
+
+		water.open();
+		water
+			.add(materialParams, "depth")
+			.min(0)
+			.max(5000)
+			.step(1)
+			.onChange((value) => {
+				waterMaterial.depth = value;
+			});
+		water
+			.add(materialParams, "reflectivity")
+			.min(0)
+			.max(1)
+			.step(0.01)
+			.onChange((value) => {
+				waterMaterial.reflectivity = value;
+			});
+		water
+			.add(materialParams, "flowSpeed")
+			.min(0)
+			.max(5)
+			.step(0.1)
+			.onChange((value) => {
+				waterMaterial.flowSpeed = value;
+			});
+		water
+			.add(materialParams, "flowScale")
+			.min(0)
+			.max(5)
+			.step(0.1)
+			.onChange((value) => {
+				waterMaterial.flowScale = value;
+			});
+
+		const params = {
+			ssrOpacity: 1.0,
+			ssrMaxDistance:20000,
+			ssrThickness: 0.018,
+			ssrDelta: 1.0,
+			ssrSigma: 2.0,
+			ssrStepSize: 1.0
+		};
+
+		ssr.add(params, "ssrOpacity", 0, 1, 0.01).onChange((v) => {
+			map.painter.ssrPass.ssrOpacity = v;
+		});
+
+		ssr.add(params, "ssrMaxDistance", 0, 20000, 1).onChange((v) => {
+			map.painter.ssrPass.ssrMaxDistance = v;
+		});
+		ssr.add(params, "ssrThickness", 0, 1, 0.01).onChange((v) => {
+			map.painter.ssrPass.ssrThickness = v;
+		});
+		ssr.add(params, "ssrDelta", 0, 4, 0.1).onChange((v) => {
+			map.painter.ssrPass.ssrDelta = v;
+		});
+		ssr.add(params, "ssrSigma", 0, 4, 0.1).onChange((v) => {
+			map.painter.ssrPass.ssrSigma = v;
+		});
+		ssr.add(params, "ssrStepSize", 1, 4, 0.1).onChange((v) => {
+			map.painter.ssrPass.ssrStepSize = v;
+		});
+	}
+</script>
+</body>
+
+</html>

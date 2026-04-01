@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>后处理-雨效果</title>
+    <link rel="stylesheet" href="../style/demo.css" />
+    <link rel="stylesheet" href="../../dist/minemap.css" />
+    <script src="../../dist/minemap-dev.js"></script>
+    <script src="../js/lil-gui.umd.min.js"></script>
+    <style>
+        #map { width: 100vw; height: 100vh; }
+    </style>
+</head>
+<body>
+<div id="map"></div>
+<script>
+    minemap.domainUrl = "https://minedata.cn";
+    minemap.dataDomainUrl = "https://minedata.cn";
+    minemap.serverDomainUrl = "https://minedata.cn";
+    minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+    minemap.serviceUrl = "https://minedata.cn/service/";
+    minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+    minemap.solution = 11001;
+    window.minemapCDN = "https://minedata.cn/minemapapi/minemap-CDN";
+
+    var style = {
+        glyphs: "minemap://fonts/{fontstack}/{range}",
+        sprite: "minemap://sprite/sprite",
+        sources: {},
+        layers: [],
+        version: 8
+    };
+
+    var map = new minemap.Map({
+        container: "map",
+        style: style,
+        position: [108.81984429167112, 34.68715050568903, 568.4670915089708],
+        bearing: -10,
+        pitch: 90, //地图俯仰角度
+        maxZoom: 22, //地图最大缩放等级
+        minZoom: 1 //地图最小缩放等级
+    });
+
+	map.repaint = true;
+
+    //设置地形数据
+    map.setTerrain({
+        tiles: ["https://staticdata-b.minedata.cn:14434/dem/{z}/{r}/{c}/{z}_{x}_{y}.terrain"], //瓦片服务地址
+        tileSize: 512, //瓦片大小
+        maxzoom: 14 //dem最高切分zoom，30米一般是14级；12.5米一般是16级
+    });
+
+	// 动态获取pitch并传递给后处理雨效果
+	let rainStage;
+	const rainParams = {
+		speed: 1.0,
+		density: 1.0,
+		brightness: 1.0
+	};
+
+	function addRainStage() {
+		rainStage = minemap.PostProcessStageLibrary.createRainStage({
+			pitch: map.getPitch() * Math.PI / 180,
+			speed: rainParams.speed,
+			density: rainParams.density,
+			brightness: rainParams.brightness
+		});
+		map.postProcessStages.add(rainStage);
+	}
+
+	function updateRainStage() {
+		if (rainStage) map.postProcessStages.remove(rainStage);
+		addRainStage();
+	}
+
+    map.on("load", function () {
+        /*添加栅格图*/
+        map.addSource("IMAGERY_SOURCE", {
+            type: "raster", //数据源类型：栅格数据源
+            tiles: ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+            tileSize: 512 //瓦片尺寸
+        });
+
+        map.addLayer({
+            id: "IMAGERY",
+            type: "raster", //图层类型为"raster"
+            source: "IMAGERY_SOURCE",
+            minzoom: 1,
+            maxzoom: 23,
+            paint: {
+                "raster-opacity": 1
+            }
+        });
+    });
+
+	initializeGUI();
+	map.on('pitch', updateRainStage);
+	map.on('load', updateRainStage);
+
+	function initializeGUI() {
+		const gui = new lil.GUI({ width: 300 });
+		const rainGUI = gui.addFolder("Rain");
+
+		rainGUI.open();
+		rainGUI.add(rainParams, "speed").min(0.1).max(5.0).step(0.1).onChange(updateRainStage);
+		rainGUI.add(rainParams, "density").min(0.1).max(5.0).step(0.1).onChange(updateRainStage);
+		rainGUI.add(rainParams, "brightness").min(0.1).max(2.0).step(0.1).onChange(updateRainStage);
+	}
+</script>
+</body>
+</html>

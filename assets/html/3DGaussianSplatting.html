@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<title>3d高斯泼溅渲染</title>
+	<!-- demo样式文件 -->
+	<link rel="stylesheet" href="https://minedata.cn/mine-support/assets/web/support-data/css/demo.css">
+	<!-- 引入MineMap API插件 -->
+	<link rel="stylesheet" href="../../dist/minemap.css">
+	<script src="../../dist/minemap-dev.js"></script>
+	<style>
+		#map {
+			width: 100%;
+			height: 100%;
+		}
+
+		.toolContainer {
+			position: absolute;
+			top: 0;
+			left: 0;
+			z-index: 999;
+		}
+	</style>
+</head>
+
+<body>
+<div id="map"></div>
+<script>
+	/**
+	 * 全局参数设置
+	 */
+	minemap.domainUrl = 'https://minedata.cn';
+	minemap.dataDomainUrl = 'https://minedata.cn';
+	minemap.serverDomainUrl = 'https://minedata.cn';
+	minemap.spriteUrl = 'https://minedata.cn/minemapapi/v3.2.0/sprite/sprite';
+	minemap.serviceUrl = 'https://mineservice.minedata.cn/service/';
+
+	minemap.key = '0c6ac62182404e5ebc7a789981f6db72';
+	minemap.solution = 11001;
+
+	// 定义空底图样式
+	var style = {
+		"glyphs": "minemap://fonts/{fontstack}/{range}",
+		"sprite": "minemap://sprite/sprite",
+		"sources": {},
+		"layers": [],
+		"version": 8
+	};
+	/**
+	 * 初始化地图实例
+	 */
+	var map = new minemap.Map({
+		container: 'map',
+		style: style, /*球面矢量底图样式*/
+		position: [116.37959879584338, 39.899262300772804, 46.110016304830765],
+		pitch: 80.68459720624259,
+		bearing: 21.638631270913116,
+		maxZoom: 10000, /*地图最大缩放等级*/
+		minZoom: 1,  /*地图最小缩放等级*/
+		projection: 'MERCATOR'
+	});
+	map.repaint = true;
+	map.on('load', function () {
+		/*添加DEM数字高程模型数据*/
+		map.addSource("3D_SOURCE", {
+			"type": "raster",//DEM的数据类型为"raster"
+			"tiles": ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+			"tileSize": 512,  //瓦片大小
+		});
+		map.addLayer({
+			"type": "raster",//DEM的图层类型为"raster"
+			"id": "3d-layer",
+			"source": "3D_SOURCE",
+			"minzoom": 1,
+			"maxzoom": 22,
+			"layout": {},
+			"depth-test": true
+		})
+	})
+	const gs = new minemap.GaussianSplatting({
+		data: "../data/splat/gs_Skull.splat",
+		id: "gauss",
+		position: [116.38, 39.9, 40],
+		rotation: [-29 / 180 * Math.PI, 0, 0],
+		scale: [10, 10, 10]
+	});
+
+	map.addSceneComponent(gs);
+</script>
+</body>

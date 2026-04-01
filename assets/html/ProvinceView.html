@@ -1,0 +1,393 @@
+<!-- 语言: html -->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+	<meta charset="UTF-8"/>
+	<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no"/>
+	<title>省份遮罩独立显示</title>
+
+	<!-- Minemap 核心样式 -->
+	<link rel="stylesheet" href="../../dist/minemap.css"/>
+
+	<style>
+		:root {
+			--ui-bg: rgba(255, 255, 255, 0.95);
+			--ui-border: #d0d5dd;
+			--ui-text: #1f2937;
+			--ui-muted: #6b7280;
+			--ui-accent: #3b83f1;
+		}
+
+		/* 基础布局 */
+		html, body {
+			height: 100%;
+			margin: 0;
+			font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue",
+			Arial, "Noto Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
+			color: var(--ui-text);
+			background: #ffffff;
+		}
+
+		/* 地图容器 */
+		#map {
+			position: relative;
+			width: 100%;
+			height: 100%;
+			overflow: hidden;
+		}
+
+		/* 紧凑方形的控制面板 */
+		.ui-panel {
+			position: absolute;
+			top: 16px;
+			right: 16px;
+			z-index: 1000;
+			display: flex;
+			align-items: center;
+			gap: 8px;
+			padding: 8px 10px;
+			background: var(--ui-bg);
+			border: 1px solid var(--ui-border);
+			border-radius: 2px; /* 避免过于圆润的边角 */
+		}
+
+		.ui-label {
+			font-size: 12px;
+			color: var(--ui-muted);
+			user-select: none;
+		}
+
+		.ui-select {
+			height: 28px;
+			min-width: 160px;
+			padding: 0 8px;
+			font-size: 13px;
+			color: var(--ui-text);
+			background: #fff;
+			border: 1px solid var(--ui-border);
+			border-radius: 2px; /* 保持方形外观 */
+			outline: none;
+		}
+
+		.ui-select:focus {
+			border-color: var(--ui-accent);
+			box-shadow: 0 0 0 2px rgba(59, 131, 241, 0.15);
+		}
+	</style>
+</head>
+
+<body>
+<div id="map" aria-label="地图">
+	<div class="ui-panel" role="region" aria-label="市区筛选">
+		<label class="ui-label" for="citySelector">市区</label>
+		<select id="citySelector" class="ui-select" aria-label="选择市区">
+			<option value="">选择市区</option>
+			<option value="武汉">武汉</option>
+		</select>
+
+		<!-- 新增遮罩与围墙开关 -->
+		<label style="display:flex;align-items:center;gap:6px;margin-left:8px;">
+			<input id="maskToggle" type="checkbox" checked/>
+			<span class="ui-label" style="margin:0">遮罩</span>
+		</label>
+		<label style="display:flex;align-items:center;gap:6px;margin-left:4px;">
+			<input id="wallToggle" type="checkbox" checked/>
+			<span class="ui-label" style="margin:0">围墙</span>
+		</label>
+	</div>
+</div>
+
+<!-- 依赖项（仅保留必要内容） -->
+<script src="../../dist/minemap-dev.js"></script>
+<script src="../data/geojson/provincePositions.js"></script>
+
+<script>
+	// ----- Minemap 配置 -----
+	minemap.domainUrl = 'https://minemap.minedata.cn';
+	minemap.dataDomainUrl = 'https://minemap.minedata.cn';
+	minemap.serverDomainUrl = 'https://sd-data.minedata.cn';
+	minemap.spriteUrl = 'https://minemap.minedata.cn/minemapapi/v4.0.0/sprite/sprite';
+	minemap.serviceUrl = 'https://service.minedata.cn/service';
+	minemap.key = 'fe68957c8e374122a807c146bacc794d';
+	minemap.solution = 11003;
+
+	// ----- 工具方法 -----
+	function processCoordinates(coords) {
+		if (!Array.isArray(coords) || coords.length === 0) return [];
+
+		// 已经是多边形环：[[lng,lat], ...]
+		if (Array.isArray(coords[0]) && Array.isArray(coords[0][0])) {
+			return coords[0];
+		}
+
+		// 将扁平数组 [lng1,lat1,lng2,lat2,...] 转换为环
+		if (Array.isArray(coords) && coords.length % 2 === 0) {
+			const result = [];
+			for (let i = 0; i < coords.length; i += 2) {
+				result.push([coords[i], coords[i + 1]]);
+			}
+			// 如有需要闭合多边形
+			const first = result[0], last = result[result.length - 1];
+			if (first && (first[0] !== last[0] || first[1] !== last[1])) {
+				result.push([first[0], first[1]]);
+			}
+			return result;
+		}
+
+		return [];
+	}
+
+	// ----- 新的状态变量 -----
+	let maskEnabled = true;
+	let wallEnabled = true;
+	let wallPrimitive = null;
+	const maskLayerIds = ['global_mask_layer', 'province_border', 'province_fill'];
+
+	// ----- 地图初始化 -----
+	const map = new minemap.Map({
+		container: 'map',
+		style: 'https://service.minedata.cn/map/solu/style/11003',
+		center: [112.322897, 30.983738],
+		zoom: 5,
+		pitch: 55,
+		bearing: 0,
+		maxZoom: 24,
+		minZoom: 1,
+		projection: 'MERCATOR',
+		logoControl: false,
+		OIT: true
+	});
+
+	map.repaint = true;
+
+	map.enableLight();
+
+	map.on('load', function () {
+		// 创建遮罩图层与省份图层（数据源与图层仅需创建一次）
+		createMaskLayer();
+		addHubeiLayers();
+
+		// 仅在 wallEnabled 为真时添加 3D 效果，add3DEffect 会读取该状态
+		add3DEffect();
+
+		// 初始化界面并绑定复选框
+		initUI();
+	});
+
+	// ----- 图层构建 -----
+	function createMaskLayer() {
+		const targetCoords = processCoordinates(typeof provincePositions !== 'undefined' ? provincePositions : []);
+		if (targetCoords.length === 0) return;
+
+		const worldRing = [[-180, -90], [180, -90], [180, 90], [-180, 90], [-180, -90]];
+
+		const maskData = {
+			type: 'Feature',
+			geometry: {
+				type: 'Polygon',
+				coordinates: [worldRing, targetCoords.slice().reverse()]
+			}
+		};
+
+		const provinceData = {
+			type: 'Feature',
+			geometry: {type: 'Polygon', coordinates: [targetCoords]}
+		};
+
+		map.addSource('global_mask', {type: 'geojson', data: maskData});
+		map.addSource('province_area', {type: 'geojson', data: provinceData});
+
+		map.addLayer({
+			id: 'global_mask_layer',
+			type: 'fill',
+			source: 'global_mask',
+			paint: {
+				'fill-color': '#000000',
+				'fill-opacity': 0.7
+			}
+		});
+
+		map.addLayer({
+			id: 'province_border',
+			type: 'line',
+			source: 'province_area',
+			paint: {
+				'line-color': '#ff0000',
+				'line-width': 2
+			},
+			classificationType: minemap.ClassificationType.FORCE_VECTOR_OVER_MODEL
+		});
+
+		map.addLayer({
+			id: 'province_fill',
+			type: 'fill',
+			source: 'province_area',
+			paint: {
+				'fill-color': '#ffc170',
+				'fill-opacity': 0.7
+			},
+			classificationType: minemap.ClassificationType.FORCE_VECTOR_OVER_MODEL
+		});
+
+		// 根据 maskEnabled 设置初始显隐（默认启用）
+		setMaskVisibility(maskEnabled);
+	}
+
+	// 控制遮罩图层显隐
+	function setMaskVisibility(show) {
+		maskEnabled = !!show;
+		maskLayerIds.forEach(id => {
+			if (map.getLayer && map.getLayer(id)) {
+				map.setLayoutProperty(id, 'visibility', show ? 'visible' : 'none');
+			}
+		});
+	}
+
+	function addHubeiLayers() {
+		map.addSource('hubei', {
+			type: 'geojson',
+			data: '../data/geojson/hubei.geojson',
+			promoteId: 'adcode'
+		});
+
+		// 在边界下方填充
+		map.addLayer({
+			id: 'hubei_layer',
+			type: 'fill',
+			source: 'hubei',
+			paint: {
+				'fill-color': '#3B83F1',
+				'fill-outline-color': '#02FCFC',
+				'fill-opacity': [
+					'case',
+					['boolean', ['feature-state', 'hover'], false],
+					0.7,
+					0.5
+				]
+			},
+			classificationType: minemap.ClassificationType.FORCE_VECTOR_OVER_MODEL
+		}); // 放在 province_fill 之前以确保遮罩位于下方
+
+		map.addLayer({
+			id: 'hubei_line',
+			type: 'line',
+			source: 'hubei',
+			paint: {
+				'line-color': '#02FCFC',
+				'line-width': 1.5
+			},
+			classificationType: minemap.ClassificationType.FORCE_VECTOR_OVER_MODEL
+		});
+
+		map.addLayer({
+			id: 'hubei_label',
+			type: 'symbol',
+			source: 'hubei',
+			layout: {
+				'text-field': '{name}',
+				'text-size': 12
+			},
+			paint: {'text-color': '#ffffff'},
+			classificationType: minemap.ClassificationType.FORCE_VECTOR_OVER_MODEL
+		});
+	}
+
+	function add3DEffect() {
+		// 仅在存在 provincePositions 且 wallEnabled 为真时创建围墙
+		if (!Array.isArray(provincePositions)) return;
+		if (!wallEnabled) return;
+		createWall();
+	}
+
+	// 创建 3D 围墙图元
+	function createWall() {
+		if (wallPrimitive) {
+			wallPrimitive.visible = true;
+			return;
+		}
+
+		// 统一坐标格式，可接受扁平数组 [lng,lat,...] 或嵌套数组 [[lng,lat],...]
+		let positionsArray = [];
+		if (Array.isArray(provincePositions) && provincePositions.length > 0) {
+			if (typeof provincePositions[0] === 'number') {
+				positionsArray = provincePositions;
+			} else if (Array.isArray(provincePositions[0])) {
+				for (let i = 0; i < provincePositions.length; i++) {
+					const p = provincePositions[i];
+					if (Array.isArray(p) && p.length >= 2) {
+						positionsArray.push(p[0], p[1]);
+					}
+				}
+			}
+		}
+
+		if (positionsArray.length === 0) {
+			console.warn('createWall: no valid provincePositions to build wall');
+			return;
+		}
+
+		const wallGeometry = minemap.Geometries.WallGeometry.fromConstantHeights({
+			positions: minemap.Math.Vector3.fromDegreesArray(positionsArray),
+			maximumHeight: 0,
+			minimumHeight: -20000
+		});
+
+		const material = minemap.StandardMaterial.fromType('Color', {
+			color: new minemap.Color(0.0, 0.0, 1.0, 0.7),
+			opacity: 0.7,
+			doubleSided: true
+		});
+
+		wallPrimitive = new minemap.Primitive({geometry: wallGeometry, material});
+		if (typeof map.addPrimitive === 'function') {
+			map.addPrimitive(wallPrimitive);
+		}
+	}
+
+	function removeWall() {
+		if (!wallPrimitive) return;
+		wallPrimitive.visible = false;
+	}
+
+	// ----- 界面交互 -----
+	function initUI() {
+		const cityCenters = {'武汉': [114.288543, 30.595426]};
+		const selector = document.getElementById('citySelector');
+
+		selector.addEventListener('change', function () {
+			const city = selector.value;
+			if (city && cityCenters[city]) {
+				map.flyTo({
+					center: cityCenters[city],
+					zoom: 10,
+					pitch: 60,
+					duration: 1200
+				});
+			}
+		});
+
+		// 绑定新增的开关
+		const maskToggle = document.getElementById('maskToggle');
+		const wallToggle = document.getElementById('wallToggle');
+
+		// 初始化勾选状态（默认两项均为勾选）
+		maskToggle.checked = !!maskEnabled;
+		wallToggle.checked = !!wallEnabled;
+
+		maskToggle.addEventListener('change', function () {
+			setMaskVisibility(maskToggle.checked);
+		});
+
+		wallToggle.addEventListener('change', function () {
+			if(wallToggle.checked) {
+				wallEnabled = true;
+				add3DEffect();
+			} else {
+				wallEnabled = false;
+				removeWall();
+			}
+		});
+	}
+</script>
+</body>
+</html>

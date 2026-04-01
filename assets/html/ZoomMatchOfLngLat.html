@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no"/>
+	<title>经纬度投影下zoom和设定值匹配</title>
+	<link rel="stylesheet" href="../style/demo.css">
+	<script src="https://minedata.cn/nce-static/support/demo/js-3d-ultra/zh/js/demo.js"></script>
+	<!-- 引入MineMap API插件 -->
+	<link rel="stylesheet" href="https://minedata.cn/minemapapi/v4.0.0/minemap.css">
+	<script src="../../dist/minemap-dev.js"></script>
+	<style>
+		#map {
+			width: 100%;
+			height: 100%;
+		}
+	</style>
+</head>
+<body>
+<div class="card-panel card-panel-top-right toolContainer">
+	<p style="font-size: 14px;line-height: 2;">当前zoom级别：<span id="zoomSpan">16</span></p>
+	<div class="card-title">地图加载时长测试：</div>
+	<div class="card-item" style="min-width: 215px;">
+		<p id="result-info1">1、页面加载完成总时长：</p>
+		<p>2、地图资源加载完成总时长：<span id="result-text2" style="color: red;">0</span> 秒</p>
+		<p>3、地图加载并渲染完成总时长：<span id="result-text3" style="color: red;">0</span> 秒</p>
+		<button onclick="mapSetPitch(60)" class="demo-btn">45</button>
+		<button onclick="mapSetPitch(60)" class="demo-btn">60</button>
+		<button onclick="mapSetPitch(70)" class="demo-btn">70</button>
+		<button onclick="mapSetPitch(75)" class="demo-btn">75</button>
+	</div>
+</div>
+<div id="map"></div>
+<script>
+	var performance = window.performance;
+	var start = performance ? performance.now() : new Date().getTime();
+
+	/**
+	 * 全局参数设置
+	 */
+	minemap.domainUrl = 'https://minedata.cn';
+	minemap.dataDomainUrl = 'https://minedata.cn';
+	minemap.serverDomainUrl = 'https://minedata.cn';
+	minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+	minemap.serviceUrl = 'http://10.52.0.132:8006/service';
+
+	minemap.key = '0c6ac62182404e5ebc7a789981f6db72';
+	minemap.solution = '1127898375952822272';
+
+	var map = new minemap.Map({
+		container: 'map',
+		style: 'http://10.52.0.132:8006/map/solu/style/1127898375952822272',
+		center: [116.40717, 39.90469],
+		zoom: 16,
+		pitch: 65,
+		maxZoom: 19,
+		minZoom: 3,
+		projection: 'LATLON'
+	});
+
+	/**
+	 * 地图加载完成
+	 * 创建地图对象后，开始加载地图资源，地图资源加载完成后触发load事件
+	 * 如果地图数据加载并渲染完成后，调用map.isStyleLoaded()会返回true，否则返回false；
+	 */
+	map.on('load', function () {
+		document.getElementById("zoomSpan").innerText = map.getZoom()
+		/* 地图数据加载并渲染完成验证逻辑示例： */
+		var t1 = performance ? performance.now() : new Date().getTime();
+		document.getElementById('result-text2').innerText = ((t1 - start) / 1000).toFixed(2);
+		var t = setInterval(function () {
+			//if (map && 其它业务判断) {
+			if (map && map.isStyleLoaded()) {
+				//加载成功后业务处理
+				clearInterval(t);
+				var t2 = performance ? performance.now() : new Date().getTime();
+				document.getElementById('result-text3').innerText = ((t2 - start) / 1000).toFixed(2);
+				message.success('地图数据加载完成！')
+			} else {
+				clearInterval(t);
+			}
+		}, 200);
+	});
+
+	if (performance) {
+		var t = performance.timing;
+		var t1 = ((t.loadEventEnd - t.navigationStart) / 1000).toFixed(2);
+		if (t1 < 0) t1 = 0;
+		document.getElementById('result-info1').innerHTML = '1、页面加载完成总时长：<span style="color: red;">' + t1 + '</span>秒';
+	} else {
+		document.getElementById('result-info1').innerHTML = '1、页面加载完成总时长：<span style="color: red;">浏览器不支持performance接口</span>';
+	}
+	//更新当前zoom级别
+	map.on("zoomend", function () {
+		document.getElementById("zoomSpan").innerText = map.getZoom()
+	})
+
+	map.on("click", function () {
+		document.getElementById("zoomSpan").innerText = map.getZoom()
+	})
+
+	function mapSetPitch(pitch) {
+		map.setPitch(pitch)
+	}
+</script>
+</body>

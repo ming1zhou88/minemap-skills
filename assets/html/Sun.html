@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+	<title>自定义太阳</title>
+	<link rel="stylesheet" href="https://minedata.cn/nce-static/support/demo/js-3d-ultra/zh/css/demo.css">
+	<!-- 引入MineMap API插件 -->
+	<link rel="stylesheet" href="../../dist/minemap.css">
+	<script src="../../dist/minemap-dev.js"></script>
+	<style>
+		#map {
+			width: 100%;
+			height: 100%;
+		}
+	</style>
+</head>
+
+<body>
+<div id="map"></div>
+<script>
+	/**
+	 * 全局参数设置
+	 */
+	minemap.domainUrl = "https://minedata.cn";
+	minemap.dataDomainUrl = "https://minedata.cn";
+	minemap.serverDomainUrl = "https://minedata.cn";
+	minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+	minemap.serviceUrl = "https://minedata.cn/service/";
+	minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+	minemap.solution = 11001;
+
+	// 定义空底图样式
+	var style = {
+		"glyphs": "minemap://fonts/{fontstack}/{range}",
+		"sprite": "minemap://sprite/sprite",
+		"sources": {},
+		"layers": [],
+		"version": 8
+	};
+	var map = new minemap.Map({
+		container: 'map',
+		style,
+		center: [116.46, 39.92],
+		zoom: 0.3,
+		pitch: 0,
+		maxZoom: 17,
+		minZoom: 1,
+		projection: 'MERCATOR',
+		earthSkinDepth: true // 开启效果球深度
+	});
+
+	map.repaint = true;
+	map.on('load', function () {
+		map.addSource("IMAGERY_SOURCE", {
+			"type": "raster",//数据源类型：栅格数据源
+			"tiles": ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+			"tileSize": 512,//瓦片尺寸
+		});
+
+		map.addLayer({
+			"id": "IMAGERY",
+			"type": "raster", //图层类型为"raster"
+			"source": "IMAGERY_SOURCE",
+			"minzoom": 3,
+			"maxzoom": 23,
+		});
+		const date = Date.parse('04 Oct 2024 18:12:00 GMT');
+		const sunLight = new minemap.SunLight(new minemap.Color(1,0.1,0.1,1.0), 1.0, date)
+		map.addLight(sunLight)
+		// 关掉大气中的太阳
+		map.style.sky.useSunDisk = false;
+		//创建和添加自定义太阳
+		const sunObject = new minemap.Sun({
+			url: '../image/sun.png',  // 太阳纹理图片路径
+			scale: 1  // 太阳缩放比例，默认1
+		});
+		map.addSceneComponent(sunObject);
+	})
+
+</script>
+</body>

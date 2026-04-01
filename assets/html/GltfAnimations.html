@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>gltf模型基础动画</title>
+    <!-- demo样式文件 -->
+    <link rel="stylesheet" href="../style/demo.css" />
+    <!-- 引入MineMap API插件 -->
+	<link rel="stylesheet" href="../../dist/minemap.css" />
+    <script src='../../dist/minemap-dev.js'></script>
+	<script src="../js/lil-gui.umd.min.js"></script>
+    <style>
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+    <script>
+        minemap.domainUrl = "https://minedata.cn";
+        minemap.dataDomainUrl = "https://minedata.cn";
+        minemap.serverDomainUrl = "https://minedata.cn";
+        minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+        minemap.serviceUrl = "https://minedata.cn/service/";
+        minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+        minemap.solution = 11001;
+        window.minemapCDN = "http://192.168.152.123/minemap-engine/minemap-CDN/"; // minemapCDN 配置 http://192.168.152.123/
+
+        // 定义空底图样式
+        var style = {
+            glyphs: "minemap://fonts/{fontstack}/{range}",
+            sprite: "minemap://sprite/sprite",
+            sources: {},
+            layers: [{
+                "id": "background",
+                "type": "background",
+                "source": "",
+                "paint": {
+                    "background-color": "green"
+                }
+            }],
+            version: 8
+        };
+
+        /**
+         * 初始化地图实例
+         */
+        var map = new minemap.Map({
+            container: "map",
+            style: style,
+            /*球面矢量底图样式*/
+            center: [120.24805053680504, 29.715212686272878],
+            /*地图中心点*/
+            bearing: 0,
+            zoom: 18.709730401815094,
+            /*地图默认缩放等级*/
+            // pitch: 70,
+            /*地图俯仰角度*/
+            maxZoom: 22,
+            /*地图最大缩放等级*/
+            minZoom: 1,
+            /*地图最小缩放等级*/
+            projection: "MERCATOR"
+        });
+        map.repaint = true;
+		map.enableLight();
+
+        map.on("load", function () {
+            map.addSource("IMAGERY_SOURCE", {
+                type: "raster", //数据源类型：栅格数据源
+                tiles: ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+				maxzoom: 15,
+                tileSize: 512 //瓦片尺寸
+            });
+
+            map.addLayer({
+                id: "IMAGERY",
+                type: "raster", //图层类型为"raster"
+                source: "IMAGERY_SOURCE",
+                minzoom: 1,
+                maxzoom: 23,
+                // "depth-test": true,
+                paint: {
+                    "raster-opacity": 1
+                }
+            });
+
+            addModel(modelOptions[0]);
+        })
+
+        const optionMode = ["Air", "Drone", "GroundVehicle"];
+        const modelOptions = [{
+            key: "Air",
+            url: "../data/Cesium_Air.glb",
+            height: 5,
+            range: 80
+        },{
+            key: "Drone",
+            url: "../data/uav.glb",
+            height: 0.5,
+            range: 20
+        },{
+            key: "GroundVehicle",
+            url: "../data/GroundVehicle.glb",
+            height: 0.5,
+            range: 40
+        }]
+
+        let lastIndex = 0;
+        function selectOperation(selectedIndex) {
+            removeModel(modelOptions[lastIndex].key);
+            addModel(modelOptions[selectedIndex]);
+            lastIndex = selectedIndex;
+        }
+
+        function removeModel(key) {
+            if (map.getSceneComponent(key)) {
+                map.removeSceneComponent(key);
+            }
+        }
+
+        function addModel(options) {
+            const model = map.addSceneComponent({
+                id: options.key,
+                type: "3d-model", // 数据类型为“3d-model”
+                data: options.url, // 动画无法加载
+                scale: [1, 1, 1], // 在xyz轴方向上的缩放比例
+                rotation: [90, 0, 0], // 绕xyz轴方向上的旋转，单位为度
+                position: new minemap.Math.Vector3(120.24805053680325, 29.715189931766076, options.height),
+                activeAnimation: true,
+				minimumPixelSize: 512, // 最小屏幕像素尺寸
+                loaded: function (sceneModel) {
+                    // 基础动画可能有多个，此处设置全部运行，如果不设置默认运行第一个
+                    model.currentAnimations = model.animationsName;
+                    // map.flyTo({
+                    //     target: sceneModel,
+                    //     bearing: 0,
+                    //     pitch: 0,
+                    //     duration: 2000,
+                    //     range: options.range
+                    // });
+                }
+            });
+        }
+
+		const gui = new lil.GUI();
+		const dropdown = gui.add({ "模型": "Air" }, '模型', ["Air", "Drone", "GroundVehicle"]);
+		dropdown.onChange(function (value) {
+			switch (value){
+				case "Air":
+					selectOperation(0);
+					break;
+				case "Drone":
+					selectOperation(1);
+					break;
+				case "GroundVehicle":
+					selectOperation(2);
+					break;
+			}
+		});
+
+	</script>
+</body>
+
+</html>

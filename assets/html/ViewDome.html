@@ -1,0 +1,378 @@
+<!--
+ * @Author: liwei
+ * @Date: 2023-09-08 14:08:15
+ * @LastEditTime: 2024-10-25 17:32:05
+ * @LastEditors: liwei
+ * @Description:
+ * @FilePath: \MineMap3DEngine\demo\html\ViewDome.html
+-->
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>开敞度分析</title>
+		<meta http-equiv="Access-Control-Allow-Origin" content="*" />
+		<meta charset="utf-8" />
+		<link rel="stylesheet" href="../../dist/minemap.css" />
+		<script src="../../dist/minemap-dev.js"></script>
+		<script type="text/javascript" src="../js/lil-gui.umd.min.js"></script>
+		<style>
+			html,
+			body,
+			#map {
+				margin: 0;
+				padding: 0;
+				width: 100%;
+				height: 100%;
+			}
+		</style>
+	</head>
+	<body>
+		<div id="map"></div>
+		<script>
+			/**
+			 * 全局参数设置
+			 */
+			minemap.domainUrl = "http://192.168.152.123";
+			minemap.dataDomainUrl = "https://minedata.cn";
+			minemap.serverDomainUrl = "https://minedata.cn";
+			minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+			minemap.serviceUrl = "https://minedata.cn/service/";
+			minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+			minemap.solution = 11001;
+			window.minemapCDN = "http://192.168.152.123//minemapapi/minemap-CDN";
+
+			var style = {
+				glyphs: "minemap://fonts/{fontstack}/{range}",
+				sprite: "minemap://sprite/sprite",
+				sources: {},
+				layers: [],
+				version: 8
+			};
+
+			var map = new minemap.Map({
+				container: "map",
+				style: style,
+				position: [108.96176717729324, 34.21318692858833, 492.1142982971649],
+				pitch: 50,
+				bearing: 0,
+				logDepth: true,
+				maxZoom: 22, //地图最大缩放级别限制
+				minZoom: 1 //地图最小缩放级别限制
+			});
+			map.repaint = true;
+
+			map.on("load", function () {
+				/*添加栅格图*/
+				map.addSource("raster1", {
+					type: "raster", //数据源类型：栅格数据源
+					tiles: ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"],
+					maxzoom: 16,
+					tileSize: 512 //瓦片尺寸
+				});
+
+				map.addLayer({
+					id: "raster1",
+					type: "raster", //图层类型为"raster"
+					source: "raster1",
+					minzoom: 1,
+					maxzoom: 23,
+					"depth-test": true
+				});
+
+				map.addSceneComponent({
+					id: "BIM_SOURCE", // 唯一标识
+					position: new minemap.Math.Vector3(108.965, 34.221, 1),
+					rotation: [90, 250, 0],
+					scale: [1, 1, 1],
+					type: "3d-model",
+					data: "http://192.168.152.123:11187/demo-data/bim/only-building.gltf",
+					modelFolder: "http://192.168.152.123:11187/demo-data/bim/"
+				});
+
+				initializeGUI();
+
+				setTimeout(() => {
+					createByParameter();
+				}, 2000);
+			});
+
+			/**
+			 * 接口及使用示例
+			 *
+			 * 添加开敞度分析对象：
+			 * var viewDome = new minemap.ViewDome({
+			 * 		viewPosition: new minemap.Math.Vector3(120,30,10),
+			 * 		radius: 100,
+			 * 		domeType: minemap.ViewDomeType.ALL_DOME,
+			 * 		visible: true,
+			 * 		visibleAreaColor: new minemap.Color(0.0, 1.0, 0.0, 1.0),
+			 * 		hiddenAreaColor: new minemap.Color(1.0, 0.0, 0.0, 1.0),
+			 * 		startAngle: 0,
+			 * 		endAngle: 360,
+			 * 		isClosed: false,
+			 * 		sholdCalculateVisibleRatio: true,
+			 * 		ratioCalculated: (value) => {
+			 * 			 const info = "当前开敞度的可是比例为:" + value + "%");
+			 * 		},
+			 * 		indicatorVisible: true,
+			 * 		indicatorSize: 10,
+			 * 		indicatorColor: new minemap.Color(0.0, 1.0, 0.0, 1.0),
+			 * 		indicatorOutlineColor: new minemap.Color(0.0, 0.0, 0.0, 0.0),
+			 * 		indicatorOutlineWidth: 0
+			 * });
+			 * map.analysis.viewDomeCollection.add(sigviewDomehtline);
+			 *
+			 * 根据id获取开敞度分析对象：
+			 * const viewDome = map.analysis.viewDomeCollection.getById(id);
+			 *
+			 * 根据索引获取开敞度分析：
+			 * const viewDome = map.analysis.viewDomeCollection.getByIndex(0);
+			 *
+			 * 获取开敞度分析对象的索引值
+			 * const index = map.analysis.viewDomeCollection.indexOf(viewDome);
+			 *
+			 * 移除开敞度分析对象
+			 * map.analysis.viewDomeCollection.remove(viewDome);
+			 *
+			 * 根据id移除开敞度分析对象
+			 * const isRemoved = map.analysis.viewDomeCollection.removeById(id);
+			 *
+			 * 根据索引值移除开敞度分析对象
+			 * const isRemoved = map.analysis.viewDomeCollection.removeByIndex(0);
+			 *
+			 * 移除所有开敞度分析对象
+			 * map.analysis.viewDomeCollection.removeAll();
+			 */
+			let viewDome;
+			let viewDomeType = minemap.ViewDomeType.ALL_DOME;
+			let addNewViewDome = false;
+			let billboardPrimitive;
+			let billboardPrimitiveCollection = [];
+			const params = {
+				高度: 2,
+				半径: 100,
+				起始角度: 0,
+				终止角度: 360,
+				可见区域颜色: "#00FF00",
+				隐藏区域颜色: "#FF0000",
+				显示类型: "全部显示",
+				是否封口: true,
+				是否显示: true,
+				是否添加指示器: true,
+				参数化创建: createByParameter,
+				点击添加: addViewDome,
+				移除: remove,
+				移除所有: removeAll
+			};
+			function initializeGUI() {
+				const gui = new lil.GUI({ title: "开敞度分析", width: 300 });
+				gui.onChange((event) => {
+					params[event.property] = event.value;
+				});
+
+				const paramsFolder = gui.addFolder("参数设置");
+				paramsFolder.open();
+				paramsFolder
+					.add(params, "高度", 1, 1000, 1)
+					.onChange((value) => {
+						if (viewDome) {
+							viewDome.viewPosition = new minemap.Math.Vector3(
+								viewDome.viewPosition.x,
+								viewDome.viewPosition.y,
+								params.高度
+							);
+						}
+					})
+					.listen();
+
+				paramsFolder.add(params, "半径", 1, 1000, 1).onChange((value) => {
+					if (viewDome) {
+						viewDome.radius = value;
+					}
+				});
+
+				paramsFolder.add(params, "起始角度", 0, 359, 1).onChange((value) => {
+					const endValue = params.终止角度;
+					const startValue = value > endValue ? endValue - 1 : value;
+					viewDome.startAngle = startValue;
+				});
+
+				paramsFolder.add(params, "终止角度", 1, 360, 1).onChange((value) => {
+					const startValue = params.起始角度;
+					const endValue = value > startValue ? value : startValue + 1;
+					viewDome.endAngle = endValue;
+				});
+
+				paramsFolder.addColor(params, "可见区域颜色").onChange((value) => {
+					const visibleColor = minemap.Color.parse(value);
+					visibleColor.a = 0.3;
+					viewDome.visibleAreaColor = visibleColor;
+				});
+
+				paramsFolder.addColor(params, "隐藏区域颜色").onChange((value) => {
+					const hiddenColor = minemap.Color.parse(value);
+					hiddenColor.a = 0.3;
+					viewDome.hiddenAreaColor = hiddenColor;
+				});
+
+				paramsFolder
+					.add(params, "显示类型")
+					.options(["可见部分", "不可见部分", "全部显示"])
+					.onChange(function (value) {
+						let selectType;
+						switch (value) {
+							case "可见部分":
+								selectType = minemap.ViewDomeType.VISIBLE_DOME;
+								break;
+							case "不可见部分":
+								selectType = minemap.ViewDomeType.HIDDEN_DOME;
+								break;
+							default:
+								selectType = minemap.ViewDomeType.ALL_DOME;
+						}
+
+						if (viewDome) {
+							viewDome.domeType = selectType;
+						}
+						viewDomeType = selectType;
+					});
+
+				paramsFolder.add(params, "是否封口").onChange((value) => {
+					if (viewDome) {
+						viewDome.isClosed = value;
+					}
+				});
+				paramsFolder.add(params, "是否显示").onChange((value) => {
+					if (viewDome) {
+						viewDome.visible = value;
+					}
+				});
+				paramsFolder.add(params, "是否添加指示器").onChange((value) => {
+					if (viewDome) {
+						viewDome.indicatorVisible = value;
+					}
+				});
+
+				const drawFolder = gui.addFolder("绘制");
+				drawFolder.open();
+
+				drawFolder.add(params, "参数化创建");
+				drawFolder.add(params, "点击添加");
+				drawFolder.add(params, "移除");
+				drawFolder.add(params, "移除所有");
+			}
+
+			function addViewDome(viewDome) {
+				addNewViewDome = true;
+			}
+
+			function remove(origionPoint) {
+				map.analysis.viewDomeCollection.remove(viewDome);
+				map.removePrimitive(billboardPrimitive);
+			}
+
+			function removeAll(origionPoint) {
+				map.analysis.viewDomeCollection.removeAll();
+				for (let i = 0; i < billboardPrimitiveCollection.length; i++) {
+					map.removePrimitive(billboardPrimitiveCollection[i--]);
+					billboardPrimitiveCollection = [];
+				}
+			}
+
+			function addBillboard(position, ratio) {
+				const canvas = document.createElement("canvas");
+				const width = 400;
+				const height = 80;
+				canvas.style.width = width + "px";
+				canvas.style.height = height + "px";
+				canvas.width = 400;
+				canvas.height = 80;
+				const context = canvas.getContext("2d");
+				// 用渐变填色
+				context.fillStyle = "white";
+				context.font = "40px Arial";
+				context.fillText("可见比例为：" + ratio.toFixed(2) + "%", 10, 40);
+				if (billboardPrimitive !== undefined) {
+					map.removePrimitive(billboardPrimitive);
+					billboardPrimitiveCollection.splice(billboardPrimitiveCollection.length - 1, 1);
+					billboardPrimitive = undefined;
+				}
+
+				const material = new minemap.BillboardMaterial({
+					position: position,
+					scale: [100, 10, 10],
+					center: new minemap.Math.Vector2(0.5, 1),
+					rotation: 0, // 弧度
+					image: canvas
+				});
+				billboardPrimitive = new minemap.Primitive({
+					geometry: new minemap.Geometries.BillboardGeometry({}),
+					material
+				});
+				map.addPrimitive(billboardPrimitive);
+				billboardPrimitiveCollection.push(billboardPrimitive);
+			}
+
+			function createByParameter() {
+				const alpha = 0.3;
+				const visibleColor = minemap.Color.parse(params.可见区域颜色);
+				visibleColor.a = alpha;
+				const hiddenColor = minemap.Color.parse(params.隐藏区域颜色);
+				hiddenColor.a = alpha;
+				const center = map.getCenter();
+				const radius = parseFloat(params.半径);
+				viewDome = new minemap.ViewDome({
+					viewPosition: new minemap.Math.Vector3(center.lng, center.lat, parseFloat(params.高度)),
+					startAngle: parseFloat(params.起始角度), // 起始角度
+					endAngle: parseFloat(params.终止角度), // 终止角度
+					radius, // 开敞度半径，即最远距离
+					domeType: viewDomeType, // 显示类型
+					visibleAreaColor: visibleColor,
+					hiddenAreaColor: hiddenColor,
+					isClosed: params.是否封口, // 默认为不闭合
+					ratioCalculated: (value) => {
+						addBillboard([center.lng, center.lat, radius * 1.2], value * 100);
+					},
+					indicatorVisible: params.是否添加指示器
+				});
+				map.analysis.viewDomeCollection.add(viewDome);
+			}
+
+			map.on("click", function (e) {
+				if (addNewViewDome) {
+					billboardPrimitive = undefined;
+					const point = map.getPositionByGPUPick(e.point);
+					const instance = map.getFeatureByGPUPick(e.point);
+					params.高度 = point.z;
+
+					const alpha = 0.4;
+					const visibleColor = minemap.Color.parse(params.可见区域颜色);
+					visibleColor.a = alpha;
+					const hiddenColor = minemap.Color.parse(params.隐藏区域颜色);
+					hiddenColor.a = alpha;
+
+					const radius = parseFloat(params.半径);
+					viewDome = new minemap.ViewDome({
+						viewPosition: point,
+						startAngle: parseFloat(params.起始角度), // 起始角度
+						endAngle: parseFloat(params.终止角度), // 终止角度
+						radius, // 开敞度半径，即最远距离
+						domeType: viewDomeType, // 显示类型
+						visibleAreaColor: visibleColor,
+						hiddenAreaColor: hiddenColor,
+						isClosed: params.是否封口, // 默认为不闭合
+						ratioCalculated: (value) => {
+							addBillboard(
+								[point.x, point.y, parseFloat(params.高度) + parseFloat(params.半径) * 1.2],
+								value * 100
+							);
+						},
+						indicatorVisible: params.是否添加指示器
+					});
+					map.analysis.viewDomeCollection.add(viewDome);
+					addNewViewDome = false;
+				}
+			});
+		</script>
+	</body>
+</html>

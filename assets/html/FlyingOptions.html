@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+	<title>地图的飞行</title>
+	<link rel="stylesheet" href="../style/demo.css">
+	<!-- 引入MineMap API插件 -->
+	<link rel="stylesheet" href="../../dist/minemap.css">
+	<script src="../../dist/minemap-dev.js"></script>
+	<style>
+		html,
+		body,
+		#map {
+			margin: 0;
+			padding: 0;
+			width: 100%;
+			height: 100%;
+		}
+	</style>
+</head>
+
+<body>
+	<div class="card-panel card-panel-top-right toolContainer">
+		<div>
+			<h4>按Zoom和Center飞行
+				<div class="card-btn-group">
+					<button onclick="jumpZoomAndCenter()" class="demo-btn">jumpTo方法飞行示例</button>
+				</div>
+				<div class="card-btn-group">
+					<button onclick="flyZoomAndCenter()" class="demo-btn">flyTo方法飞行示例</button>
+				</div>
+				<div class="card-btn-group">
+					<button onclick="easeZoomAndCenter()" class="demo-btn">easeTo方法飞行示例</button>
+				</div>
+				<h4>飞行到目标Target</h4>
+				<div class="card-btn-group">
+					<button onclick="jumpToTarget()" class="demo-btn">jumpTo方法飞行示例</button>
+				</div>
+				<div class="card-btn-group">
+					<button onclick="flyToTarget()" class="demo-btn">flyTo方法飞行示例</button>
+				</div>
+				<div class="card-btn-group">
+					<button onclick="easeToTarget()" class="demo-btn">easeTo方法飞行示例</button>
+				</div>
+				<div class="card-btn-group">
+					<button onclick="flyToTargetOfPrimitive()" class="demo-btn">flyTo飞向Primitive</button>
+				</div>
+				<div class="card-btn-group">
+					<button onclick="flyToTargetOfBoundingVolume()" class="demo-btn">flyTo飞向BoundingVolume</button>
+				</div>
+				<div class="card-btn-group">
+					<button onclick="flyToTargetOfSceneModel()" class="demo-btn">flyTo飞向gltf模型</button>
+				</div>
+				<div class="card-btn-group">
+					<button onclick="flyToTargetOfModelInstanceCollection()" class="demo-btn">flyTo飞向实例化模型集</button>
+				</div>
+				<div class="card-btn-group">
+					<button onclick="flyToTargetOfModelInstance()" class="demo-btn">flyTo飞向实例化模型</button>
+				</div>
+				<div class="card-btn-group">
+					<button onclick="flyToTargetOfTileset()" class="demo-btn">flyTo飞向3d-tiles模型</button>
+				</div>
+				<h4>fitBounds飞行</h4>
+				<div class="card-btn-group">
+					<button onclick="fitBoundsToBBox()" class="demo-btn">fitBounds飞向BBox</button>
+				</div>
+			</h4>
+		</div>
+	</div>
+	<div id="map"></div>
+	<script>
+		minemap.domainUrl = 'https://minemap.minedata.cn';
+		minemap.dataDomainUrl = 'https://minemap.minedata.cn';
+		minemap.serverDomainUrl = 'https://sd-data.minedata.cn';
+		minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+		minemap.serviceUrl = 'https://service.minedata.cn/service';
+		window.minemapCDN = "http://192.168.152.123//minemapapi/minemap-CDN";
+		minemap.key = '0c6ac62182404e5ebc7a789981f6db72';
+		minemap.solution = 11001;
+
+		// 定义空底图样式
+		var style = {
+			glyphs: "minemap://fonts/{fontstack}/{range}",
+			sprite: "minemap://sprite/sprite",
+			sources: {},
+			layers: [],
+			version: 8
+		};
+
+		/**
+		 * 初始化地图实例
+		 */
+		var map = new minemap.Map({
+			container: 'map',
+			// style: 'https://service.minedata.cn/map/solu/style/11001',
+			style: style,
+			center: [116.46, 39.92],
+			zoom: 14,
+			pitch: 0,
+			maxZoom: 17,
+			minZoom: 3,
+			projection: 'MERCATOR',
+			minHeightToDemSurface: 1 // 设置碰撞检测距离阈值，默认为5m，支持自行定义
+		});
+
+		map.on("load", function () {
+			/*添加栅格图*/
+			map.addSource("IMAGERY_SOURCE", {
+				type: "raster", //数据源类型：栅格数据源
+				tiles: ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+				tileSize: 512 //瓦片尺寸
+			});
+
+			map.addLayer({
+				id: "IMAGERY",
+				type: "raster", //图层类型为"raster"
+				source: "IMAGERY_SOURCE",
+				minzoom: 1,
+				maxzoom: 23,
+				// "depth-test": true,
+				paint: {
+					"raster-opacity": 1
+				}
+			});
+
+			// 添加DEM
+			// map.setTerrain({
+			// 	"tiles": ["https://staticdata-b.minedata.cn:14434/dem/{z}/{r}/{c}/{z}_{x}_{y}.terrain"], //瓦片服务地址
+			// 	"tileSize": 512,  //瓦片大小
+			// 	"maxzoom": 14        //dem最高切分zoom，30米一般是14级；12.5米一般是16级
+			// 	// bounds: [130, 60, 140, 70],//要显示区域的经纬度外包框，按west，south，east，north填写
+			// });
+
+			// target为GLTF模型时的飞行操作，一种通过addSceneComponent方法添加的方式, 一种通过addSource/addLayer方法添加的方式
+			// 添加GLTF，4.0版本推荐
+			map.addSceneComponent({
+				id: "interior",
+				type: "3d-model",
+				data: "../data/buildings/interior/scene.gltf", // 要加载的gltf格式数据
+				modelFolder: "../data/buildings/interior/", // 该数据引用图片等资源的文件夹路径
+				scale: [0.4, 0.5, 0.4], // 在xyz轴方向上的缩放比例
+				rotation: [90, 90, 0], // 绕xyz轴方向上的旋转，单位为度
+				position: [116.5236, 40.2561, 50], // 锚点（模型局部坐标原点）的经纬度位置
+				allowPick: true, // 碰撞检测需要开启拾取
+				loaded: (model) => {
+					// map.flyTo({
+					// 	target: model,
+					// 	bearing: 0,
+					// 	pitch: 0,
+					// 	duration: 2000,
+					// 	range: 1000
+					// });
+				}
+			});
+
+			// 不再推荐使用的方式
+			// map.addSource("interior", {
+			// 	"type": "3d-model", // 数据类型为“3d-model”
+			// 	"data": "../data/buildings/interior/scene.gltf", // 要加载的gltf格式数据
+			// 	"modelFolder": "../data/buildings/interior/", // 该数据引用图片等资源的文件夹路径
+			// 	"scale": [0.4, 0.5, 0.4],// 在xyz轴方向上的缩放比例
+			// 	"rotation": [0, 90, 0],// 绕xyz轴方向上的旋转，单位为度
+			// 	"location": [116.5236, 40.2561, 100]// 锚点（模型局部坐标原点）的经纬度位置
+			// });
+
+			// map.addLayer({
+			// 	"type": "3d-model",//图层类型为"3d-model"
+			// 	"id": "interior",
+			// 	"source": "interior"
+			// })
+
+
+			// target为tileset模型时的飞行操作，一种通过addSceneComponent方法添加的方式, 一种通过addSource/addLayer方法添加的方式
+			// 添加3d-tiles，4.0版本推荐
+			map.addSceneComponent({
+				id: "tianhe",
+				type: "3d-tiles",
+				show: true,
+				translation: new minemap.Math.Vector3(0, 0, 0), //在enu坐标系下的位置移动距离，顺序为[east, north, height]，单位为m，并且只用于3dtiles图层
+				// url: "../data/天河科技园/tileset.json",
+				url: "https://minemap.minedata.cn/earth_data/oblique/QD/tileset.json",
+				skipLevelOfDetail: false, //跨层调度
+				maximumScreenSpaceError: 8,
+				sourceLoaded: (tileset) => {
+					console.log(tileset._geoCenters[0])
+				},
+			});
+
+			// 不再推荐使用的方式
+			// map.addSource("tianhe", {
+			// 	"type": "3d-tiles",
+			// 	"url": "../data/天河科技园/tileset.json",
+			// 	"skipLevelOfDetail": false, //跨层调度
+			// 	"translation": [0, 0, 0], // [x, y, z]，当z如果设置的值低于地面时，会存在模型漂移的情况
+			// 	"sourceLoaded": (e) => { // 3dTile加载完成的回调(这个示例是打印3dTiles的所在位置)
+			// 	}
+			// })
+
+			// map.addLayer({
+			// 	"type": "3d-tiles",
+			// 	"id": "tianhe",
+			// 	"source": "tianhe",
+			// });
+
+			let positions = [];
+			let rotations = [];
+			let scales = [];
+			let instanceNames = [];
+			let colors = [];
+			let shows = [];
+			let index = 0;
+			const centerLongitude = 112.96968033433086;
+			const centerLatitude = 28.091158070186673;
+			const height = 0.0;
+			const count = 10;
+			let spacing = 0.0005;
+			const gridSize = Math.sqrt(count);
+			for (let y = 0; y < gridSize; ++y) {
+				for (let x = 0; x < gridSize; ++x) {
+					const longitude = centerLongitude + spacing * (x - gridSize / 2);
+					const latitude = centerLatitude + spacing * (y - gridSize / 2);
+					positions.push(new minemap.Math.Vector3([longitude, latitude, height]));
+					scales.push(new minemap.Math.Vector3([10, 10, 10]));
+					rotations.push(minemap.Math.HeadingPitchRoll.fromDegrees(0, 0, 90));
+					instanceNames.push("treeGltf" + index);
+					colors.push(new minemap.Color(0, 0, 0, 0));
+					shows.push(true);
+					index++;
+				}
+			}
+			map.addSceneComponent({
+				id: "treeGltf",
+				positions: positions,
+				rotations: rotations,
+				scales: scales,
+				instanceNames: instanceNames,
+				colors: colors,
+				shows: shows,
+				type: "3d-model",
+				data: "../data/shu-max-003/shu13_new.glb",
+				modelFolder: "../data/shu-max-003/",
+				minimumPixelSize: 128
+			});
+		});
+
+		const cartographicForGreen = new minemap.Math.Vector3([116.244, 40.072, 100]);
+		const matrixForGreen = minemap.Transforms.cartographicToFixedFrame(cartographicForGreen);
+
+		const rotX = new minemap.Math.Matrix4().rotateX(Math.PI / 2);
+		matrixForGreen.multiplyRight(rotX);
+
+		const greenBoxGeometry = new minemap.Geometries.BoxGeometry({
+			width: 100,
+			height: 100,
+			depth: 100
+		});
+
+		const targetPrimitive = new minemap.Primitive({
+			modelMatrix: matrixForGreen,
+			geometry: greenBoxGeometry,
+			material: minemap.StandardMaterial.fromType("Color", {
+				color: "green",
+				opacity: 1,
+				doubleSided: false
+			})
+		});
+		map.addPrimitive(targetPrimitive);
+
+		//第二个目标
+
+		const matrixForRed = minemap.Transforms.cartographicToFixedFrame(new minemap.Math.Vector3([116.344, 40.072, 100]));
+		matrixForRed.multiplyRight(rotX);
+
+		const redBoxGeometry = new minemap.Geometries.BoxGeometry({
+			width: 1000,
+			height: 100,
+			depth: 100
+		});
+
+		const redPrimitive = new minemap.Primitive({
+			modelMatrix: matrixForRed,
+			geometry: redBoxGeometry,
+			material: minemap.StandardMaterial.fromType("Color", {
+				color: "red",
+				opacity: 1,
+				doubleSided: false
+			})
+		});
+
+		map.addPrimitive(redPrimitive);
+
+		let coordinate = [116.46, 39.92, 100000];
+		function jumpZoomAndCenter() {
+			/**
+			 * jumpTo方法，采用立即变换的形式进行中心点、缩放级别、旋转角、倾角的改变
+			 *
+			 * 参数项说明：
+			 * center：表示飞行结束后的地图中心坐标值；
+			 * zoom：表示飞行结束后的地图缩放等级；
+			 * bearing：表示飞行结束后的地图旋转等级；
+			 * pitch：表示飞行结束后的地图倾斜等级；
+			 * roll：表示飞行结束后的地图横滚等级；
+			 * duration：表示飞行时长，单位为毫秒；
+			 */
+			map.jumpTo({
+				pitch: 30,
+				roll: 0,
+			});
+		}
+
+		function flyZoomAndCenter() {
+			/**
+			 * flyTo方法，在一个弧线上采用动画的形式进行中心点、缩放级别、旋转角、倾角的改变
+			 *
+			 * 参数项说明：
+			 * center：表示飞行结束后的地图中心坐标值；
+			 * zoom：表示飞行结束后的地图缩放等级；
+			 * bearing：表示飞行结束后的地图旋转等级；
+			 * pitch：表示飞行结束后的地图倾斜等级；
+			 * roll：表示飞行结束后的地图横滚等级；
+			 * duration：表示飞行时长，单位为毫秒；
+			 */
+			map.flyTo({
+				center: [coordinate[0] + (Math.random() - 0.5) * 0.2,
+				coordinate[1] + (Math.random() - 0.5) * 0.2],
+				zoom: 14,
+				bearing: 10,
+				pitch: 30,
+				roll: 0,
+				duration: 2000
+			});
+		}
+
+		function easeZoomAndCenter() {
+			/**
+			 * easeTo方法，以bezier曲线的方式采用动画的形式进行中心点、缩放级别、旋转角、倾角的改变
+			 *
+			 * 参数项说明：
+			 * center：表示飞行结束后的地图中心坐标值；
+			 * zoom：表示飞行结束后的地图缩放等级；
+			 * bearing：表示飞行结束后的地图旋转等级；
+			 * pitch：表示飞行结束后的地图倾斜等级；
+			 * roll：表示飞行结束后的地图横滚等级；
+			 * duration：表示飞行时长，单位为毫秒；
+			 */
+
+			map.easeTo({
+				center: [coordinate[0] + (Math.random() - 0.5) * 0.3,
+				coordinate[1] + (Math.random() - 0.5) * 0.3],
+				zoom: 14,
+				bearing: 0,
+				pitch: 60,
+				roll: 0,
+				duration: 2000
+			});
+		}
+
+		function jumpToTarget() {
+			/**
+			 * jumpTo方法，采用飞行到指定目标的形式进行中心点、高度、旋转角、倾角的改变
+			 *
+			 * 参数项说明：
+			 * target: 表示要飞行的终点目标；
+			 * bearing：表示飞行结束后的地图旋转等级；
+			 * pitch：表示飞行结束后的地图倾斜等级；
+			 * roll：表示飞行结束后的地图横滚等级；
+			 * duration：表示飞行时长，单位为毫秒；
+			 */
+
+			map.jumpTo({
+				target: [coordinate[0] + (Math.random() - 0.5) * 0.3,
+				coordinate[1] + (Math.random() - 0.5) * 0.3,
+				coordinate[2] + (Math.random() - 0.5) * 1000],
+				pitch: 0,
+				roll: 0,
+				range: 1000
+			});
+		}
+
+		function flyToTarget() {
+			/**
+			 * flyTo方法，采用飞行到指定目标的形式进行中心点、高度、旋转角、倾角的改变
+			 *
+			 * 参数项说明：
+			 * target: 表示要飞行的终点目标；
+			 * bearing：表示飞行结束后的地图旋转等级；
+			 * pitch：表示飞行结束后的地图倾斜等级；
+			 * roll：表示飞行结束后的地图横滚等级；
+			 * duration：表示飞行时长，单位为毫秒；
+			 */
+
+			map.flyTo({
+				target: [coordinate[0] + (Math.random() - 0.5) * 0.3,
+				coordinate[1] + (Math.random() - 0.5) * 0.3,
+				coordinate[2] + (Math.random() - 0.5) * 1000],
+				bearing: 10,
+				pitch: 30,
+				roll: 0,
+				duration: 5000,
+				range: 1000
+			});
+		}
+
+		function easeToTarget() {
+			/**
+			 * easeTo方法，采用飞行到指定目标的形式进行中心点、高度、旋转角、倾角的改变
+			 *
+			 * 参数项说明：
+			 * target: 表示要飞行的终点目标；
+			 * bearing：表示飞行结束后的地图旋转等级；
+			 * pitch：表示飞行结束后的地图倾斜等级；
+			 * roll：表示飞行结束后的地图横滚等级；
+			 * duration：表示飞行时长，单位为毫秒；
+			 */
+
+			map.easeTo({
+				target: [coordinate[0] + (Math.random() - 0.5) * 0.3,
+				coordinate[1] + (Math.random() - 0.5) * 0.3,
+				coordinate[2] + (Math.random() - 0.5) * 1000],
+				bearing: 10,
+				pitch: 20,
+				roll: 0,
+				duration: 2000,
+				range: 1000
+			});
+		}
+
+		function flyToTargetOfPrimitive() {
+			/**
+			 * flyTo方法，采用飞行到指定目标的形式进行中心点、高度、旋转角、倾角的改变
+			 *
+			 * 参数项说明：
+			 * target: 表示要飞行的终点目标，可以是Array数组，用[lng,lat,height]标示，可以是Primitive对象，可以是BoundingSphere、OrientedBoundingBox、AxisAlignedBoundingBox；
+			 * bearing：表示飞行结束后的地图旋转等级；
+			 * pitch：表示飞行结束后的地图倾斜等级；
+			 * roll：表示飞行结束后的地图横滚等级；
+			 * duration：表示飞行时长，单位为毫秒；
+			 */
+
+			map.flyTo({
+				target: targetPrimitive,
+				bearing: 130,
+				pitch: 90,
+				roll: 0,
+				duration: 2000,
+				range: 1000
+			});
+		}
+
+		function flyToTargetOfBoundingVolume() {
+			/**
+			 * flyTo方法，采用飞行到指定目标的形式进行中心点、高度、旋转角、倾角的改变
+			 *
+			 * 参数项说明：
+			 * target: 表示要飞行的终点目标，可以是Array数组，用[lng,lat,height]标示，可以是Primitive对象，可以是BoungdingSphere、OrientedBoundingBox、AxisAlignedBoundingBox
+			 * bearing：表示飞行结束后的地图旋转等级；
+			 * pitch：表示飞行结束后的地图倾斜等级；
+			 * roll：表示飞行结束后的地图横滚等级；
+			 * duration：表示飞行时长，单位为毫秒；
+			 */
+
+			map.flyTo({
+				target: redPrimitive.boundingSphere,
+				bearing: 40,
+				pitch: 70,
+				roll: 0,
+				duration: 2000,
+				range: 0
+			});
+		}
+
+		function flyToTargetOfSceneModel() {
+			/**
+			 * flyTo方法，采用飞行到指定目标的形式进行中心点、高度、旋转角、倾角的改变
+			 *
+			 * 参数项说明：
+			 * target: 表示要飞行的终点目标，可以是Array数组，用[lng,lat,height]标示，可以是Primitive对象，可以是BoungdingSphere、OrientedBoundingBox、AxisAlignedBoundingBox
+			 * bearing：表示飞行结束后的地图旋转等级；
+			 * pitch：表示飞行结束后的地图倾斜等级；
+			 * roll：表示飞行结束后的地图横滚等级；
+			 * duration：表示飞行时长，单位为毫秒；
+			 */
+			map.flyTo({
+				target: map.getSceneComponent("interior"),
+				// target: map.getSource("interior"), //不推荐使用
+				bearing: 80,
+				pitch: 60,
+				roll: 0,
+				duration: 2000,
+				range: 1000
+			});
+		}
+
+		function flyToTargetOfModelInstanceCollection(){
+			map.flyTo({
+				target: map.getSceneComponent("treeGltf"),
+				bearing: 150,
+				pitch: 70,
+				roll: 0,
+				duration: 2000,
+				range: 500
+			});
+		}
+
+		function flyToTargetOfModelInstance(){
+			map.flyTo({
+				target: map.getSceneComponent("treeGltf").modelInstanceCollection.getInstance(0),
+				bearing: 80,
+				pitch: 45,
+				roll: 0,
+				duration: 2000,
+				range: 20
+			});
+		}
+
+		function flyToTargetOfTileset() {
+			/**
+			 * flyTo方法，采用飞行到指定目标的形式进行中心点、高度、旋转角、倾角的改变
+			 *
+			 * 参数项说明：
+			 * target: 表示要飞行的终点目标，可以是Array数组，用[lng,lat,height]标示，可以是Primitive对象，可以是BoungdingSphere、OrientedBoundingBox、AxisAlignedBoundingBox
+			 * bearing：表示飞行结束后的地图旋转等级；
+			 * pitch：表示飞行结束后的地图倾斜等级；
+			 * roll：表示飞行结束后的地图横滚等级；
+			 * duration：表示飞行时长，单位为毫秒；
+			 */
+			map.flyTo({
+				target: map.getSceneComponent("tianhe"),
+				// target:map.getSource("tianhe"), //不推荐使用
+				bearing: 90,
+				pitch: 70,
+				roll: 0,
+				duration: 2000,
+				range: 1000,
+			})
+		}
+
+		function fitBoundsToBBox() {
+			// 矩形区域就是飞行的中心点，其他参数就是map参数
+			// const bbox = [116.39183 -0.01, 39.9098 -0.01,116.39183 + 0.01, 39.9098 +0.01]
+			const bbox = [86.92527777777778 -0.01, 27.988333333333333 -0.01, 86.92527777777778 + 0.01, 27.988333333333333 +0.01];
+			const height = 8000;
+			map.fitBounds(
+				bbox,
+				{
+					pitch: 0,
+					duration: 2000,
+				},
+				height
+			)
+		}
+
+	</script>
+</body>

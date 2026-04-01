@@ -1,0 +1,117 @@
+<!--
+ * @Author: defineconst
+ * @Date: 2024-11-12 16:54:45
+ * @LastEditors: defineconst
+ * @LastEditTime: 2024-11-13 09:11:17
+ * @Description:
+-->
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+    <title>狭长面GeoJSON图层</title>
+    <link rel="stylesheet" href="https://minedata.cn/nce-static/support/demo/js-api/zh/css/demo.css">
+    <!-- 引入MineMap API插件 -->
+    <link rel="stylesheet" href="https://minemap.minedata.cn/minemapapi/v2.1.1/minemap.css">
+    <script src="../../dist/minemap-dev.js"></script>
+    <style>
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="map"></div>
+    <script>
+        /**
+         * 全局参数设置
+         */
+        minemap.domainUrl = 'https://minemap.minedata.cn';
+        minemap.dataDomainUrl = 'https://minemap.minedata.cn';
+        minemap.serverDomainUrl = 'https://sd-data.minedata.cn';
+        minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+        minemap.serviceUrl = 'https://service.minedata.cn/service';
+
+        minemap.key = '0c6ac62182404e5ebc7a789981f6db72';
+        minemap.solution = 11001;
+
+		const style = {
+			version: 8
+		}
+
+        var map = new minemap.Map({
+            container: 'map',
+            style: 'https://service.minedata.cn/map/solu/style/11001',
+            center: [117.29741480201483, 36.64349466342799],
+            zoom: 16.72,
+            pitch: 0,
+            maxZoom: 22,
+            minZoom: 3,
+            projection: 'MERCATOR'
+        });
+
+		map.showTileBoundaries = true;
+
+        /**
+         * 创建地图对象后，开始加载地图资源，地图资源加载完成后触发load事件
+         */
+        map.on('load', function () {
+            // 增加自定义数据源、自定义图层
+            addSources();
+            addLayers();
+        });
+
+        function addSources() {
+            var center = map.getCenter().toArray();
+            var jsonData = {
+                "type": "FeatureCollection",
+                "features": [
+                    {
+                        "type": "Feature",
+                        "geometry": {
+                            "type": "Polygon",
+                            "coordinates": [[[117.29741480201483, 36.64349466342799],
+								[117.29742385447025, 36.64365109473978],
+								[117.29741496965289, 36.643495066948546],
+								[117.29776030406356, 36.6428042366546],
+								[117.29775996878743, 36.6428042366546],
+								[117.29741480201483, 36.64349466342799]]]
+                        }
+                    }
+                ]
+            };
+
+            map.addSource("fillSource", {
+                "type": "geojson",
+                "data": jsonData,
+				buffer: 0,
+				tolerance: 0,
+				needElongatedFaceCheck: true
+               //  maxzoom: 15
+            });
+        }
+
+        function addLayers() {
+            map.addLayer({
+                "id": "fillLayer",
+                "type": "fill",
+                "source": "fillSource",
+                "layout": {
+                    "visibility": "visible",
+                },
+                "paint": {
+                    "fill-color": "#0087FF",
+                    "fill-opacity": 0.7,
+                    "fill-outline-color": "#0067C2"
+                },
+                "minzoom": 7,
+                "maxzoom": 22
+            });
+        }
+
+    </script>
+</body>

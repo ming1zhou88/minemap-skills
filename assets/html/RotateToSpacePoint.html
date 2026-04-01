@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8"/>
+	<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no"/>
+	<title>绕空间物体|坐标旋转</title>
+	<!-- 引入MineMap API插件 -->
+	<script src="https://minedata.cn/minemapapi/minemap-CDN/dat.gui/dat.gui.min.js"></script>
+	<link rel="stylesheet" href="../../dist/minemap.css"/>
+	<script src="../../dist/minemap-dev.js"></script>
+	<style>
+		html,
+		body,
+		#map {
+			margin: 0;
+			padding: 0;
+			width: 100%;
+			height: 100%;
+		}
+	</style>
+</head>
+
+<body>
+<div id="map"></div>
+<script>
+	minemap.domainUrl = "https://minedata.cn";
+	minemap.dataDomainUrl = "https://minedata.cn";
+	minemap.serverDomainUrl = "https://minedata.cn";
+	minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+	minemap.serviceUrl = "https://minedata.cn/service/";
+
+	minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+	minemap.solution = 11001;
+	window.minemapCDN = 'https://minedata.cn/minemapapi/minemap-CDN'; // minemapCDN 配置
+
+	// 定义空底图样式
+	var style = {
+		glyphs: "minemap://fonts/{fontstack}/{range}",
+		sprite: "minemap://sprite/sprite",
+		sources: {},
+		layers: [],
+		version: 8
+	};
+	/**
+	 * 初始化地图实例
+	 */
+	var targetRotateF = true;
+	var map = new minemap.Map({
+		container: "map",
+		style: style,
+		// style: "https://mineservice.minedata.cn/map/solu/style/11001" /*底图样式*/ /*球面矢量底图样式*/,
+		bearing: -87.18744098264303,
+		center: [108.94733550459136, 34.30940496948484],
+		pitch: 61.603551292866726,
+		zoom: 15.7,
+		maxZoom: 10000000 /*地图最大缩放等级*/,
+		minZoom: 0 /*地图最小缩放等级*/,
+	});
+	map.repaint = true;
+	//开启大气透视
+	const skyAtmosphere = map.getSky();
+	skyAtmosphere.useAerialPerspective = true;
+
+	map.on("load", function () {
+		/*添加栅格图*/
+		map.addSource("IMAGERY_SOURCE", {
+			"type": "raster",//数据源类型：栅格数据源
+			"tiles": ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+			"tileSize": 512,//瓦片尺寸
+		});
+
+		map.addLayer({
+			"id": "IMAGERY",
+			"type": "raster", //图层类型为"raster"
+			"source": "IMAGERY_SOURCE",
+			"minzoom": 1,
+			"maxzoom": 23,
+			"depth-test": true,
+		});
+
+		// 3dtiles
+		const tileset = map.addSceneComponent({
+			id: "serve",
+			type: "3d-tiles",
+			show: true,
+			translation: new minemap.Math.Vector3(0, 0, 0), //在enu坐标系下的位置移动距离，顺序为[east, north, height]，单位为m，并且只用于3dtiles图层
+			minzoom: 12, //3d-tiles加载显示的最小层级
+			maxzoom: 22, //3d-tiles加载显示的最大层级
+			urls:[
+				{url:"https://staticdata-b.minedata.cn:14434/oblique/tileset.json", name: "1"}
+			],
+			skipLevelOfDetail: false, //跨层调度
+			maximumScreenSpaceError: 8,
+			sourceLoaded: (tileset) => {
+
+			},
+			/**
+			 * 飞行选择
+			 * index: 指定飞行目标(优先)
+			 * combine: 合并bounds为飞行目标
+			 */
+			geoBoundsOptions: {
+				index: 1,
+				combine: true
+			},
+			allowPick: true,
+			lightingModel: minemap.LightingModelType.NONE,
+		});
+		window.tileset = tileset;
+	})
+
+	let frustumPrimitive
+
+	//目标点位，经度、纬度、高度
+	const target = [108.94819248495533, 34.30176643089998, 565.6619988701281];
+	//相机位置，经度、纬度、高度
+	const cameraPosition = [108.95811341634942, 34.30896511533591, 537.1139266387942];
+	//相机与目标坐标轴相对关系的航向角
+	let bearing = 0;
+	//相机与目标坐标轴相对关系的俯仰角
+	let pitch = 80;
+	//计算的参考椭球，默认使用84椭球就行
+	const ellipsoid = minemap.Transforms.DefaultEllipsoid;
+
+	function rotateToSpacePoint(cameraPosition, target, bearing, ellipsoid){
+		if(targetRotateF){
+			map.jumpToTargetWithRelativeBearingPitchPosition(cameraPosition, target, pitch, bearing, ellipsoid);
+			bearing+=0.4;
+		}
+
+		requestAnimationFrame(rotateToSpacePoint.bind(null, cameraPosition, target, bearing, ellipsoid));
+	}
+
+
+	setTimeout(() => {
+		requestAnimationFrame(rotateToSpacePoint.bind(null, cameraPosition, target, bearing, ellipsoid));
+	}, 4000);
+
+	var gui = new dat.GUI();//外部UI
+	var cameraFolder = gui.addFolder("相机定点旋转操作控制");
+	var cameraPara = {
+		enabled: true,
+		pitch: 80,
+	};
+	cameraFolder.add(cameraPara, "enabled", -1, 1).onChange(function (value) {
+		targetRotateF = value;
+	});
+	cameraFolder.add(cameraPara, "pitch", 0, 170).step(0.01).onChange(function (value) {
+		pitch = value;
+	});
+
+
+	//如果不知道对应的空间坐标，可以如下的方法进行拾取
+	map.on("click", function (e) {
+		const res = map.getPositionByGPUPick(e.point);
+		console.log(res);
+	})
+
+</script>
+</body>
+
+</html>

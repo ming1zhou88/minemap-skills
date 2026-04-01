@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8"/>
+	<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no"/>
+	<title>obj加载</title>
+	<!-- demo样式文件 -->
+	<link rel="stylesheet" href="https://minedata.cn/nce-static/support/demo/js-3d-ultra/zh/css/demo.css"/>
+	<!-- 引入MineMap API插件 -->
+	<link rel="stylesheet" href="http://192.168.152.123/minemap-engine/v4.0.0/minemap.css"/>
+	<script src="../../dist/minemap-dev.js"></script>
+	<script src="../js/lil-gui.umd.min.js"></script>
+	<style>
+		#map {
+			width: 100%;
+			height: 100%;
+		}
+	</style>
+</head>
+
+<body>
+<div id="map"></div>
+<script type="importmap">
+	{
+	  "imports": {
+		"three": "https://unpkg.com/three@0.165.0/build/three.module.js",
+		"three/examples/": "https://unpkg.com/three@0.165.0/examples/",
+		"three/addons/": "https://unpkg.com/three@0.165.0/examples/jsm/"
+	  }
+	}
+</script>
+<script type="module">
+	import * as THREE from 'three';
+
+	window.THREE = THREE;
+	import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
+	import { MTLLoader } from 'three/addons/loaders/MTLLoader.js';
+	import { ThreeLayer } from '../js/minemap-three-plugin/index.js'
+
+	/**
+	 * 全局参数设置
+	 */
+	minemap.domainUrl = 'https://minemap.minedata.cn';
+	minemap.dataDomainUrl = 'https://minemap.minedata.cn';
+	minemap.serverDomainUrl = 'https://sd-data.minedata.cn';
+	minemap.spriteUrl = 'https://minemap.minedata.cn/minemapapi/v4.0.0/sprite/sprite';
+	minemap.serviceUrl = 'https://service.minedata.cn/service';
+
+	minemap.key = "fe68957c8e374122a807c146bacc794d";
+	minemap.solution = 11003;
+
+	// 定义空底图样式
+	const style = {
+		glyphs: "minemap://fonts/{fontstack}/{range}",
+		sprite: "minemap://sprite/sprite",
+		sources: {},
+		layers: [],
+		version: 8
+	};
+
+	const modelParams = {
+		x: 0,
+		y: 0,
+		z: 0,
+		scale: 0.1,
+		rotationX: 90,
+		rotationY: 0,
+		rotationZ: 0,
+	};
+
+	const guiActions = {
+		removeModel,
+	};
+
+	/**
+	 * 初始化地图实例
+	 */
+	window.map = new minemap.Map({
+		container: "map",
+		style,
+		position: [120.30102215030331, 28.57483019781855, 44.52508226222104],
+		pitch: 71.69167517525204 /*地图俯仰角度*/,
+		bearing: 19.75459385606422,
+		maxZoom: 24 /*地图最大缩放等级*/,
+		minZoom: 1 /*地图最小缩放等级*/,
+		projection: "MERCATOR",
+		logoControl: false,
+	});
+	map.repaint = true;
+
+	let threeLayer, model, bboxHelper;
+
+	function updateBBox() {
+		if (!model || !threeLayer) return;
+
+		model.updateMatrixWorld(true);
+		const bbox = new THREE.Box3().setFromObject(model);
+		const bboxSize = new THREE.Vector3();
+		const bboxCenter = new THREE.Vector3();
+		bbox.getSize(bboxSize);
+		bbox.getCenter(bboxCenter);
+		console.log('OBJ 包围盒 size:', bboxSize, 'center:', bboxCenter);
+
+		if (bboxHelper) {
+			threeLayer.removeObject(bboxHelper);
+		}
+
+		bboxHelper = new THREE.Box3Helper(bbox, 0xffaa00);
+		threeLayer.addObject(bboxHelper);
+	}
+
+	function applyModelTransform() {
+		if (!model) return;
+
+		model.position.set(modelParams.x, modelParams.y, modelParams.z);
+		model.rotation.set(
+			THREE.MathUtils.degToRad(modelParams.rotationX),
+			THREE.MathUtils.degToRad(modelParams.rotationY),
+			THREE.MathUtils.degToRad(modelParams.rotationZ)
+		);
+		model.scale.setScalar(modelParams.scale);
+		model.updateMatrixWorld(true);
+
+		updateBBox();
+	}
+
+	map.on("load", function () {
+		map.addSource("IMAGERY_SOURCE", {
+			type: "raster", //数据源类型：栅格数据源
+			tiles: ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+			tileSize: 512 //瓦片尺寸
+		});
+
+		map.addLayer({
+			"id": "IMAGERY",
+			"type": "raster",
+			"source": "IMAGERY_SOURCE",
+			"minzoom": 1,
+			"maxzoom": 23,
+			"paint": {
+				"raster-opacity": 1
+			},
+			"depth-test": true
+		});
+
+		// 构造threejs图层
+		threeLayer = new ThreeLayer({
+			id: 'test-scene', // id
+			refCenter: [120.301663, 28.576329] // 参考中心点坐标，threejs图层会以此为原点进行坐标转换
+		});
+		map.addLayer(threeLayer);
+
+		const gui = new lil.GUI();
+		const positionFolder = gui.addFolder('模型位置');
+		positionFolder.add(modelParams, 'x', -500, 500, 0.1).name('X').onChange(applyModelTransform);
+		positionFolder.add(modelParams, 'y', -500, 500, 0.1).name('Y').onChange(applyModelTransform);
+		positionFolder.add(modelParams, 'z', -200, 200, 0.1).name('Z').onChange(applyModelTransform);
+		positionFolder.open();
+
+		const transformFolder = gui.addFolder('模型变换');
+		transformFolder.add(modelParams, 'scale', 0.01, 2, 0.01).name('缩放').onChange(applyModelTransform);
+		transformFolder.add(modelParams, 'rotationX', -180, 180, 1).name('旋转X').onChange(applyModelTransform);
+		transformFolder.add(modelParams, 'rotationY', -180, 180, 1).name('旋转Y').onChange(applyModelTransform);
+		transformFolder.add(modelParams, 'rotationZ', -180, 180, 1).name('旋转Z').onChange(applyModelTransform);
+		transformFolder.open();
+
+		gui.add(guiActions, 'removeModel').name('移除模型');
+
+		const dirLight = new THREE.DirectionalLight(0xffffff, 4);
+		dirLight.position.set(100, 200, 300);
+		threeLayer.addObject(dirLight);
+
+		// ========================
+		// 加载 OBJ + MTL 模型
+		// ========================
+		// 方法：先加载 MTL，再用材质加载 OBJ
+		const mtlLoader = new MTLLoader();
+		mtlLoader.setPath('../data/models/male02/'); // 设置基础路径（确保 .mtl 中引用的贴图能正确加载）
+		mtlLoader.load('male02.mtl', (materials) => {
+			materials.preload(); // 预加载材质中的贴图
+
+			const objLoader = new OBJLoader();
+			objLoader.setMaterials(materials);
+			objLoader.setPath('../data/models/male02/');
+			objLoader.load('male02.obj', (object) => {
+				model = threeLayer.addObject(object);
+				applyModelTransform();
+				console.log('OBJ 模型加载成功！');
+			}, undefined, (error) => {
+				console.error('加载 OBJ 失败:', error);
+			});
+		}, undefined, (error) => {
+			console.error('加载 MTL 失败:', error);
+		});
+
+	});
+
+	function removeModel() {
+		if (model && threeLayer) {
+			threeLayer.removeObject(model);
+			model = undefined;
+		}
+		if (bboxHelper && threeLayer) {
+			threeLayer.removeObject(bboxHelper);
+			bboxHelper = undefined;
+		}
+	}
+</script>
+</body>
+
+</html>

@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<title>填挖方分析</title>
+		<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+		<!-- 引入MineMap API插件 -->
+		<link rel="stylesheet" href="../../dist/minemap.css" />
+		<script src="../../dist/minemap-dev.js"></script>
+		<script src="../lib/jquery-2.0.3.min.js"></script>
+		<style>
+			html,
+			#map,
+			body {
+				margin: 0;
+				padding: 0;
+				width: 100%;
+				height: 100%;
+			}
+
+			.toolContainer1 {
+				position: absolute;
+				background: #fff;
+				top: 0;
+				left: 0;
+				width: 210px;
+				z-index: 999;
+			}
+
+			.toolContainer2 {
+				position: absolute;
+				background: #fff;
+				top: 0;
+				left: 210px;
+				width: 210px;
+				z-index: 999;
+			}
+
+			table {
+				position: fixed;
+				top: 16px;
+				right: 14px;
+				z-index: 999;
+				background: #fff;
+				border: solid 1px #000000;
+				border-collapse: collapse;
+				padding: 2px 3px;
+				text-align: center;
+			}
+
+			tbody {
+				max-height: 600px;
+				max-width: 400px;
+				display: block;
+				overflow: auto;
+			}
+
+			td,
+			th {
+				border: solid 1px #000000;
+				border-collapse: collapse;
+				padding: 2px 3px;
+				text-align: center;
+			}
+
+			th {
+				font-weight: bold;
+			}
+		</style>
+	</head>
+
+	<div class="toolContainer1 toolContainer">
+		<div class="draw" style="border: 3px solid gray; text-align: center">
+			<button style="font-size: 16px" onclick="drawPolygon()">绘制填挖方范围</button>
+		</div>
+
+		<div class="fillArea" style="border: 3px solid gray">
+			<div>
+				<input type="color" id="fillColor" name="color" value="#00FF00" />
+				<label for="fillColor">填方区域颜色</label>
+			</div>
+			<div id="fillOpacity">
+				<p>填方区域透明度</p>
+				<input type="range" id="fillOpacityRange" value="50" min="0" max="100" style="width: 200px" />
+				<div id="fillOpacityValue">0.5</div>
+			</div>
+		</div>
+
+		<div class="cutArea" style="border: 3px solid gray">
+			<div>
+				<input type="color" id="cutColor" name="color" value="#B26633" />
+				<label for="cutColor">挖方区域颜色</label>
+			</div>
+			<div id="cutOpacity">
+				<p>挖方区域透明度</p>
+				<input type="range" id="cutOpacityRange" value="50" min="0" max="100" style="width: 200px" />
+				<div id="cutOpacityValue">0.5</div>
+			</div>
+		</div>
+
+		<div class="baseArea" style="border: 3px solid gray">
+			<div>
+				<input type="color" id="baseColor" name="color" value="#3300FF" />
+				<label for="baseColor">基准面颜色</label>
+			</div>
+			<div id="baseOpacity">
+				<p>基准面透明度</p>
+				<input type="range" id="baseOpacityRange" value="50" min="0" max="100" style="width: 200px" />
+				<div id="baseOpacityValue">0.5</div>
+			</div>
+			<div>
+				<input type="color" id="baseOutlineColor" name="color" value="#FFFFFF" />
+				<label for="baseOutlineColor">基准面边线颜色</label>
+			</div>
+			<div id="baseOutlineOpacity">
+				<p>基准面边线透明度</p>
+				<input type="range" id="baseOutlineOpacityRange" value="100" min="0" max="100" style="width: 200px" />
+				<div id="baseOutlineOpacityValue">1.0</div>
+			</div>
+			<div id="baseHeight">
+				<p>基准面高程</p>
+				<input type="range" id="baseHeightRange" value="0" min="-50" max="50" style="width: 200px" />
+				<div id="baseHeightValue">等待填挖方区域绘制完成</div>
+			</div>
+		</div>
+	</div>
+
+	<div class="toolContainer2 toolContainer">
+		<div class="wallArea" style="border: 3px solid gray">
+			<div>
+				<input type="color" id="wallColor" name="color" value="#00B200" />
+				<label for="wallColor">围墙颜色</label>
+			</div>
+			<div id="wallOpacity">
+				<p>围墙透明度</p>
+				<input type="range" id="wallOpacityRange" value="50" min="0" max="100" style="width: 200px" />
+				<div id="wallOpacityValue">0.5</div>
+			</div>
+			<div>
+				<input type="color" id="wallOutlineColor" name="color" value="#000000" />
+				<label for="wallOutlineColor">围墙边线颜色</label>
+			</div>
+			<div id="wallOutlineOpacity">
+				<p>围墙边线透明度</p>
+				<input type="range" id="wallOutlineOpacityRange" value="100" min="0" max="100" style="width: 200px" />
+				<div id="wallOutlineOpacityValue">1.0</div>
+			</div>
+		</div>
+		<div class="analysis" style="border: 3px solid gray">
+			<div style="text-align: center">
+				<button style="font-size: 16px" onclick="analyze()">分析当前挖填方区域</button>
+			</div>
+		</div>
+	</div>
+
+	<body>
+		<div id="map">
+			<div id="showTable"></div>
+		</div>
+		<script>
+			minemap.domainUrl = "https://minedata.cn";
+			minemap.dataDomainUrl = "https://minedata.cn";
+			minemap.serverDomainUrl = "https://minedata.cn";
+			minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+			minemap.serviceUrl = "https://minedata.cn/service/";
+
+			minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+			minemap.solution = 11001;
+			window.minemapCDN = "https://minedata.cn/minemapapi/minemap-CDN"; // minemapCDN 配置
+
+			// 定义空底图样式
+			var style = {
+				glyphs: "minemap://fonts/{fontstack}/{range}",
+				sprite: "minemap://sprite/sprite",
+				sources: {},
+				layers: [],
+				version: 8
+			};
+			var map = new minemap.Map({
+				container: "map",
+				style: style,
+				// style: "https://mineservice.minedata.cn/map/solu/style/11001" /*底图样式*/ /*球面矢量底图样式*/,
+				bearing: -87.18744098264303,
+				center: [116.02391823056043, 40.02568483035897],
+				pitch: 61.603551292866726,
+				zoom: 14,
+				maxZoom: 22 /*地图最大缩放等级*/,
+				minZoom: 1 /*地图最小缩放等级*/,
+				resolvePass: "main",
+				logDepth: true
+			});
+
+			//开启大气透视
+			const skyAtmosphere = map.getSky();
+			skyAtmosphere.useAerialPerspective = true;
+
+			// 颜色
+			let fillColor = "#00FF00";
+			let cutColor = "#B26633";
+			let baseColor = "#3300FF";
+			let baseOutlineColor = "#FFFFFF";
+			let wallColor = "#00B200";
+			let wallOutlineColor = "#000000";
+			// 透明度
+			let fillOpacity = 0.5;
+			let cutOpacity = 0.5;
+			let baseOpacity = 0.5;
+			let baseOutlineOpacity = 1.0;
+			let wallOpacity = 0.5;
+			let wallOutlineOpacity = 1.0;
+			// 基准面、顶底高程
+			let baseHeightValue;
+
+			const cutFill = new minemap.CutFill({
+				positions: [],
+				fillColor: fillColor, //填方区域颜色
+				fillOpacity: fillOpacity, //填方区域透明度
+				cutColor: cutColor, //挖方区域颜色
+				cutOpacity: cutOpacity, //挖方区域透明度
+				baseColor: baseColor, //基准面颜色
+				baseOpacity: baseOpacity, //基准面透明度
+				baseOutlineColor: baseOutlineColor, //基准面边线颜色
+				baseOutlineOpacity: baseOutlineOpacity, //基准面边线透明度
+				wallColor: wallColor, //围墙颜色
+				wallOpacity: wallOpacity, //围墙透明度
+				wallOutlineColor: wallOutlineColor, //围墙边线颜色
+				wallOutlineOpacity: wallOutlineOpacity, //围墙边线透明度
+				enabled: true //启用开关
+				// baseHeight: baseHeight 基准面高程
+				// minHeight: minHeight 底面高程
+				// maxHeight: maxHeight 顶面高程
+			});
+
+			map.analysis.cutFillCollection.add(cutFill);
+
+			//设置地形数据
+			map.setTerrain({
+				tiles: ["https://staticdata-b.minedata.cn:14434/dem/{z}/{r}/{c}/{z}_{x}_{y}.terrain"], //瓦片服务地址
+				tileSize: 512, //瓦片大小
+				maxzoom: 14 //dem最高切分zoom，30米一般是14级；12.5米一般是16级
+			});
+
+			map.repaint = true;
+
+			map.on("load", function () {
+				/*添加栅格图*/
+				map.addSource("IMAGERY_SOURCE", {
+					type: "raster", //数据源类型：栅格数据源
+					tiles: ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+					tileSize: 512 //瓦片尺寸
+				});
+
+				map.addLayer({
+					id: "IMAGERY",
+					type: "raster", //图层类型为"raster"
+					source: "IMAGERY_SOURCE",
+					minzoom: 1,
+					maxzoom: 23,
+					"depth-test": true
+				});
+			});
+
+			// 来源于DynamicDrawPolygon
+			let geometry,
+				primitive,
+				startDraw = false, //开始绘制
+				positions = [],
+				tempPoint = []; // polygon点
+			function drawPolygon() {
+				positions = [];
+				cutFill.positions = positions;
+
+				$("#baseHeightValue").text("等待限高区域绘制完成");
+				const baseHeightRange = document.getElementById("baseHeightRange");
+				baseHeightRange.min = -50;
+				baseHeightRange.max = 50;
+				baseHeightRange.value = 0;
+
+				startDraw = true;
+				geometry = new minemap.Geometries.PolygonGeometry({
+					polygonHierarchy: {
+						positions: function () {
+							const results = positions.concat(tempPoint);
+							// 判断是否自相交，如果自相交则该点不进入数组内
+							if (
+								results.length > 3 &&
+								minemap.Geometries.PolygonGeometry.isSelfIntersection(results, true)
+							) {
+								return positions;
+							} else {
+								return results;
+							}
+						}
+					},
+					perPositionHeight: true
+				});
+
+				const material = minemap.StandardMaterial.fromType("Color", {
+					color: "red",
+					doubleSided: true
+				});
+
+				primitive = new minemap.Primitive({
+					geometry: geometry,
+					material: material,
+					adaptTerrain: true
+				});
+
+				map.addPrimitive(primitive);
+			}
+
+			// leftClick
+			map.on("click", function (e) {
+				if (startDraw) {
+					const point = map.painter.getPositionByGPUPick(e.point);
+					positions.push(minemap.Math.Vector3.fromDegrees(point.x, point.y, point.z));
+				}
+			});
+
+			// mouseMove
+			map.on("mousemove", function (e) {
+				if (startDraw) {
+					tempPoint = [];
+					const point = map.painter.getPositionByGPUPick(e.point);
+					tempPoint.push(minemap.Math.Vector3.fromDegrees(point.x, point.y, point.z));
+				}
+			});
+
+			// rightClick
+			map.on("contextmenu", function (e) {
+				if (startDraw) {
+					startDraw = false;
+					map.removePrimitive(primitive);
+					if (positions.length > 3) {
+						updateCutFill();
+					} else {
+						$("#baseHeightValue").text("等待限高区域绘制完成");
+						const baseHeightRange = document.getElementById("baseHeightRange");
+						baseHeightRange.min = -50;
+						baseHeightRange.max = 50;
+						baseHeightRange.value = 0;
+					}
+				}
+			});
+
+			function analyze() {
+				if (cutFill && cutFill.positions.length > 0) {
+					const json = cutFill.json;
+					const params = {
+						bbox: json.geometry,
+						baseHeight: cutFill.baseHeight
+					};
+
+					const requestOptions = {
+						method: "POST",
+						mode: "cors",
+						headers: {
+							"Content-Type": "application/json"
+						},
+						body: JSON.stringify(params)
+					};
+
+					fetch("http://192.168.152.123:18801/service/terrain/cutfill", requestOptions)
+						.then((response) => {
+							if (response.ok) {
+								return response.json();
+							} else {
+								throw new Error("填挖方分析后台服务请求失败");
+							}
+						})
+						.then((data) => {
+							// Create table.
+							const table = document.createElement("table");
+
+							// Create table header row using the extracted headers above.
+							let tr; // table row.
+							let tabCell;
+							// 显示信息
+							tr = table.insertRow(-1);
+							tabCell = tr.insertCell(-1);
+							tabCell.innerHTML = "基准面高程";
+							tabCell = tr.insertCell(-1);
+							tabCell.innerHTML = data.baseHeight;
+
+							tr = table.insertRow(-1);
+							tabCell = tr.insertCell(-1);
+							tabCell.innerHTML = "最低点高程";
+							tabCell = tr.insertCell(-1);
+							tabCell.innerHTML = data.minHeight;
+
+							tr = table.insertRow(-1);
+							tabCell = tr.insertCell(-1);
+							tabCell.innerHTML = "最高点高程";
+							tabCell = tr.insertCell(-1);
+							tabCell.innerHTML = data.maxHeight;
+
+							tr = table.insertRow(-1);
+							tabCell = tr.insertCell(-1);
+							tabCell.innerHTML = "最低点经纬度";
+							tabCell = tr.insertCell(-1);
+							tabCell.innerHTML = data.minHeightPos.coordinates;
+
+							tr = table.insertRow(-1);
+							tabCell = tr.insertCell(-1);
+							tabCell.innerHTML = "最高点经纬度";
+							tabCell = tr.insertCell(-1);
+							tabCell.innerHTML = data.maxHeightPos.coordinates;
+
+							tr = table.insertRow(-1);
+							tabCell = tr.insertCell(-1);
+							tabCell.innerHTML = "填方面积（平方米）";
+							tabCell = tr.insertCell(-1);
+							tabCell.innerHTML = data.fillArea;
+
+							tr = table.insertRow(-1);
+							tabCell = tr.insertCell(-1);
+							tabCell.innerHTML = "填方量（立方米）";
+							tabCell = tr.insertCell(-1);
+							tabCell.innerHTML = data.fillVolume;
+
+							tr = table.insertRow(-1);
+							tabCell = tr.insertCell(-1);
+							tabCell.innerHTML = "挖方面积（平方米）";
+							tabCell = tr.insertCell(-1);
+							tabCell.innerHTML = data.cutArea;
+
+							tr = table.insertRow(-1);
+							tabCell = tr.insertCell(-1);
+							tabCell.innerHTML = "挖方量（立方米）";
+							tabCell = tr.insertCell(-1);
+							tabCell.innerHTML = data.cutVolume;
+
+							const divShowData = document.getElementById("showTable");
+							divShowData.innerHTML = "";
+							divShowData.appendChild(table);
+						})
+						.catch((error) => {
+							alert(error);
+						});
+				}
+			}
+
+			function updateCutFill() {
+				cutFill.positions = positions;
+				const json = cutFill.json;
+				const params = {
+					bbox: json.geometry
+				};
+
+				const requestOptions = {
+					method: "POST",
+					mode: "cors",
+					headers: {
+						"Content-Type": "application/json"
+					},
+					body: JSON.stringify(params)
+				};
+
+				fetch("http://192.168.152.123:18801/service/terrain/cutfill", requestOptions)
+					.then((response) => {
+						if (response.ok) {
+							return response.json();
+						} else {
+							throw new Error("填挖方分析后台服务请求失败");
+						}
+					})
+					.then((data) => {
+						$("#baseHeightValue").text(Math.floor(data.baseHeight));
+						const baseHeightRange = document.getElementById("baseHeightRange");
+						baseHeightRange.min = Math.floor(data.minHeight);
+						baseHeightRange.max = Math.floor(data.maxHeight);
+						baseHeightRange.value = Math.floor(data.baseHeight);
+
+						cutFill.baseHeight = Math.floor(data.baseHeight);
+						cutFill.maxHeight = Math.floor(data.maxHeight);
+						cutFill.minHeight = Math.floor(data.minHeight);
+					})
+					.catch((error) => {
+						alert(error);
+						cutFill.positions = [];
+						$("#baseHeightValue").text("等待限高区域绘制完成");
+						const baseHeightRange = document.getElementById("baseHeightRange");
+						baseHeightRange.min = -50;
+						baseHeightRange.max = 50;
+						baseHeightRange.value = 0;
+					});
+			}
+
+			// color
+			let colorWell;
+
+			window.addEventListener("load", startup, false);
+
+			function startup() {
+				colorWell = document.getElementById("fillColor");
+				colorWell.value = fillColor;
+				colorWell.addEventListener("input", updateFillColor, false);
+				colorWell.select();
+				colorWell = document.getElementById("cutColor");
+				colorWell.value = cutColor;
+				colorWell.addEventListener("input", updateCutColor, false);
+				colorWell.select();
+				colorWell = document.getElementById("baseColor");
+				colorWell.value = baseColor;
+				colorWell.addEventListener("input", updateBaseColor, false);
+				colorWell.select();
+				colorWell = document.getElementById("baseOutlineColor");
+				colorWell.value = baseOutlineColor;
+				colorWell.addEventListener("input", updateBaseOutlineColor, false);
+				colorWell.select();
+				colorWell = document.getElementById("wallColor");
+				colorWell.value = wallColor;
+				colorWell.addEventListener("input", updateWallColor, false);
+				colorWell.select();
+				colorWell = document.getElementById("wallOutlineColor");
+				colorWell.value = wallOutlineColor;
+				colorWell.addEventListener("input", updateWallOutlineColor, false);
+				colorWell.select();
+			}
+
+			function updateFillColor(event) {
+				fillColor = event.target.value;
+				if (cutFill) {
+					cutFill.fillColor = fillColor;
+				}
+			}
+
+			function updateCutColor(event) {
+				cutColor = event.target.value;
+				if (cutFill) {
+					cutFill.cutColor = cutColor;
+				}
+			}
+
+			function updateBaseColor(event) {
+				baseColor = event.target.value;
+				if (cutFill) {
+					cutFill.baseColor = baseColor;
+				}
+			}
+
+			function updateBaseOutlineColor(event) {
+				baseOutlineColor = event.target.value;
+				if (cutFill) {
+					cutFill.baseOutlineColor = baseOutlineColor;
+				}
+			}
+
+			function updateWallColor(event) {
+				wallColor = event.target.value;
+				if (cutFill) {
+					cutFill.wallColor = wallColor;
+				}
+			}
+
+			function updateWallOutlineColor(event) {
+				wallOutlineColor = event.target.value;
+				if (cutFill) {
+					cutFill.fillColor = wallOutlineColor;
+				}
+			}
+
+			$("#fillOpacityRange").mousemove(function () {
+				$("#fillOpacityValue").text($("#fillOpacityRange").val() / 100.0);
+
+				fillOpacity = parseFloat($("#fillOpacityValue").text());
+				if (cutFill) {
+					cutFill.fillOpacity = fillOpacity;
+				}
+			});
+
+			$("#cutOpacityRange").mousemove(function () {
+				$("#cutOpacityValue").text($("#cutOpacityRange").val() / 100.0);
+
+				cutOpacity = parseFloat($("#cutOpacityValue").text());
+				if (cutFill) {
+					cutFill.cutOpacity = cutOpacity;
+				}
+			});
+
+			$("#baseOpacityRange").mousemove(function () {
+				$("#baseOpacityValue").text($("#baseOpacityRange").val() / 100.0);
+
+				baseOpacity = parseFloat($("#baseOpacityValue").text());
+				if (cutFill) {
+					cutFill.baseOpacity = baseOpacity;
+				}
+			});
+
+			$("#baseOutlineOpacityRange").mousemove(function () {
+				$("#baseOutlineOpacityValue").text($("#baseOutlineOpacityRange").val() / 100.0);
+
+				baseOutlineOpacity = parseFloat($("#baseOutlineOpacityValue").text());
+				if (cutFill) {
+					cutFill.baseOutlineOpacity = baseOutlineOpacity;
+				}
+			});
+
+			$("#wallOpacityRange").mousemove(function () {
+				$("#wallOpacityValue").text($("#wallOpacityRange").val() / 100.0);
+
+				wallOpacity = parseFloat($("#wallOpacityValue").text());
+				if (cutFill) {
+					cutFill.wallOpacity = wallOpacity;
+				}
+			});
+
+			$("#wallOutlineOpacityRange").mousemove(function () {
+				$("#wallOutlineOpacityValue").text($("#wallOutlineOpacityRange").val() / 100.0);
+
+				wallOutlineOpacity = parseFloat($("#wallOutlineOpacityValue").text());
+				if (cutFill) {
+					cutFill.wallOutlineOpacity = wallOutlineOpacity;
+				}
+			});
+
+			// 严格遵守minHeightRange<=baseHeight<=maxHeightRange
+
+			$("#baseHeightRange").mousemove(function () {
+				if ($("#baseHeightValue").text() !== "等待填挖方区域绘制完成") {
+					$("#baseHeightValue").text(document.getElementById("baseHeightRange").value);
+					baseHeightValue = parseFloat($("#baseHeightValue").text());
+					cutFill.baseHeight = baseHeightValue;
+				}
+			});
+		</script>
+	</body>
+</html>

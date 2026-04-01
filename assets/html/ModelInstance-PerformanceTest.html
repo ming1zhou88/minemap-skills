@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+	<title>模型加载工具</title>
+
+
+	<script src="../../dist/minemap-dev.js"></script>
+	<script type="text/javascript" src="../js/lil-gui.umd.min.js"></script>
+
+
+	<style>
+		body {
+			margin: 0;
+			padding: 0;
+			font-family: Arial, sans-serif;
+		}
+
+		#map {
+			width: 100%;
+			height: 100vh;
+		}
+
+		.toolbar {
+			position: absolute;
+			top: 20px;
+			right: 20px;
+			background: rgba(255, 255, 255, 0.95);
+			border-radius: 8px;
+			padding: 20px;
+			box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+			z-index: 1000;
+			min-width: 280px;
+			max-width: 350px;
+		}
+
+		.toolbar-title {
+			font-size: 18px;
+			font-weight: bold;
+			color: #333;
+			margin-bottom: 15px;
+			text-align: center;
+			border-bottom: 2px solid #007bff;
+			padding-bottom: 8px;
+		}
+
+		.form-group {
+			margin-bottom: 15px;
+		}
+
+		.form-group label {
+			display: block;
+			margin-bottom: 5px;
+			font-weight: bold;
+			color: #555;
+		}
+
+		.form-group select,
+		.form-group input[type="number"] {
+			width: 100%;
+			padding: 8px;
+			border: 1px solid #ddd;
+			border-radius: 4px;
+			font-size: 14px;
+		}
+
+		.checkbox-group {
+			display: flex;
+			align-items: center;
+			margin-bottom: 10px;
+		}
+
+		.checkbox-group input[type="checkbox"] {
+			margin-right: 8px;
+			transform: scale(1.2);
+		}
+
+		.distance-controls {
+			margin-left: 20px;
+			margin-top: 10px;
+			display: none;
+		}
+
+		.distance-row {
+			display: flex;
+			gap: 10px;
+			margin-bottom: 8px;
+		}
+
+		.distance-row label {
+			min-width: 60px;
+			font-size: 12px;
+		}
+
+		.distance-row input {
+			flex: 1;
+			padding: 4px;
+			border: 1px solid #ddd;
+			border-radius: 3px;
+		}
+
+		.button-group {
+			display: flex;
+			gap: 10px;
+			margin-top: 20px;
+		}
+
+		.btn {
+			flex: 1;
+			padding: 10px;
+			border: none;
+			border-radius: 4px;
+			cursor: pointer;
+			font-size: 14px;
+			font-weight: bold;
+			transition: background-color 0.3s;
+			min-width: 80px;
+		}
+
+		.btn-primary {
+			background-color: #007bff;
+			color: white;
+		}
+
+		.btn-primary:hover {
+			background-color: #0056b3;
+		}
+
+		.btn-danger {
+			background-color: #dc3545;
+			color: white;
+		}
+
+		.btn-danger:hover {
+			background-color: #c82333;
+		}
+
+		.status-info {
+			margin-top: 15px;
+			padding: 10px;
+			background-color: #f8f9fa;
+			border-radius: 4px;
+			font-size: 12px;
+			color: #666;
+		}
+
+
+
+		.btn-info {
+			background-color: #17a2b8;
+			color: white;
+		}
+
+		.btn-info:hover {
+			background-color: #138496;
+		}
+
+		.button-group {
+			display: flex;
+			gap: 10px;
+			margin-top: 20px;
+			flex-wrap: wrap;
+		}
+
+		.btn {
+			flex: 1;
+			padding: 10px;
+			border: none;
+			border-radius: 4px;
+			cursor: pointer;
+			font-size: 14px;
+			font-weight: bold;
+			transition: background-color 0.3s;
+			min-width: 80px;
+		}
+	</style>
+</head>
+
+<body>
+<div id="map"></div>
+
+<div class="toolbar">
+	<div class="toolbar-title">模型加载工具</div>
+
+	<div class="form-group">
+		<label for="modelSelect">模型列表</label>
+		<select id="modelSelect">
+			<option value="">请选择模型</option>
+			<option value="http://192.168.152.123/minemap-engine/EngineCanaryDemo/data/models/岸桥吊.glb" selected>岸桥吊</option>
+			<option value="http://192.168.152.123/minemap-engine/EngineCanaryDemo/data/models/ship.glb">船舶模型(数量需要限制100个)</option>
+			<option value="http://192.168.152.123/minemap-engine/EngineCanaryDemo/data/models/集装箱1.glb">集装箱</option>
+			<option value="http://192.168.152.123/minemap-engine/EngineCanaryDemo/data/models/单体_服务区_枪机摄像头_999.glb">摄像头</option>
+			<option value="http://192.168.152.123/minemap-engine/EngineCanaryDemo/data/models/急流槽PBR流程.glb">急流槽</option>
+		</select>
+	</div>
+
+	<div class="form-group">
+		<label for="modelCount">模型数量</label>
+		<input type="number" id="modelCount" min="1" max="200000" value="100" placeholder="1-200000">
+	</div>
+
+	<div class="form-group">
+		<label for="modelScale">模型缩放</label>
+		<input type="number" id="modelScale" min="1" max="1000" value="10" placeholder="1-1000">
+	</div>
+
+	<div class="checkbox-group">
+		<input type="checkbox" id="useInstancing" checked>
+		<label for="useInstancing">是否实例化</label>
+	</div>
+
+
+	<div class="checkbox-group">
+		<input type="checkbox" id="showSymbols" checked>
+		<label for="showSymbols">显示Symbol标记</label>
+	</div>
+
+	<div class="checkbox-group">
+		<input type="checkbox" id="useDistance">
+		<label for="useDistance">是否添加可视距离</label>
+	</div>
+
+
+
+	<div class="distance-controls" id="distanceControls">
+		<div class="distance-row">
+			<label>最近距离:</label>
+			<input type="number" id="minDistance" value="0" min="0" max="1000000000">
+		</div>
+		<div class="distance-row">
+			<label>最远距离:</label>
+			<input type="number" id="maxDistance" value="10000" min="0" max="1000000000">
+		</div>
+	</div>
+
+	<div class="button-group">
+		<button class="btn btn-primary" onclick="loadModels()">加载模型</button>
+		<button class="btn btn-danger" onclick="clearAllModels()">清空模型</button>
+		<button class="btn btn-info" onclick="validateModel()">校验模型</button>
+	</div>
+
+	<div class="status-info" id="statusInfo">
+		状态: 就绪
+	</div>
+</div>
+
+<script>
+	minemap.domainUrl = 'https://minedata.cn';
+	minemap.serverDomainUrl = 'https://ol-data.minedata.cn';
+	window.minemapCDN = 'https://minedata.cn/minemapapi/minemap-CDN';
+
+	minemap.key = '<您的 key>';
+	minemap.solution = 11001;
+
+	// 北京中心点坐标
+	const BEIJING_CENTER = [116.381670, 39.890100];
+
+	// 定义空底图样式
+	var style = {
+		"glyphs": "minemap://fonts/{fontstack}/{range}",
+		"sprite": "minemap://sprite/sprite",
+		"sources": {},
+		"layers": [],
+		"version": 8
+	};
+
+	// 初始化地图实例
+	var map = new minemap.Map({
+		container: 'map',
+		style: style,
+		center: BEIJING_CENTER,
+		bearing: 0,
+		zoom: 15,
+		pitch: 45,
+		maxZoom: 22,
+		minZoom: 1,
+		projection: 'MERCATOR',
+		// MSAASamples: 4,
+		// OIT: true,
+	});
+
+	// map.repaint = true;
+	// map.enableLight();
+
+	// 存储已加载的模型组件
+	var loadedModels = [];
+	var modelCounter = 0;
+
+	map.on('load', function () {
+		// 添加栅格图
+		map.addSource("IMAGERY_SOURCE", {
+			"type": "raster",
+			"tiles": ["https://services.minedata.cn/service/data/satellite?x={x}&y={y}&z={z}"],
+			"tileSize": 512,
+		});
+
+		map.addLayer({
+			"id": "IMAGERY",
+			"type": "raster",
+			"source": "IMAGERY_SOURCE",
+			"minzoom": 1,
+			"maxzoom": 23,
+		});
+
+		updateStatus('地图加载完成，可以开始加载模型');
+
+
+		Promise.all([
+			addImage("https://minedata.cn/mine-support/assets/web/support-data/images/symbol-hospital-icon.png", "hospital-icon"),
+			addImage("https://minedata.cn/mine-support/assets/web/support-data/images/symbol-park-icon.png", "park-icon"),
+			addImage("https://minedata.cn/mine-support/assets/web/support-data/images/symbol-university-icon.png", "university-icon")]
+		).then((res) => {
+
+		})
+	});
+
+	function addImage(url, name) {
+		return new Promise((resolve, reject) => {
+			map.loadImage(url, (err, images) => {
+				if (err) throw err;
+				// 添加自定义图标
+				map.addImage(name, images);
+				resolve(name);
+			});
+		})
+	}
+
+	// 距离控制显示/隐藏
+	document.getElementById('useDistance').addEventListener('change', function () {
+		const distanceControls = document.getElementById('distanceControls');
+		distanceControls.style.display = this.checked ? 'block' : 'none';
+	});
+
+	// 更新状态信息
+	function updateStatus(message) {
+		document.getElementById('statusInfo').textContent = '状态: ' + message;
+	}
+
+	// 加载模型函数
+	function loadModels() {
+		const modelSelect = document.getElementById('modelSelect');
+		const modelCount = parseInt(document.getElementById('modelCount').value);
+		const useInstancing = document.getElementById('useInstancing').checked;
+		const useDistance = document.getElementById('useDistance').checked;
+		const minDistance = parseInt(document.getElementById('minDistance').value) || 0;
+		const maxDistance = parseInt(document.getElementById('maxDistance').value) || 10000;
+
+
+
+
+		if (!modelSelect.value) {
+			alert('请选择一个模型');
+			return;
+		}
+
+		if(modelSelect.value && modelSelect.value.indexOf('ship.glb') !== -1 && modelCount > 100){
+			alert('船舶模型数量不能超过100个');
+			return;
+		}
+
+		if (modelCount < 1 || modelCount > 200000) {
+			alert('模型数量必须在1-200000之间');
+			return;
+		}
+
+		updateStatus('正在加载模型...');
+
+		const modelId = 'model_' + (++modelCounter);
+
+		if (useInstancing) {
+			// 使用实例化方式加载
+			addInstancedModels(modelId, BEIJING_CENTER[0], BEIJING_CENTER[1], modelCount, modelSelect.value, useDistance, minDistance, maxDistance);
+		} else {
+			// 使用单个模型方式加载
+			addSingleModels(modelId, BEIJING_CENTER[0], BEIJING_CENTER[1], modelCount, modelSelect.value, useDistance, minDistance, maxDistance);
+		}
+	}
+
+	// 实例化加载模型（修改版）
+	function addInstancedModels(id, x, y, count, modelUrl, useDistance, minDistance, maxDistance) {
+		const centerLongitude = x;
+		const centerLatitude = y;
+		const height = 100.0;
+		const spacing = 0.01;
+		const gridSize = Math.ceil(Math.sqrt(count));
+		const modelScale = parseInt(document.getElementById('modelScale').value);
+
+		let positions = [];
+		let rotations = [];
+		let scales = [];
+		let instanceNames = [];
+		let colors = [];
+		let shows = [];
+
+		// 清空之前的Symbol数据
+		symbolData.features = [];
+
+		let index = 0;
+		for (let row = 0; row < gridSize && index < count; row++) {
+			for (let col = 0; col < gridSize && index < count; col++) {
+				const longitude = centerLongitude + spacing * (col - gridSize / 2);
+				const latitude = centerLatitude + spacing * (row - gridSize / 2);
+
+				positions.push(new minemap.Math.Vector3([longitude, latitude, height]));
+				scales.push(new minemap.Math.Vector3([modelScale, modelScale, modelScale]));
+				rotations.push(minemap.Math.HeadingPitchRoll.fromDegrees(40, 0, 0));
+				instanceNames.push("instance_" + index);
+				colors.push(new minemap.Color(1, 1, 1, 1));
+				shows.push(true);
+
+				// 添加Symbol标记
+				const modelName = modelUrl.split('/').pop().split('.')[0];
+				addSymbolAtPosition(longitude, latitude, `${modelName}_${index}`, modelName);
+
+				index++;
+			}
+		}
+
+		const componentConfig = {
+			id: "gltf-" + id,
+			positions: positions,
+			rotations: rotations,
+			scales: scales,
+			instanceNames: instanceNames,
+			// colors: colors,
+			shows: shows,
+			type: "3d-model",
+			data: modelUrl,
+			loaded: (glb) => {
+				updateStatus(`成功加载 ${count} 个实例化模型`);
+
+				// 添加Symbol数据源和图层
+				addSymbolSource();
+				addSymbolLayer();
+				updateSymbolData();
+
+				// 飞行到模型位置
+				map.flyTo({
+					target: [x, y, 5000],
+					bearing: 0,
+					pitch: 0,
+					duration: 2000,
+				});
+			}
+		};
+
+		// 添加可视距离条件
+		if (useDistance) {
+			componentConfig.distanceDisplayCondition = new minemap.DistanceDisplayCondition(minDistance, maxDistance);
+		}
+
+		const model = map.addSceneComponent(componentConfig);
+		loadedModels.push(model);
+	}
+
+	// 单个模型加载（修改版）
+	function addSingleModels(id, x, y, count, modelUrl, useDistance, minDistance, maxDistance) {
+		const centerLongitude = x;
+		const centerLatitude = y;
+		const spacing = 0.01;
+		const gridSize = Math.ceil(Math.sqrt(count));
+		const modelScale = parseInt(document.getElementById('modelScale').value);
+
+		// 清空之前的Symbol数据
+		symbolData.features = [];
+
+		let loadedCount = 0;
+
+		for (let row = 0; row < gridSize && loadedCount < count; row++) {
+			for (let col = 0; col < gridSize && loadedCount < count; col++) {
+				const longitude = centerLongitude + spacing * (col - gridSize / 2);
+				const latitude = centerLatitude + spacing * (row - gridSize / 2);
+
+				// 添加Symbol标记
+				const modelName = modelUrl.split('/').pop().split('.')[0];
+				addSymbolAtPosition(longitude, latitude, `${modelName}_${loadedCount}`, modelName);
+
+				const componentConfig = {
+					id: `single-${id}-${loadedCount}`,
+					type: "3d-model",
+					data: modelUrl,
+					scale: [modelScale, modelScale, modelScale],
+					rotation: [0, 0, 90],
+					position: [longitude, latitude, 0],
+					minzoom: 1,
+					maxzoom: 22,
+					loaded: (glb) => {
+						if (loadedCount === 0) {
+							// 第一个模型加载完成后添加Symbol
+							addSymbolSource();
+							addSymbolLayer();
+							updateSymbolData();
+
+							// 飞行到位置
+							map.flyTo({
+								target: [x, y, 5000],
+								bearing: 0,
+								pitch: 0,
+								duration: 2000,
+							});
+						}
+					}
+				};
+
+				// 添加可视距离条件
+				if (useDistance) {
+					componentConfig.distanceDisplayCondition = new minemap.DistanceDisplayCondition(minDistance, maxDistance);
+				}
+
+				const model = map.addSceneComponent(componentConfig);
+				loadedModels.push(model);
+				loadedCount++;
+			}
+		}
+
+		updateStatus(`成功加载 ${count} 个单独模型`);
+	}
+
+	// 清空所有模型
+	function clearAllModels() {
+		if (loadedModels.length === 0) {
+			updateStatus('没有模型需要清空');
+			return;
+		}
+
+		loadedModels.forEach(model => {
+			try {
+				if (model && model.id) {
+					map.removeSceneComponent(model.id);
+				}
+
+				var jsonData2 = {
+					"type": "FeatureCollection",
+					"features": []
+				};
+
+				map.getSource("modelSymbolSource").setData(jsonData2);
+			} catch (error) {
+				console.warn('清除模型时出错:', error);
+			}
+		});
+
+		loadedModels = [];
+		modelCounter = 0;
+		updateStatus('所有模型已清空');
+	}
+
+	// 键盘快捷键
+	document.addEventListener('keydown', function (event) {
+		if (event.ctrlKey && event.key === 'Enter') {
+			loadModels();
+		} else if (event.ctrlKey && event.key === 'Delete') {
+			clearAllModels();
+		}
+	});
+</script>
+
+<script>
+
+	// 校验模型函数
+	function validateModel() {
+		const editorUrl = 'http://192.168.152.227:11188/3DViewer/threeeditor/index.html';
+
+		// 在新窗口中打开3D编辑器
+		const newWindow = window.open(editorUrl, '_blank', 'width=1200,height=800,scrollbars=yes,resizable=yes');
+
+		if (newWindow) {
+			updateStatus('已打开3D模型校验器');
+			// 检查窗口是否被阻止
+			setTimeout(() => {
+				if (newWindow.closed) {
+					updateStatus('3D模型校验器窗口可能被浏览器阻止，请检查弹窗设置');
+				}
+			}, 1000);
+		} else {
+			updateStatus('无法打开3D模型校验器，请检查浏览器弹窗设置');
+			alert('无法打开3D模型校验器，请允许弹窗或手动访问：\n' + editorUrl);
+		}
+	}
+
+	// 存储Symbol相关数据
+	var symbolData = {
+		features: [],
+		sourceAdded: false,
+		layerAdded: false
+	};
+
+	// 添加Symbol数据源
+	function addSymbolSource() {
+		if (!symbolData.sourceAdded && symbolData.features.length > 0) {
+			var jsonData = {
+				"type": "FeatureCollection",
+				"features": symbolData.features
+			};
+
+			map.addSource("modelSymbolSource", {
+				"type": "geojson",
+				"data": jsonData
+			});
+
+			symbolData.sourceAdded = true;
+		}
+	}
+
+	// 添加Symbol图层
+	function addSymbolLayer() {
+		if (!symbolData.layerAdded && symbolData.sourceAdded) {
+			map.addLayer({
+				"id": "modelSymbolLayer",
+				"type": "symbol",
+				"source": "modelSymbolSource",
+				"layout": {
+					"icon-image": "park-icon", // 使用默认标记图标
+					"text-field": "{title}",
+					"text-size": 12,
+					"visibility": "visible",
+					"icon-pitch-alignment": "viewport",
+					"text-pitch-alignment": "viewport",
+					"icon-anchor": "bottom",
+					"icon-size": 0.8,
+					"text-offset": [0, -2],
+					"text-anchor": "top",
+
+					'icon-allow-overlap': true,
+					"icon-ignore-placement": true,
+					"icon-optional": true,
+					'text-allow-overlap': true,
+					"text-ignore-placement": true,
+					"text-optional": true,
+				},
+				"paint": {
+					"icon-color": "#ff0000",
+					"text-color": "#ffffff",
+					"text-halo-color": "#000000",
+					"text-halo-width": 1
+				}
+			});
+
+			symbolData.layerAdded = true;
+		}
+	}
+
+	// 更新Symbol数据
+	function updateSymbolData() {
+		if (symbolData.sourceAdded) {
+			var jsonData = {
+				"type": "FeatureCollection",
+				"features": symbolData.features
+			};
+
+			map.getSource("modelSymbolSource").setData(jsonData);
+		}
+	}
+
+	// 添加单个Symbol
+	function addSymbolAtPosition(longitude, latitude, title, modelType) {
+		var feature = {
+			"type": "Feature",
+			"geometry": {
+				"type": "Point",
+				"coordinates": [longitude, latitude]
+			},
+			"properties": {
+				"title": title || "模型",
+				"modelType": modelType || "unknown",
+				"height": 50
+			}
+		};
+
+		symbolData.features.push(feature);
+	}
+
+	// 切换Symbol显示/隐藏
+	function toggleSymbolVisibility() {
+		const showSymbols = document.getElementById('showSymbols').checked;
+
+		if (symbolData.layerAdded) {
+			map.setLayoutProperty('modelSymbolLayer', 'visibility', showSymbols ? 'visible' : 'none');
+		}
+	}
+
+	// Symbol显示控制事件监听
+	document.getElementById('showSymbols').addEventListener('change', toggleSymbolVisibility);
+</script>
+</body>
+
+</html>

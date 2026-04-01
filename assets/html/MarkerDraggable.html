@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no"/>
+	<title>球体点标记的拖拽</title>
+	<link rel="stylesheet" href="../style/demo.css">
+	<!-- 引入MineMap API插件 -->
+	<link rel="stylesheet" href="../../dist/minemap.css">
+	<script src="../../dist/minemap-dev.js"></script>
+	<style>
+		#map {
+			width: 100%;
+			height: 100%;
+		}
+	</style>
+</head>
+<body>
+<div id="map"></div>
+<script>
+	/**
+	 * 全局参数设置
+	 */
+	minemap.domainUrl = 'https://minemap.minedata.cn';
+	minemap.dataDomainUrl = 'https://minemap.minedata.cn';
+	minemap.serverDomainUrl = 'https://sd-data.minedata.cn';
+	minemap.spriteUrl = 'https://minemap.minedata.cn/minemapapi/v3.4.0/sprite/sprite';
+	minemap.serviceUrl = 'https://service.minedata.cn/service';
+
+	minemap.key = '0c6ac62182404e5ebc7a789981f6db72';
+	minemap.solution = 11001;
+
+	var map = new minemap.Map({
+		container: 'map',
+		style: 'https://service.minedata.cn/map/solu/style/11001',
+		center: [116.46, 39.92],
+		zoom: 8,
+		pitch: 0,
+		maxZoom: 17,
+		minZoom: 3,
+		projection: 'MERCATOR'
+	});
+
+	//默认marker
+	var lnglat = map.getCenter();
+	var marker = new minemap.Marker({color: 'red'}).setLngLat([116.46, 39.92 - 0.3]).addTo(map);
+	marker.setDraggable(true); //此方法可以设置marker的拖拽属性，true为可以拖拽，false为不可以拖拽
+	var draggable = marker.isDraggable()
+	var popup = new minemap.Popup({
+		closeOnClick: false,
+		closeButton: false,
+		offset: [0, -40]
+	}).setText(`我是默认marker，我的拖拽属性是${draggable}`)
+	marker.setPopup(popup).togglePopup();
+
+	// 自定义marker
+	var el = document.createElement('div');
+	el.id = 'marker';
+	el.style["background-image"] = "url(http://192.168.152.123:11187/demo-data/3d-ultra/images/park-blue2x.png)";
+	el.style["background-size"] = "cover";
+	el.style.width = "24px";
+	el.style.height = "38px";
+	el.style["border-radius"] = "20%";
+
+	var _marker = new minemap.Marker({
+		draggable: false, //可以在初始化的时候决定是否可以拖拽
+		element: el, //可以将自定义的DOM元素给element字段
+		offset: [-12, -38]
+	}).setLngLat([116.46, 39.92]).addTo(map);
+	var _draggable = _marker.isDraggable()
+	var _popup = new minemap.Popup({
+		closeOnClick: false,
+		closeButton: false,
+		offset: [0, -50]
+	}).setText(`我是自定义marker，我的拖拽属性是${_draggable}`)
+	_marker.setPopup(_popup).togglePopup();
+
+
+</script>
+</body>

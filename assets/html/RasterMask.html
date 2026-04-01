@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+		<title>球体栅格图层蒙版</title>
+		<!-- 引入MineMap API插件 -->
+		<link rel="stylesheet" href="../../dist/minemap.css" />
+		<script src="../../dist/minemap-dev.js"></script>
+		<style>
+			html,
+			body,
+			#map {
+				margin: 0;
+				padding: 0;
+				width: 100%;
+				height: 100%;
+			}
+		</style>
+	</head>
+	<body>
+		<div id="map">
+			<button onclick="startNewDraw()">开始绘制</button>
+		</div>
+		<script>
+			/**
+			 * 全局参数设置
+			 */
+			minemap.domainUrl = "https://minemap.minedata.cn";
+			minemap.dataDomainUrl = "https://minemap.minedata.cn";
+			minemap.serverDomainUrl = "https://sd-data.minedata.cn";
+			minemap.spriteUrl = "http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite";
+			minemap.serviceUrl = "https://service.minedata.cn/service";
+
+			minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+			minemap.solution = 11001;
+
+			// 定义空底图样式
+			var style = {
+				glyphs: "minemap://fonts/{fontstack}/{range}",
+				sprite: "minemap://sprite/sprite",
+				sources: {},
+				layers: [],
+				version: 8
+			};
+
+			/**
+			 * 初始化地图实例
+			 */
+			var map = new minemap.Map({
+				container: "map",
+				style: style /*球面矢量底图样式*/,
+				center: [116.3959428580888, 39.93279915715248] /*地图中心点*/,
+				zoom: 15 /*地图默认缩放等级*/,
+				pitch: 0 /*地图俯仰角度*/,
+				maxZoom: 22 /*地图最大缩放等级*/,
+				minZoom: 1 /*地图最小缩放等级*/,
+				projection: "MERCATOR"
+			});
+			map.repaint = true;
+
+			map.on("load", function () {
+				/*添加栅格图*/
+				map.addSource("IMAGERY_SOURCE", {
+					type: "raster", //数据源类型：栅格数据源
+					tiles: ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+					tileSize: 512 //瓦片尺寸
+				});
+
+				map.addLayer({
+					id: "IMAGERY",
+					type: "raster", //图层类型为"raster"
+					source: "IMAGERY_SOURCE",
+					minzoom: 1,
+					maxzoom: 23,
+					maskingEnabled: true
+				});
+			});
+
+			var start = false;
+			var holes = [];
+
+			var newloop = false;
+
+			let polygonPrimitive,
+				polylinePrimitive,
+				positions = [],
+				tempPoint = []; //鼠标移动点
+			/**
+			 * 绘制鼠标轨迹和面
+			 */
+			function drawPolygonArea() {
+				if (positions.length == 0) {
+					return;
+				}
+				if (polygonPrimitive) {
+					polygonPrimitive.geometry.setData({
+						polygonHierarchy: { positions: positions.concat(tempPoint) },
+						perPositionHeight: true
+					});
+					if (polylinePrimitive) {
+						polylinePrimitive.geometry.setData({
+							positions: positions.concat(tempPoint),
+							width: 2,
+							arcType: minemap.ARCTYPE.GEODESIC
+						});
+					}
+
+					return;
+				}
+
+				const polygonMat = minemap.StandardMaterial.fromType("Color", {
+					color: "rgba(19,140,251,0.8)",
+					doubleSided: true
+				});
+				polygonMat.depthTest = false;
+				polygonPrimitive = new minemap.Primitive({
+					geometry: new minemap.Geometries.PolygonGeometry({
+						polygonHierarchy: { positions: positions.concat(tempPoint) },
+						perPositionHeight: true
+					}),
+					material: polygonMat
+				});
+				map.addPrimitive(polygonPrimitive);
+
+				polylinePrimitive = new minemap.Primitive({
+					geometry: new minemap.Geometries.PolylineGeometry({
+						positions: positions.concat(tempPoint),
+						width: 2,
+						arcType: minemap.ARCTYPE.GEODESIC
+					}),
+					material: new minemap.PolylineMaterial({
+						color: "rgba(1,200,107,0.99)"
+					}),
+					name: "polyline"
+				});
+
+				map.addPrimitive(polylinePrimitive);
+			}
+
+			function startNewDraw() {
+				newloop = true;
+				const layer = map.getLayer("IMAGERY");
+				if (layer) {
+					layer.maskingEnabled = false;
+					layer.maskingPolygonHierarchy = null;
+					drawPolygonArea();
+				}
+			}
+
+			map.on("click", function (e) {
+				if (!newloop) return;
+
+				const layer = map.getLayer("IMAGERY");
+				if (layer) {
+					if (start == false) {
+						holes = [];
+						positions = [];
+						tempPoint = [];
+						start = true;
+					}
+					drawPolygonArea();
+
+					const pos = map.getPositionByGPUPick(e.point);
+					holes.push(pos[0], pos[1]);
+					//也可以传三个lng lat height，注意下面使用时的解析方式
+
+					positions.push(minemap.Math.Vector3.fromDegrees(pos[0], pos[1], pos[2]));
+					if (positions.length > 1 && polylinePrimitive !== undefined) {
+						map.removePrimitive(polylinePrimitive);
+						polylinePrimitive = undefined;
+					}
+				}
+			});
+
+			map.on("mousemove", function (e) {
+				if (!newloop) return;
+				drawPolygonArea();
+				tempPoint = [];
+				const pos = map.painter.getPositionByGPUPick(e.point);
+				tempPoint.push(minemap.Math.Vector3.fromDegrees(pos[0], pos[1], pos[2]));
+			});
+
+			map.on("contextmenu", function () {
+				if (!newloop) return;
+
+				if (polylinePrimitive) map.removePrimitive(polylinePrimitive);
+				if (polygonPrimitive) map.removePrimitive(polygonPrimitive);
+
+				polylinePrimitive = null;
+				polygonPrimitive = null;
+
+				drawRasterMask();
+
+				start = false;
+				newloop = false;
+				holes = [];
+				positions = [];
+				tempPoint = [];
+			});
+
+			function drawRasterMask() {
+				const layer = map.getLayer("IMAGERY");
+				if (layer && holes.length >= 3) {
+					layer.maskingEnabled = true;
+					layer.maskingPolygonHierarchy = {
+						positions: minemap.Math.Vector3.fromDegreesArray(holes)
+						//positions: minemap.Math.Vector3.fromDegreesArrayHeights(holes), 如果holes的lng lat height的数组，请用fromDegreesArrayHeights
+					};
+				}
+			}
+		</script>
+	</body>
+</html>

@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no"/>
+	<title>静态图图层</title>
+	<!-- 引入MineMap API插件 -->
+	<link rel="stylesheet" href="../../dist/minemap.css">
+	<script src="../../dist/minemap-dev.js"></script>
+	<style>
+		html, body, #map {
+			margin: 0;
+			padding: 0;
+			width: 100%;
+			height: 100%;
+		}
+	</style>
+</head>
+<body>
+<div id="map"></div>
+<script>
+	/**
+	 * 全局参数设置
+	 */
+	minemap.domainUrl = 'https://minemap.minedata.cn';
+	minemap.dataDomainUrl = 'https://minemap.minedata.cn';
+	minemap.serverDomainUrl = 'https://sd-data.minedata.cn';
+	minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+	minemap.serviceUrl = 'https://service.minedata.cn/service';
+
+	minemap.key = '0c6ac62182404e5ebc7a789981f6db72';
+	minemap.solution = 11001;
+
+	// 定义空底图样式
+	var style = {
+		"glyphs": "minemap://fonts/{fontstack}/{range}",
+		"sprite": "minemap://sprite/sprite",
+		"sources": {},
+		"layers": [],
+		"version": 8
+	};
+
+	/**
+	 * 初始化地图实例
+	 */
+	var map = new minemap.Map({
+		container: 'map',
+		style: style, /*球面矢量底图样式*/
+		center: [116.46, 39.92], /*地图中心点*/
+		zoom: 8, /*地图默认缩放等级*/
+		pitch: 0, /*地图俯仰角度*/
+		maxZoom: 22, /*地图最大缩放等级*/
+		minZoom: 1,  /*地图最小缩放等级*/
+		projection: 'MERCATOR'
+	});
+	map.setTerrain({
+		"tiles": ["https://staticdata-b.minedata.cn:14434/dem/{z}/{r}/{c}/{z}_{x}_{y}.terrain"], //瓦片服务地址
+		"tileSize": 512,  //瓦片大小
+		"maxzoom": 14        //dem最高切分zoom，30米一般是14级；12.5米一般是16级
+	});
+
+	map.on('load', function () {
+		/*添加栅格图*/
+		map.addSource("IMAGERY_SOURCE", {
+			"type": "raster",//数据源类型：栅格数据源
+			"tiles": ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+			"tileSize": 512,//瓦片尺寸
+			//"bounds": [113.70609172522181, 36.48878805534389, 114.61461308129726, 37.11474510334105],//要显示区域的外包框，按west，south，east，north填写
+		});
+
+		map.addLayer({
+			"id": "IMAGERY",
+			"type": "raster", //图层类型为"raster"
+			"source": "IMAGERY_SOURCE",
+			"minzoom": 1,
+			"maxzoom": 23,
+		});
+
+		// 增加自定义数据源、自定义图层
+		var center = map.getCenter();
+		//  添加图像图层
+		map.addLayer({
+			"id": "imageLayer",
+			"type": "raster",
+			"source": {
+				"type": "image", /*图像数据源类型*/
+				"url": "https://minedata.cn/nce-static/support/demo/js-3d-ultra/zh/images/radar.gif", /*图像url地址*/
+				// 支持两种方式，一种是四至方式，西南东北四个数值；另一种是传入四个经纬度值，会以外接矩形范围显示。建议使用第一种
+				"coordinates": [109.70609172522181, 30.48878805534389, 124.61461308129726, 47.11474510334105]
+				// "coordinates": [
+				//   [116.37, 39.91],
+				//   [116.39, 39.91],
+				//   [116.39, 39.89],
+				//   [116.37, 39.89]
+				// ]
+			},
+			"layout": {
+				"visibility": "visible"
+			},
+			"paint": {
+				"raster-opacity": 0.85
+			},
+		});
+	})
+</script>
+</body>

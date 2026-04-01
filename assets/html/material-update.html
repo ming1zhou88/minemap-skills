@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+    <title>GLTF纹理更新</title>
+    <!-- demo样式文件 -->
+    <link rel="stylesheet" href="//192.168.152.227:18101/nce-static/support/demo/js-3d-ultra/zh/css/demo.css">
+    <!-- 引入MineMap API插件 -->
+    <link rel="stylesheet" href="../../dist/minemap.css" />
+    <script src="../../dist/minemap-dev.js"></script>
+    <style>
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+        .demo-btn.active {
+          background-color: #475AFF;
+          color: #FFFFFF;
+          text-decoration: none
+        }
+    </style>
+</head>
+<body>
+  <div class="card-panel card-panel-top-right">
+    <div class="card-btn-group group-new" style="justify-content: space-around;">
+      <button onclick="updateTexture('img')" class="demo-btn demo-img" style="margin-right:12px;">更新纹理图片</button>
+      <button onclick="updateTexture('color')" class="demo-btn demo-color">更新纹理颜色</button>
+    </div>
+  </div>
+<div id="map"></div>
+<script>
+    /**
+     * 全局参数设置
+     */
+    minemap.domainUrl = '//192.168.152.227:18101';
+    minemap.dataDomainUrl = '//192.168.152.227:18101';
+    minemap.serverDomainUrl = '//192.168.152.227:18108';
+    minemap.spriteUrl = '//192.168.152.227:18101/minemapapi/v3.4.0/sprite/sprite';
+    minemap.serviceUrl = '//192.168.152.227:18108/service';
+
+    minemap.key = '<your key>';
+    minemap.solution = 11001;
+
+    // 定义空底图样式
+    var style = {
+        "glyphs": "minemap://fonts/{fontstack}/{range}",
+        "sprite": "minemap://sprite/sprite",
+        "sources": {},
+        "layers": [],
+        "version": 8
+    };
+    /**
+     * 初始化地图实例
+     */
+    var map = new minemap.Map({
+        container: 'map',
+        style: style, /*球面矢量底图样式*/
+        center: [116.48218703902825,39.917691034106994],
+        pitch: 30,
+        bearing: -70,
+        zoom: 16,
+        maxZoom: 22, /*地图最大缩放等级*/
+        minZoom: 1,  /*地图最小缩放等级*/
+        projection: 'MERCATOR'
+    });
+    map.repaint = true;
+    var lngLat;
+    /**
+     * 添加基本球体图层，包括球体表面、天空盒、大气层
+     *
+     */
+    map.on('load', function() {
+
+        /*添加栅格图*/
+        map.addSource("IMAGERY_SOURCE", {
+            "type": "raster",
+            "tiles": ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+            "tileSize": 256,//瓦片尺寸
+        });
+
+        map.addLayer({
+            "id": "IMAGERY",
+            "type": "raster",
+            "source": "IMAGERY_SOURCE",
+            "minzoom": 1,
+            "maxzoom": 23,
+            // "depth-test": true,
+        });
+        lngLat = map.getCenter();
+        add();
+    });
+    let selectedFeature = [],
+      imgFlag = false,
+      colorFlag = false,
+      meadowTexture = null;
+    let imgBtnDom = document.querySelector(".demo-img");
+    let colorBtnDom = document.querySelector(".demo-color");
+    function updateTexture(type) {
+      selectedFeature = getFeatures();
+      if (!selectedFeature.length) return;
+      if (type == 'img') {
+        imgFlag = !imgFlag;
+        imgBtnDom.className = imgFlag ? "demo-btn demo-img active" : "demo-btn demo-img";
+        if (!meadowTexture) {
+          meadowTexture = minemap.TextureLoader.load({
+            map,
+            texUrl: "//192.168.152.227:18101/nce-static/support/demo/js-3d-ultra/zh/images/meadow.jpg",
+          });
+        }
+        selectedFeature.map(item => {
+          const material = item.feature.material;
+          if (!material) return;
+          if (imgFlag) {
+            setMaterialOptions(material, { baseColorMap: meadowTexture });
+          } else {
+            if (item.baseColorMap) {
+              setMaterialOptions(material, { baseColorMap: item.baseColorMap });
+            }
+          }
+        });
+      } else {
+        colorFlag = !colorFlag;
+        colorBtnDom.className = colorFlag ? "demo-btn demo-color active" : "demo-btn demo-color";
+        selectedFeature.map(item => {
+          const material = item.feature.material;
+          if (!material) return;
+          if (colorFlag) {
+            setMaterialOptions(material, { baseColor: "green" });
+          } else {
+            if (item.baseColor) {
+              setMaterialOptions(material, { baseColor: item.baseColor });
+            }
+          }
+        });
+      }
+    };
+    function setMaterialOptions(material, options) {
+      if (!material) return;
+      if (typeof material.setOptions === "function") {
+        material.setOptions(options);
+      } else {
+        if (options.baseColorMap !== undefined) material.baseColorMap = options.baseColorMap;
+        if (options.baseColor !== undefined) material.baseColor = options.baseColor;
+      }
+    }
+    function getFeatures() {
+      if (!selectedFeature.length) {
+        const model = map.getSceneComponent("si-wei");
+        if (!model) return selectedFeature;
+
+        const allPrimitives = []
+          .concat(model.opaqueList || [])
+          .concat(model.transparentList || []);
+
+        const candidates = allPrimitives.filter(item => item?.material);
+        if (!candidates.length) return selectedFeature;
+
+        // 优先定位草地（兼容不同版本纹理id/路径变化）
+        let targetPrimitives = candidates.filter(item => {
+          const m = item.material;
+          const tex = m.baseColorMap;
+          const texId = tex?.id || tex?.texture?.id || "";
+          const texUrl = tex?.texUrl || tex?.resourceUrl || tex?.texture?._texture?.texUrl || "";
+          return texId === "texture-34" || /grass|meadow/i.test(String(texUrl));
+        });
+
+        // 如果未命中草地，则退化为“全部可改材质对象”
+        if (!targetPrimitives.length) {
+          targetPrimitives = candidates;
+          console.warn("[material-new] 未命中旧版 texture-34，已回退为全部材质对象。", {
+            opaqueCount: model.opaqueList?.length || 0,
+            transparentCount: model.transparentList?.length || 0,
+            candidateCount: candidates.length
+          });
+        }
+
+        targetPrimitives.forEach((item, index) => {
+          const material = item.material;
+          selectedFeature.push({
+            feature: item,
+            baseColorMap: material.baseColorMap,
+            baseColor: [material.baseColor[0], material.baseColor[1], material.baseColor[2], material.baseColor[3]]
+          });
+
+          if (index < 8) {
+            console.log("[material-new] target", {
+              index,
+              name: item.name,
+              texId: material.baseColorMap?.id || material.baseColorMap?.texture?.id,
+              texUrl:
+                material.baseColorMap?.texUrl ||
+                material.baseColorMap?.resourceUrl ||
+                material.baseColorMap?.texture?._texture?.texUrl
+            });
+          }
+        });
+      }
+      return selectedFeature;
+    }
+    function add() {
+      map.addSceneComponent({
+        id: "si-wei",
+        type: "3d-model",
+        data: "//192.168.152.227:18101/nce-static/support/assets/models/SWTX-ALL/SWFX-ALL.gltf",
+        modelFolder: "//192.168.152.227:18101/nce-static/support/assets/models/SWTX-ALL/",// 该数据引用图片等资源的文件夹路径
+        scale: [1, 1, 1], // 在xyz轴方向上的缩放比例
+        rotation: [90, 0, 0], // 绕xyz轴方向上的旋转，单位为度
+        position: [lngLat.lng - 0.001, lngLat.lat + 0.001],
+      });
+    }
+</script>
+</body>

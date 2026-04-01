@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<title>栅格图范围</title>
+		<link rel="stylesheet" href="../../dist/minemap.css" />
+		<script src="../../dist/minemap-dev.js"></script>
+		<style>
+			html,
+			body,
+			#map {
+				margin: 0;
+				padding: 0;
+				width: 100%;
+				height: 100%;
+			}
+		</style>
+	</head>
+
+	<body>
+		<div id="map"></div>
+
+		<script>
+			minemap.domainUrl = "https://minedata.cn";
+			minemap.serverDomainUrl = "https://minedata.cn";
+			minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+			window.minemapCDN = "http://minemap.minedata.cn/minemapapi/minemap-CDN"; // minemapCDN 配置
+
+			// 定义空底图样式
+			var style = {
+				glyphs: "minemap://fonts/{fontstack}/{range}",
+				sprite: "minemap://sprite/sprite",
+				sources: {},
+				layers: [],
+				version: 8
+			};
+			/**
+			 * 初始化地图实例
+			 */
+
+			var map = new minemap.Map({
+				container: "map",
+				style: style,
+				center: [115.212353, 38.671167],
+				bearing: 0,
+				zoom: 8,
+				pitch: 0,
+				projection: "MERCATOR",
+				transformRequest: (url, type) => {
+					if (type === "Tile" || type === "Source") {
+						const urlObj = new URL(url);
+						// 有key
+						urlObj.searchParams.set("ak", "0278fef9384741f6a0ab47323e1b8432");
+						return {
+							url: urlObj.href
+						};
+					}
+					return {
+						url
+					};
+				}
+			});
+			map.on("load", function () {
+				map.showTileBoundaries = true;
+				function addPolygonPrimitive(options) {
+					const geometry = new minemap.Geometries.PolygonGeometry({
+						polygonHierarchy: options.polygonHierarchy,
+						extrudedHeight: options.extrudedHeight,
+						perPositionHeight: options.perPositionHeight,
+						height: options.height,
+						arcType: options.arcType
+					});
+
+					const material = minemap.StandardMaterial.fromType("Color", {
+						color: options.color,
+						doubleSided: true,
+						depthTest: false
+					});
+
+					const primitive = new minemap.Primitive({
+						geometry: geometry,
+						material: material
+					});
+
+					map.addPrimitive(primitive);
+				}
+
+				map.addLayer({
+					id: "IMAGERY1",
+					type: "raster", //图层类型为"raster"
+					source: {
+						type: "raster", //数据源类型：栅格数据源
+						tiles: ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"],
+						tileSize: 512, //瓦片尺寸
+						maxzoom: 15,
+						// 影像范围
+						bounds: [114.23443206705696, 37.98972289637982, 116.59751463956576, 39.79343656566593]
+					}
+				});
+
+				const polygonHierarchy = {
+					positions: minemap.Math.Vector3.fromDegreesArray([
+						114.23443206705696, 37.98972289637982, 116.59751463956576, 37.98972289637982,
+						116.59751463956576, 39.79343656566593, 114.23443206705696, 39.79343656566593
+					])
+				};
+
+				addPolygonPrimitive({
+					polygonHierarchy: polygonHierarchy,
+					arcType: minemap.ARCTYPE.GEODESIC,
+					color: "rgba(98,255,0,0.18)"
+				});
+			});
+		</script>
+	</body>
+</html>

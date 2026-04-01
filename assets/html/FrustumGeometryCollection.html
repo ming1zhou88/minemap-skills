@@ -1,0 +1,327 @@
+<!--
+ * @Author: lsw
+ * @Date: 2022-04-22 14:20:37
+ * @LastEditTime: 2023-06-16 15:21:23
+ * @LastEditors: liwei
+ * @Description:
+ * @FilePath: \MineMap3DEngine\demo\html\FrustumGeometry.html
+-->
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8" />
+	<title>视锥体几何对象操作功能集合</title>
+
+	<script src="../../dist/minemap-dev.js"></script>
+	<script src="../js/lil-gui.umd.min.js"></script>
+	<style>
+		html,
+		body,
+		#map {
+			margin: 0;
+			padding: 0;
+			width: 100%;
+			height: 100%;
+		}
+	</style>
+</head>
+<body>
+<div id="map"></div>
+<script>
+	/**
+	 * 全局参数设置
+	 */
+	minemap.domainUrl = "https://minedata.cn";
+	minemap.dataDomainUrl = "https://minedata.cn";
+	minemap.serverDomainUrl = "https://minedata.cn";
+	minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+	minemap.serviceUrl = "https://minedata.cn/service/";
+
+	minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+	minemap.solution = 11001;
+	window.minemapCDN = "https://minedata.cn/minemapapi/minemap-CDN";
+
+	// 定义空底图样式
+	var style = {
+		glyphs: "minemap://fonts/{fontstack}/{range}",
+		sprite: "minemap://sprite/sprite",
+		sources: {},
+		layers: [],
+		version: 8
+	};
+
+	/**
+	 * 初始化地图实例
+	 */
+	var map = new minemap.Map({
+		container: "map",
+		style: style,
+		/*球面矢量底图样式*/
+		center: [116.24487230680099, 40.07492989660957],
+		/*地图中心点*/
+		bearing: 0,
+		zoom: 14,
+		/*地图默认缩放等级*/
+		pitch: 50,
+		/*地图俯仰角度*/
+		maxZoom: 22,
+		/*地图最大缩放等级*/
+		minZoom: 1,
+		/*地图最小缩放等级*/
+		projection: "MERCATOR",
+		OIT: true, // 开启OIT
+	});
+	map.repaint = true;
+
+	//......................................这里可以切换不同的投影.....................................
+
+	let cameraWidth = 30,
+		cameraHeight = 15,
+		fov = 30,
+		near = 100,
+		far = 1000;
+
+
+	let heading = 0,
+		pitch = 40,
+		roll = 0,
+		height = 1000;
+	//是否正在动画
+	let animating = false;
+	let animationSpeed = 5;
+	let animationFrame;
+	let cameraPosition = minemap.Math.Vector3.fromDegrees(116.24544236500333, 40.07254296210216, height); //投影相机位置
+	// 计算相机矩阵
+	let camTransformMatrix = minemap.Transforms.headingPitchRollToFixedFrame(
+		cameraPosition,
+		new minemap.Math.HeadingPitchRoll(
+			minemap.Math.toRadians(heading),
+			minemap.Math.toRadians(pitch),
+			minemap.Math.toRadians(roll)
+		)
+	);
+
+	let frustumPrimitive,
+		frustumOutlineGeometry;
+
+
+	createCameraGeometry();
+	/**
+	 * 创建相机几何体
+	 */
+	function createCameraGeometry() {
+		if (frustumPrimitive) {
+			map.removePrimitive(frustumPrimitive);
+			frustumPrimitive.destroy();
+		}
+		if(frustumOutlineGeometry){
+			map.removePrimitive(frustumOutlineGeometry);
+			frustumOutlineGeometry.destroy();
+		}
+		// 透视投影
+		let camera = new minemap.PerspectiveCamera(fov, cameraWidth/cameraHeight, near, far); // fov aspect near far
+		camera.setMatrix(camTransformMatrix);
+		frustumPrimitive = new minemap.Primitive({
+			geometry: new minemap.Geometries.FrustumGeometry(camera),
+			material: minemap.StandardMaterial.fromType("Color", {
+				color: new minemap.Color(0.0, 1.0, 1.0, 0.5),
+			}),
+			modelMatrix: camTransformMatrix
+		});
+		map.addPrimitive(frustumPrimitive);
+
+		frustumOutlineGeometry = new minemap.Primitive({
+			geometry: new minemap.Geometries.FrustumOutlineGeometry(camera),
+			material: minemap.StandardMaterial.fromType("Color", {
+				color: new minemap.Color(1.0, 0.0, 0.0, 1)
+			}),
+			modelMatrix: camTransformMatrix
+		});
+		map.addPrimitive(frustumOutlineGeometry);
+	}
+
+	function adjustHeading(flag) {
+		heading += 5 * flag;
+		adjustHeadingPitchRoll();
+	}
+
+	function adjustPitch(flag) {
+		pitch += 5 * flag;
+		adjustHeadingPitchRoll();
+	}
+
+	function adjustRoll(flag) {
+		roll += 5 * flag;
+		adjustHeadingPitchRoll();
+	}
+
+	function adjustPosition(flag) {
+		height += 10 * flag;
+		adjustHeadingPitchRoll();
+	}
+
+	function adjustHeadingPitchRoll() {
+		if (!frustumPrimitive || !frustumOutlineGeometry) {
+			return;
+		}
+
+		cameraPosition = minemap.Math.Vector3.fromDegrees(116.24544236500333, 40.07254296210216, height);
+		camTransformMatrix = minemap.Transforms.headingPitchRollToFixedFrame(
+			cameraPosition,
+			new minemap.Math.HeadingPitchRoll(
+				minemap.Math.toRadians(heading),
+				minemap.Math.toRadians(pitch),
+				minemap.Math.toRadians(roll)
+			)
+		);
+
+		frustumPrimitive.setMatrix(camTransformMatrix);
+		frustumPrimitive.updateMatrixWorld(true);
+		frustumOutlineGeometry.setMatrix(camTransformMatrix);
+		frustumOutlineGeometry.updateMatrixWorld(true);
+	}
+
+	/**
+	 * 航向的循环内容
+	 */
+	function headingAnimationLoop(){
+		heading += animationSpeed;
+		adjustHeadingPitchRoll();
+
+		animationFrame = requestAnimationFrame(headingAnimationLoop);
+	}
+	function animateHeading() {
+		animating = !animating;
+
+		if(animationFrame){
+			cancelAnimationFrame(animationFrame);
+		}
+
+		if (animating) {
+			headingAnimationLoop();
+		}
+
+	}
+
+	/**
+	 * 修改航向的speed
+	 */
+	function changeSpeed(flag) {
+		animationSpeed += flag * 0.2;
+	}
+
+	/**
+	 * 修改视场角
+	 *
+	 * @param type    true是水平视场角，false是垂直视场角
+	 * @param flag    +是加宽，-是变窄
+	 */
+	function changeVolume(type, flag) {
+		if (type) {
+			cameraWidth += flag * 1;
+			if (cameraWidth <= 0) {
+				cameraWidth -= flag * 1;
+			}
+		} else {
+			cameraHeight += flag * 1;
+			if (cameraHeight <= 0) {
+				cameraHeight -= flag * 1;
+			} else {
+				const halfRatio = (cameraHeight / (cameraHeight - flag * 1)) * Math.tan(minemap.Math.toRadians(fov) / 2);
+				fov = minemap.Math.toDegrees(Math.atan(halfRatio) * 2)
+			}
+		}
+		createCameraGeometry();
+	}
+
+
+
+
+	map.on("load", function () {
+		/*添加栅格图*/
+		map.addSource("IMAGERY_SOURCE", {
+			type: "raster", //数据源类型：栅格数据源
+			tiles: ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+			tileSize: 512 //瓦片尺寸
+		});
+
+		map.addLayer({
+			id: "IMAGERY",
+			type: "raster", //图层类型为"raster"
+			source: "IMAGERY_SOURCE",
+			minzoom: 1,
+			maxzoom: 23,
+			paint: {
+				"raster-opacity": 1
+			},
+			'depth-test': true
+		});
+
+		let eventObj = {
+			// 全屏事件
+			adjustHeading1: ()=>{
+				adjustHeading(1)
+			},
+			adjustHeading2: ()=>{
+				adjustHeading(-1)
+			},
+			adjustPitch1: ()=>{
+				adjustPitch(1)
+			},
+			adjustPitch2: ()=>{
+				adjustPitch(-1)
+			},
+			adjustRoll1: ()=>{
+				adjustRoll(1)
+			},
+			adjustRoll2: ()=>{
+				adjustRoll(-1)
+			},
+			adjustPosition1: ()=>{
+				adjustPosition(1)
+			},
+			adjustPosition2: ()=>{
+				adjustPosition(-1)
+			},
+			animateHeading: animateHeading,
+			changeSpeed1: ()=>{
+				changeSpeed(1)
+			},
+			changeSpeed2: ()=>{
+				changeSpeed(-1)
+			},
+			changeVolume1: ()=>{
+				changeVolume(true,1)
+			},
+			changeVolume2: ()=>{
+				changeVolume(true,-1)
+			},
+			changeVolume3: ()=>{
+				changeVolume(false,1)
+			},
+			changeVolume4: ()=>{
+				changeVolume(false,-1)
+			}
+		}
+		const gui = new lil.GUI({title: "参数调节面板"});
+		gui.add(eventObj,"adjustHeading1").name("Heading+（航向）")
+		gui.add(eventObj,"adjustHeading2").name("Heading-（航向）")
+		gui.add(eventObj,"adjustPitch1").name("Pitch+（俯仰）")
+		gui.add(eventObj,"adjustPitch2").name("Pitch-（俯仰）")
+		gui.add(eventObj,"adjustRoll1").name("Roll+（翻滚）")
+		gui.add(eventObj,"adjustRoll2").name("Roll-（翻滚）")
+		gui.add(eventObj,"adjustPosition1").name("Position+（高度）")
+		gui.add(eventObj,"adjustPosition2").name("Position-（高度）")
+		gui.add(eventObj,"animateHeading").name("航向旋转动画")
+		gui.add(eventObj,"changeSpeed1").name("动画速度+")
+		gui.add(eventObj,"changeSpeed2").name("动画速度-")
+		gui.add(eventObj,"changeVolume1").name("视场角宽+")
+		gui.add(eventObj,"changeVolume2").name("视场角宽-")
+		gui.add(eventObj,"changeVolume3").name("视场角高+")
+		gui.add(eventObj,"changeVolume4").name("视场角高-")
+	});
+</script>
+</body>
+
+</html>

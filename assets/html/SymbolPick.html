@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8"/>
+	<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no"/>
+	<title>测试</title>
+	<!-- 引入MineMap API插件 -->
+	<link rel="stylesheet" href="http://192.168.152.123/minemapapi/v4.0.0/minemap.css"/>
+	<!--	<script src="https://minedata.cn/minemapapi/v2/latest/minemap.js"></script>-->
+	<script src="../../dist/minemap-dev.js"></script>
+	<!-- <script src="data.js"></script> -->
+	<style>
+		html,
+		body,
+		#map {
+			margin: 0;
+			padding: 0;
+			width: 100%;
+			height: 100%;
+		}
+	</style>
+</head>
+
+<body>
+<div id="map"></div>
+<script>
+	minemap.domainUrl = "https://minedata.cn";
+	minemap.dataDomainUrl = "https://minedata.cn";
+	minemap.serverDomainUrl = "https://minedata.cn";
+	minemap.spriteUrl = "https://minedata.cn/minemapapi/sprite/latest/sprite";
+	minemap.serviceUrl = "https://minedata.cn/service/";
+
+	minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+	minemap.solution = 11001;
+	window.minemapCDN = "https://minedata.cn/minemapapi/minemap-CDN"; // minemapCDN 配置
+	// window.minemapCDN = "http://192.168.152.123/minemap-engine/minemap-CDN/"; // minemapCDN 配置 http://192.168.152.123/
+
+	// 定义空底图样式
+	var style = {
+		glyphs: "minemap://fonts/{fontstack}/{range}",
+		sprite: "minemap://sprite/sprite",
+		sources: {},
+		layers: [],
+		version: 8
+	}
+
+	// 简化的测试数据 - 包含各种asset_type的样本
+	const data = [
+		{
+			id: "1",
+			asset_code: "TEST0127001",
+			type0: "2",
+			asset_type: "0127",
+			geom: '{"coordinates":[116.678878742225,40.129914381157036],"type":"Point"}',
+		},
+		{
+			id: "2",
+			asset_code: "TEST0131001",
+			type0: "3",
+			asset_type: "0131",
+			geom: '{"coordinates":[116.67911162326017,40.129899780833455],"type":"Point"}',
+		},
+		{
+			id: "3",
+			asset_code: "TEST0137001",
+			type0: "3",
+			asset_type: "0137",
+			geom: '{"coordinates":[116.67910624504371,40.129874264809445],"type":"Point"}',
+		},
+		{
+			id: "4",
+			asset_code: "TEST0593001",
+			type0: "1",
+			asset_type: "0593",
+			geom: '{"coordinates":[116.679,40.130],"type":"Point"}',
+		},
+		{
+			id: "5",
+			asset_code: "TEST0595001",
+			type0: "1",
+			asset_type: "0595",
+			geom: '{"coordinates":[116.680,40.130],"type":"Point"}',
+		},
+		{
+			id: "6",
+			asset_code: "TEST0193001",
+			type0: "1",
+			asset_type: "0193",
+			geom: '{"coordinates":[116.681,40.130],"type":"Point"}',
+		},
+		{
+			id: "7",
+			asset_code: "TEST0217001",
+			type0: "2",
+			asset_type: "0217",
+			geom: '{"coordinates":[116.682,40.130],"type":"Point"}',
+		},
+		{
+			id: "8",
+			asset_code: "TEST0222001",
+			type0: "2",
+			asset_type: "0222",
+			geom: '{"coordinates":[116.683,40.130],"type":"Point"}',
+		},
+		{
+			id: "9",
+			asset_code: "TEST0212001",
+			type0: "2",
+			asset_type: "0212",
+			geom: '{"coordinates":[116.684,40.130],"type":"Point"}',
+		},
+		{
+			id: "10",
+			asset_code: "TEST0297001",
+			type0: "3",
+			asset_type: "0297",
+			geom: '{"coordinates":[116.685,40.130],"type":"Point"}',
+		},
+		{
+			id: "11",
+			asset_code: "TEST0305001",
+			type0: "3",
+			asset_type: "0305",
+			geom: '{"coordinates":[116.686,40.130],"type":"Point"}',
+		},
+		{
+			id: "12",
+			asset_code: "TEST0407001",
+			type0: "3",
+			asset_type: "0407",
+			geom: '{"coordinates":[116.687,40.130],"type":"Point"}',
+
+		},
+		{
+			id: "13",
+			asset_code: "TEST0204001",
+			type0: "1",
+			asset_type: "0204",
+			geom: '{"coordinates":[116.688,40.130],"type":"Point"}',
+
+		},
+		// 添加更多相同类型的数据点以便测试
+		{
+			id: "14",
+			asset_code: "TEST0127002",
+			type0: "2",
+			asset_type: "0127",
+			geom: '{"coordinates":[116.689,40.131],"type":"Point"}',
+
+		},
+		{
+			id: "15",
+			asset_code: "TEST0131002",
+			type0: "3",
+			asset_type: "0131",
+			geom: '{"coordinates":[116.690,40.131],"type":"Point"}',
+
+		},
+		{
+			id: "16",
+			asset_code: "TEST0593002",
+			type0: "1",
+			asset_type: "0593",
+			geom: '{"coordinates":[116.691,40.131],"type":"Point"}',
+
+		},
+		{
+			id: "17",
+			asset_code: "TEST0595002",
+			type0: "1",
+			asset_type: "0595",
+			geom: '{"coordinates":[116.692,40.131],"type":"Point"}',
+
+		},
+		{
+			id: "18",
+			asset_code: "TEST0217002",
+			type0: "2",
+			asset_type: "0217",
+			geom: '{"coordinates":[116.693,40.131],"type":"Point"}',
+
+		},
+		{
+			id: "19",
+			asset_code: "TEST0222002",
+			type0: "2",
+			asset_type: "0222",
+			geom: '{"coordinates":[116.694,40.131],"type":"Point"}',
+
+		},
+		{
+			id: "20",
+			asset_code: "TEST0297002",
+			type0: "3",
+			asset_type: "0297",
+			geom: '{"coordinates":[116.695,40.131],"type":"Point"}',
+
+		}
+	];
+
+	/**
+	 * 初始化地图实例
+	 */
+
+	var map = new minemap.Map({
+		container: "map",
+		style: style,
+		bearing: 39,
+		center: [116.68781846864128, 40.13165349762604], // 调整中心位置
+		pitch: 45, // 增加倾斜角度以更好展示3D效果
+		zoom: 14, // 调整缩放级别
+		maxZoom: 24,
+		minZoom: 1,
+		nearDetection: true,
+		preserveDrawingBuffer: true
+	});
+	map.repaint = true;
+	map.setCursor('pointer')
+	// 图标映射 - 为不同asset_type分配更有意义的POI图标名称
+	const assetTypeIconMap = {
+		// 基础设施类 - 使用交通相关图标
+		"0127": "metro-station",          // 地铁站
+		"0131": "traffic_light_18",       // 交通灯
+		"0137": "subway_exit_n",          // 地铁出入口
+
+		// 建筑类 - 使用不同颜色的标记和POI图标
+		"0593": "sprite-red",             // 红色建筑标记
+		"0595": "sprite-green",           // 绿色建筑标记
+		"0193": "poi_code_110101_18",     // POI景点图标（替换橙色背景）
+
+		// 交通服务类 - 使用景点和设施图标
+		"0217": "poi_code_120101_18",     // POI服务设施图标（替换汽车）
+		"0222": "poi_code_130101_18",     // POI商业设施图标（替换车辆）
+		"0212": "circle_brown_8",         // 棕色圆形标记
+
+		// 特殊设施类 - 使用特殊标记和图标
+		"0297": "sprite-deepRed",         // 深红色特殊标记
+		"0305": "circle_brown_8",         // 棕色圆形标记
+		"0407": "sprite-gray",           // 灰色标记
+		"0204": "circle_red_8"            // 红色圆形标记
+	};
+
+	// 定义不同asset_type对应的颜色
+	const assetTypeColorMap = {
+		"0127": "#FF6B6B", // 红色
+		"0131": "#4ECDC4", // 青色
+		"0137": "#45B7D1", // 蓝色
+		"0193": "#96CEB4", // 绿色
+		"0212": "#FFEAA7", // 黄色
+		"0217": "#DDA0DD", // 紫色
+		"0222": "#98D8C8", // 薄荷绿
+		"0297": "#F7DC6F", // 金黄色
+		"0305": "#BB8FCE", // 淡紫色
+		"0407": "#85C1E9", // 天蓝色
+		"0593": "#F8C471", // 橙色
+		"0595": "#82E0AA", // 浅绿色
+		"0204": "#F1948A"  // 粉红色
+	};
+
+	const handlerAssetData = (array) => {
+		// 按asset_type分组数据
+		const groupedData = {};
+
+		for (let index = 0; index < array.length; index++) {
+			const item = array[index];
+			if (!item.geom) {
+				continue;
+			}
+
+			const geometry = JSON.parse(item.geom);
+			const assetType = item.asset_type;
+
+			// 获取对应的图标，如果没有映射则使用默认图标
+			const iconName = assetTypeIconMap[assetType] || "circle-11";
+			const iconColor = assetTypeColorMap[assetType] || "#FF6B6B";
+
+			const feature = {
+				type: "Feature",
+				geometry: geometry,
+				properties: {
+					...item,
+					height: 0.8,
+					icon: iconName,
+					iconColor: iconColor
+				}
+			};
+
+			// 按asset_type分组
+			if (!groupedData[assetType]) {
+				groupedData[assetType] = {
+					type: "FeatureCollection",
+					name: `资产类型-${assetType}`,
+					features: []
+				};
+			}
+			groupedData[assetType].features.push(feature);
+		}
+
+		return groupedData;
+	};
+
+	function addImage(url, name) {
+		return new Promise((resolve, reject) => {
+			map.loadImage(url, (err, images) => {
+				if (err) throw err;
+				// 添加自定义图标
+				map.addImage(name, images);
+				resolve(name);
+			});
+		});
+	}
+
+	const groupedGeoData = handlerAssetData(data);
+
+	map.on("load", function () {
+		/*添加栅格图*/
+		map.addSource("IMAGERY_SOURCE", {
+			type: "raster", //数据源类型：栅格数据源
+			tiles: ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+			tileSize: 512 //瓦片尺寸
+		});
+
+		map.addLayer({
+			id: "IMAGERY",
+			type: "raster", //图层类型为"raster"
+			source: "IMAGERY_SOURCE",
+			minzoom: 1,
+			maxzoom: 23,
+			"depth-test": true
+		});
+
+		// 为每个asset_type创建图层
+		Object.keys(groupedGeoData).forEach((assetType, index) => {
+			const geoData = groupedGeoData[assetType];
+			const layerId = `layer-${assetType}`;
+			const sourceId = `source-${assetType}`;
+
+			// 添加数据源
+			map.addSource(sourceId, {
+				type: "geojson",
+				data: geoData
+			});
+
+			// 添加图层
+			map.addLayer({
+				id: layerId,
+				type: "symbol",
+				source: sourceId,
+				layout: {
+					visibility: "visible",
+					"icon-image": "{icon}",
+					"text-size": 48,
+					"icon-allow-overlap": true,
+					"text-allow-overlap": true,
+					"icon-size": 2
+				},
+
+				minzoom: 7
+			});
+		});
+	});
+
+	map.on("click", (e) => {
+		// 获取所有图层ID
+		const layerIds = Object.keys(groupedGeoData).map(assetType => `layer-${assetType}`);
+
+		// 查询所有图层的要素
+		const features = map.queryRenderedFeatures(e.point, {layers: layerIds});
+
+		if (features.length > 0) {
+			const pickFeature = features[0];
+			const assetType = pickFeature.properties.asset_type;
+			const layerId = `layer-${assetType}`;
+			const sourceId = `source-${assetType}`;
+
+			console.log('点击的要素:', {
+				asset_code: pickFeature.properties.asset_code,
+				asset_type: assetType,
+				layer: layerId
+			});
+
+			// 重置所有图层的图标
+			resetAllGeoData();
+
+			// 更新被点击要素的图标为高亮状态
+			const geoData = groupedGeoData[assetType];
+			geoData.features.forEach(feature => {
+				if (feature.properties.id === pickFeature.properties.id) {
+					feature.properties.icon = "circle_red_8"; // 使用红色圆形图标作为选中状态
+					feature.properties.iconColor = "#FF0000"; // 红色高亮
+				}
+			});
+
+			// 更新数据源
+			map.getSource(sourceId).setData(geoData);
+			map.triggerRepaint();
+		}
+	});
+
+	function resetAllGeoData() {
+		Object.keys(groupedGeoData).forEach(assetType => {
+			const geoData = groupedGeoData[assetType];
+			const sourceId = `source-${assetType}`;
+
+			geoData.features.forEach(feature => {
+				// 恢复原始图标和颜色
+				const originalIcon = assetTypeIconMap[assetType] || "circle_red_8";
+				const originalColor = assetTypeColorMap[assetType] || "#FF6B6B";
+
+				if (feature.properties.icon !== originalIcon) {
+					feature.properties.icon = originalIcon;
+					feature.properties.iconColor = originalColor;
+				}
+			});
+
+			// 更新数据源
+			map.getSource(sourceId).setData(geoData);
+		});
+
+		map.triggerRepaint();
+	}
+</script>
+</body>
+</html>

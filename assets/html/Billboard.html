@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+	<title>公告板</title>
+	<!-- demo样式文件 -->
+	<link rel="stylesheet" href="../style/demo.css" />
+	<!-- 引入MineMap API插件 -->
+	<link rel="stylesheet" href="../../dist/minemap.css" />
+	<script src="../../dist/minemap-dev.js"></script>
+	<script src="../js/lil-gui.umd.min.js"></script>
+	<style>
+		#map {
+			width: 100%;
+			height: 100%;
+		}
+	</style>
+</head>
+
+<body>
+<div id="map"></div>
+<script>
+	/**
+	 * 全局参数设置
+	 */
+	minemap.domainUrl = 'https://minemap.minedata.cn';
+	minemap.dataDomainUrl = 'https://minemap.minedata.cn';
+	minemap.serverDomainUrl = 'https://sd-data.minedata.cn';
+	minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+	minemap.serviceUrl = 'https://service.minedata.cn/service';
+
+	minemap.key = '0c6ac62182404e5ebc7a789981f6db72';
+	minemap.solution = 11001;
+
+	// 定义空底图样式
+	var style = {
+		"glyphs": "minemap://fonts/{fontstack}/{range}",
+		"sprite": "minemap://sprite/sprite",
+		"sources": {},
+		"layers": [],
+		"version": 8
+	};
+
+	/**
+	 * 初始化地图实例
+	 */
+	var map = new minemap.Map({
+		container: 'map',
+		style: style, /*底图样式*/
+		center: [116.24544236500333, 40.06354296210216], /*地图中心点*/
+		zoom: 14, /*地图默认缩放等级*/
+		pitch: 0, /*地图俯仰角度*/
+		maxZoom: 22, /*地图最大缩放等级*/
+		minZoom: 1,  /*地图最小缩放等级*/
+		projection: 'MERCATOR'
+	});
+	map.repaint = true;
+
+	/**
+	 * 添加基本球体图层，包括球体表面、天空盒、大气层
+	 *
+	 */
+	map.on('load', function () {
+		/*添加栅格图*/
+		map.addSource("IMAGERY_SOURCE", {
+			"type": "raster",//数据源类型：栅格数据源
+			"tiles": ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+			"tileSize": 512,//瓦片尺寸
+		});
+
+		map.addLayer({
+			"id": "IMAGERY",
+			"type": "raster", //图层类型为"raster"
+			"source": "IMAGERY_SOURCE",
+			"minzoom": 0,
+			"maxzoom": 23
+		});
+		add();
+	})
+
+	let eventObj = {
+		// 全屏事件
+		add:add,
+		remove:remove
+	}
+	const gui = new lil.GUI({title: "参数调节面板"});
+	gui.add(eventObj,"add").name("添加公告板")
+	gui.add(eventObj,"remove").name("移除公告板");
+
+	var canvas;
+
+	function updateCanvas() {
+		const areaVal = Math.random().toPrecision(2) + "平方米";
+		const width = 400;
+		const height = 80;
+		if (!canvas) {
+			canvas = document.createElement("canvas");
+			canvas.style.width = width+'px';
+			canvas.style.height = height + 'px';
+
+			canvas.width = width;
+			canvas.height = height;
+			const context = canvas.getContext("2d");
+			// 创建渐变
+			const gradient = context.createLinearGradient(0, 0, width, 0);
+			gradient.addColorStop("0", "magenta");
+			gradient.addColorStop("0.5", "blue");
+			gradient.addColorStop("1.0", "red");
+			// 用渐变填色
+			context.fillStyle = gradient;
+			context.font="40px Arial";
+			context.fillText("面积是：" + areaVal, 10, 40);
+		} else {
+			// 用渐变填色
+			// 创建渐变
+			const context = canvas.getContext("2d");
+			context.clearRect(0, 0, width, height);
+			context.font="40px Arial";
+			context.fillText("面积是：" + areaVal, 10, 40);
+		}
+
+		return canvas;
+	}
+	let billBoardPrimitive,
+		timer;
+	function add(){
+		remove();
+		const material = new minemap.BillboardMaterial({
+			position: [116.24544236500333, 40.06354296210216, 0],
+			//pixelResolution: [400, 80], //公告板像素大小
+			scale: [1000, 140, 1],
+			center:new minemap.Math.Vector2(0.5,1),
+			rotation: 0, // 弧度
+			// color:new minemap.Math.Vector4(1.0, 0.7,0.2,1.0), // 颜色板
+			image: updateCanvas(),
+			// flipY: false, // 图片反转，参考webgl纹理属性
+			// imageUrl: "", //image和imageUrl两选一，imageUrl是图片路径，image是图片
+		});
+		billBoardPrimitive = new minemap.Primitive({
+			geometry: new minemap.Geometries.BillboardGeometry({}),
+			material
+		})
+		map.addPrimitive(billBoardPrimitive);
+
+		timer = setInterval(() => {
+			material.image = updateCanvas(); // 动态更新纹理
+		}, 100);
+	}
+	function remove(){
+		billBoardPrimitive&&map.removePrimitive(billBoardPrimitive);
+		clearInterval(timer);
+	}
+</script>
+</body>
+
+</html>

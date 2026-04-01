@@ -1,0 +1,324 @@
+<!--
+ * @Author: liwei
+ * @Date: 2022-11-08 14:00:30
+ * @LastEditTime: 2024-08-07 11:32:35
+ * @LastEditors: liwei
+ * @Description:
+ * @FilePath: \MineMap3DEngine\demo\html\Point.html
+-->
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<title>Point</title>
+		<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+		<!-- 引入MineMap API插件 -->
+		<link rel="stylesheet" href="../../dist/minemap.css" />
+		<script src="../../dist/minemap-dev.js"></script>
+		<script src="../js/lil-gui.umd.min.js"></script>
+		<style>
+			html,
+			#map,
+			body {
+				margin: 0;
+				padding: 0;
+				width: 100%;
+				height: 100%;
+			}
+		</style>
+	</head>
+	<div class="toolContainer"></div>
+	<body>
+		<div id="map"></div>
+		<script>
+			minemap.domainUrl = "//192.168.152.123";
+			minemap.dataDomainUrl = "https://minedata.cn";
+			minemap.serverDomainUrl = "https://minedata.cn";
+			minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+			minemap.serviceUrl = "https://minedata.cn/service/";
+
+			minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+			minemap.solution = 11001;
+			window.minemapCDN = "https://minedata.cn/minemapapi/minemap-CDN";
+
+			// 定义空底图样式
+			var style = {
+				glyphs: "minemap://fonts/{fontstack}/{range}",
+				sprite: "minemap://sprite/sprite",
+				sources: {},
+				layers: [],
+				version: 8
+			};
+			var map = new minemap.Map({
+				container: "map",
+				style: style,
+				position: [86.75517956902712, 3.580094804822964, 20212354.614760533],
+				bearing: 0,
+				maxZoom: 22, //地图最大缩放级别限制
+				minZoom: 1, //地图最小缩放级别限制
+				logDepth: true
+			});
+			map.repaint = true;
+
+			map.on("load", function () {
+				/*添加栅格图*/
+				map.addSource("IMAGERY_SOURCE", {
+					type: "raster", //数据源类型：栅格数据源
+					tiles: ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+					tileSize: 512 //瓦片尺寸
+				});
+
+				map.addLayer({
+					id: "IMAGERY",
+					type: "raster", //图层类型为"raster"
+					source: "IMAGERY_SOURCE",
+					minzoom: 1,
+					maxzoom: 23,
+					"depth-test": true,
+					paint: {
+						"raster-opacity": 1
+					}
+				});
+
+				initializeGUI();
+				add100kPoints();
+			});
+
+			let primitive;
+			function addPoints() {
+				removeAll();
+				primitive = map.addPrimitive(
+					new minemap.PointPrimitiveCollection({
+						pointPrimitives: [
+							new minemap.PointPrimitive({
+								position: minemap.Math.Vector3.fromDegrees(108.96746106504786, 34.21828993553291, 100),
+								color: "blue"
+							})
+						],
+						allowPick: true
+					})
+				);
+
+				const pointPrimitive = new minemap.PointPrimitive({
+					position: minemap.Math.Vector3.fromDegrees(108.96577099241938, 34.21837558281671, 100),
+					color: new minemap.Color(1, 0.0, 0, 1.0)
+				});
+				primitive.add(pointPrimitive);
+
+				map.flyTo({
+					target: [108.96641256151045, 34.21835863408182, 648.5890289407524],
+					duration: 3000,
+					range: 0
+				});
+			}
+
+			function setProperties() {
+				removeAll();
+				primitive = map.addPrimitive(new minemap.PointPrimitiveCollection());
+				const pointPrimitive = new minemap.PointPrimitive({
+					show: true,
+					position: minemap.Math.Vector3.fromDegrees(108.96577099241938, 34.21837558281671, 100),
+					pixelSize: 30.0,
+					color: new minemap.Color(1, 0.0, 0, 1.0),
+					outlineColor: new minemap.Color(0.0, 1.0, 1.0, 0.02),
+					outlineWidth: 5.0
+				});
+				primitive.add(pointPrimitive);
+
+				map.flyTo({
+					target: [108.96573311861296, 34.21844541386721, 648.6190588105883],
+					duration: 3000,
+					range: 0
+				});
+			}
+
+			function changeProperties() {
+				removeAll();
+				primitive = map.addPrimitive(new minemap.PointPrimitiveCollection());
+				const pointPrimitive = new minemap.PointPrimitive();
+				primitive.add(pointPrimitive);
+				pointPrimitive.show = true;
+				pointPrimitive.position = minemap.Math.Vector3.fromDegrees(108.96441183922866, 34.21879771919019, 100);
+				pointPrimitive.color = "gray";
+				pointPrimitive.pixelSize = 30;
+				pointPrimitive.outlineColor = "yellow";
+				pointPrimitive.outlineWidth = 2;
+
+				map.flyTo({
+					target: [108.96445238846168, 34.21894035059947, 648.7903267776379],
+					duration: 3000,
+					range: 0
+				});
+			}
+
+			function scaleByDistance() {
+				removeAll();
+				primitive = map.addPrimitive(new minemap.PointPrimitiveCollection());
+				const pointPrimitive = new minemap.PointPrimitive({
+					show: true,
+					position: minemap.Math.Vector3.fromDegrees(108.96505137677104, 34.218270904171625, 100),
+					pixelSize: 20.0,
+					color: new minemap.Color(0, 0, 1, 1),
+					outlineColor: new minemap.Color(0.5, 1, 0.5, 1),
+					outlineWidth: 2.0,
+					scaleByDistance: new minemap.NearFarScalar(0, 2.0, 1.5e4, 0.1)
+				});
+				primitive.add(pointPrimitive);
+
+				map.flyTo({
+					target: [108.96505527968772, 34.21807035715876, 3000],
+					duration: 3000,
+					range: 0
+				});
+			}
+
+			function fadeByDistance() {
+				removeAll();
+				primitive = map.addPrimitive(new minemap.PointPrimitiveCollection());
+				const pointPrimitive = new minemap.PointPrimitive({
+					position: minemap.Math.Vector3.fromDegrees(108.96708794742676, 34.21684026421952, 100),
+					pixelSize: 20.0,
+					color: new minemap.Color(0, 0, 1, 1),
+					translucencyByDistance: new minemap.NearFarScalar(1.5e2, 1.0, 1.5e4, 0.1)
+				});
+				primitive.add(pointPrimitive);
+
+				map.flyTo({
+					target: [108.96708673793724, 34.216858838828735, 230.50544988358018],
+					duration: 5000,
+					range: 0
+				});
+			}
+
+			function distanceDisplayCondition() {
+				removeAll();
+				primitive = map.addPrimitive(new minemap.PointPrimitiveCollection());
+				const pointPrimitive = new minemap.PointPrimitive({
+					position: minemap.Math.Vector3.fromDegrees(108.96708794742676, 34.21684026421952, 100),
+					pixelSize: 30.0,
+					color: "yellow",
+					distanceDisplayCondition: new minemap.DistanceDisplayCondition(1.5e3, 1.5e5)
+				});
+				primitive.add(pointPrimitive);
+
+				map.flyTo({
+					target: [108.97056783861048, 34.21627074117666, 4219.722036422173],
+					duration: 5000,
+					range: 0
+				});
+			}
+
+			function add100kPoints() {
+				removeAll();
+				const numPoints = 1000000;
+				primitive = map.addPrimitive(new minemap.PointPrimitiveCollection());
+
+				for (let j = 0; j < numPoints; ++j) {
+					const position = new minemap.Math.Vector3(
+						16000000 * Math.random() - 8000000,
+						(4000000 * j) / numPoints + 6378137,
+						2000000 * Math.random() - 1000000
+					);
+
+					primitive.add(
+						new minemap.PointPrimitive({
+							position: position,
+							pixelSize: 10.0,
+							color: "LIGHTSKYBLUE"
+						})
+					);
+				}
+			}
+
+			function remove() {
+				if (primitive !== undefined) {
+					const length = primitive.length;
+					for (let i = 0; i < length; i++) {
+						primitive.remove(primitive.get(0), true);
+					}
+
+					map.removePrimitive(primitive);
+					primitive = undefined;
+				}
+			}
+
+			function removeAll() {
+				if (primitive !== undefined) {
+					primitive.removeAll(true);
+					map.removePrimitive(primitive);
+					primitive.destroy();
+					primitive = undefined;
+				}
+			}
+
+			function destroyAll() {
+				if (primitive !== undefined) {
+					map.removePrimitive(primitive);
+					primitive.destroy();
+					primitive = undefined;
+				}
+			}
+
+			function initializeGUI() {
+				const pointParams = {
+					pointOperation: [
+						"添加点",
+						"设置点的属性",
+						"改变点的属性",
+						"按距离缩放点",
+						"按距离设置点的透明度",
+						"按距离条件显示点",
+						"添加100k个点"
+					],
+					移除: remove,
+					移除所有: removeAll,
+					销毁所有: destroyAll
+				};
+				const gui = new lil.GUI({
+					title: "点",
+					width: 300
+				});
+				gui.open();
+
+				gui.add({ pointOperation: "添加100k个点" }, "pointOperation")
+					.options(pointParams.pointOperation)
+					.onChange(function (value) {
+						if (value === "添加点") {
+							addPoints();
+						} else if (value === "设置点的属性") {
+							setProperties();
+						} else if (value === "改变点的属性") {
+							changeProperties();
+						} else if (value === "按距离缩放点") {
+							scaleByDistance();
+						} else if (value === "按距离设置点的透明度") {
+							fadeByDistance();
+						} else if (value === "按距离条件显示点") {
+							distanceDisplayCondition();
+						} else if (value === "添加100k个点") {
+							map.flyTo({
+								target: [86.75517956902712, 3.580094804822964, 20212354.614760533],
+								duration: 3000,
+								range: 0,
+								callback: add100kPoints
+							});
+						}
+					});
+				gui.add({ enabled: true }, "enabled").onChange((value) => {
+					if (primitive !== undefined) {
+						primitive.show = !primitive.show;
+					}
+				});
+
+				gui.add(pointParams, "移除");
+				gui.add(pointParams, "移除所有");
+				gui.add(pointParams, "销毁所有");
+			}
+
+			map.on("click", function (e) {
+				const feature = map.getFeatureByGPUPick(e.point);
+				console.log(feature);
+			});
+		</script>
+	</body>
+</html>

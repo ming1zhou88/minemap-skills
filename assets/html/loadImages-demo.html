@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+	<title>loadImages 批量图片加载示例</title>
+	<!-- demo样式文件 -->
+	<link rel="stylesheet" href="../style/demo.css" />
+	<!-- 引入MineMap API插件 -->
+	<link rel="stylesheet" href="../../dist/minemap.css" />
+	<script src="../../dist/minemap-dev.js"></script>
+	<script src="../js/lil-gui.umd.min.js"></script>
+	<style>
+		#map {
+			width: 100%;
+			height: 100%;
+		}
+
+		.info-panel {
+			position: absolute;
+			top: 10px;
+			right: 10px;
+			background: rgba(255, 255, 255, 0.95);
+			padding: 15px;
+			border-radius: 8px;
+			box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+			max-width: 350px;
+			font-size: 14px;
+			z-index: 1000;
+		}
+
+		.info-panel h3 {
+			margin: 0 0 10px 0;
+			font-size: 16px;
+			color: #333;
+			border-bottom: 1px solid #ddd;
+			padding-bottom: 8px;
+		}
+
+		.info-panel p {
+			margin: 5px 0;
+			color: #666;
+		}
+
+		.progress-bar {
+			width: 100%;
+			height: 20px;
+			background: #f0f0f0;
+			border-radius: 4px;
+			overflow: hidden;
+			margin: 10px 0;
+		}
+
+		.progress-fill {
+			height: 100%;
+			background: linear-gradient(90deg, #4CAF50, #8BC34A);
+			transition: width 0.3s ease;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			color: white;
+			font-size: 12px;
+		}
+
+		.log-area {
+			max-height: 180px;
+			overflow-y: auto;
+			background: #f9f9f9;
+			padding: 10px;
+			border-radius: 4px;
+			font-family: monospace;
+			font-size: 12px;
+			margin-top: 10px;
+		}
+
+		.log-item {
+			padding: 3px 0;
+			border-bottom: 1px dashed #eee;
+		}
+
+		.log-item.success {
+			color: #4CAF50;
+		}
+
+		.log-item.error {
+			color: #f44336;
+		}
+
+		.log-item.info {
+			color: #2196F3;
+		}
+
+		.log-item.flight {
+			color: #9C27B0;
+		}
+
+		.btn-group {
+			display: flex;
+			gap: 10px;
+			margin-top: 10px;
+		}
+
+		.btn-group button {
+			flex: 1;
+			padding: 8px 12px;
+			border: none;
+			border-radius: 4px;
+			cursor: pointer;
+			font-size: 13px;
+			transition: all 0.2s;
+		}
+
+		.btn-primary {
+			background: #2196F3;
+			color: white;
+		}
+
+		.btn-primary:hover {
+			background: #1976D2;
+		}
+
+		.btn-success {
+			background: #4CAF50;
+			color: white;
+		}
+
+		.btn-success:hover {
+			background: #388E3C;
+		}
+
+		.btn-warning {
+			background: #FF9800;
+			color: white;
+		}
+
+		.btn-warning:hover {
+			background: #F57C00;
+		}
+
+		.btn:disabled {
+			background: #ccc;
+			cursor: not-allowed;
+		}
+
+		.flight-info {
+			margin-top: 10px;
+			padding: 10px;
+			background: #E3F2FD;
+			border-radius: 4px;
+			display: none;
+		}
+
+		.flight-info.active {
+			display: block;
+		}
+	</style>
+</head>
+
+<body>
+	<div id="map"></div>
+	<div class="info-panel">
+		<h3>loadImages 批量图片加载</h3>
+		<p>支持并行加载多张图片，提供进度回调和错误处理机制。</p>
+		<p><strong>新特性：</strong>加载后自动添加到样式，可直接在图层中引用！</p>
+		<div class="progress-bar">
+			<div class="progress-fill" id="progressFill" style="width: 0%">0%</div>
+		</div>
+		<p id="statusText">状态：等待加载...</p>
+		<p id="resultText"></p>
+
+		<div class="btn-group">
+			<button id="loadBtn" class="btn-primary">加载图片</button>
+			<button id="flyBtn" class="btn-success" disabled>飞行测试</button>
+		</div>
+
+		<div class="flight-info" id="flightInfo">
+			<strong>飞行测试进行中...</strong>
+			<p id="flightStatus">准备起飞</p>
+		</div>
+
+		<div class="log-area" id="logArea"></div>
+	</div>
+
+	<script>
+		// Demo 常量配置：集中维护地图中心点、飞行参数与日志上限。
+		const DEMO_CONFIG = {
+			center: [116.24544236500333, 40.06354296210216],
+			defaultZoom: 14,
+			poiRadius: 0.01,
+			flightZoom: 16,
+			flightPitch: 45,
+			flightDuration: 2000,
+			flightInterval: 2500,
+			maxLogItems: 80
+		};
+
+		// 演示用图片列表：`map.loadImages()` 直接接收 `{ id, url }` 数组。
+		const SAMPLE_IMAGES = Object.freeze([
+			{ id: 'poi-arrow-up', url: '../image/arrow.png' },
+			{ id: 'poi-arrow-down', url: '../image/arrow1.png' },
+			{ id: 'poi-arrow-left', url: '../image/arrow2.png' },
+			{ id: 'poi-fence-area', url: '../image/fence.png' },
+			{ id: 'poi-fence-warning', url: '../image/fence1.png' },
+			{ id: 'poi-player-marker', url: '../image/player.png' },
+			{ id: 'poi-wood-resource', url: '../image/wood.png' },
+			{ id: 'poi-traffic-signal', url: '../image/traffic.png' }
+		]);
+
+		// 缓存常用 DOM，避免重复查询。
+		const UI = {
+			progressFill: document.getElementById('progressFill'),
+			statusText: document.getElementById('statusText'),
+			resultText: document.getElementById('resultText'),
+			logArea: document.getElementById('logArea'),
+			loadBtn: document.getElementById('loadBtn'),
+			flyBtn: document.getElementById('flyBtn'),
+			flightInfo: document.getElementById('flightInfo'),
+			flightStatus: document.getElementById('flightStatus')
+		};
+
+		// 运行时状态：管理飞行过程、图层交互绑定和批量加载句柄。
+		const state = {
+			poiPositions: [],
+			isFlying: false,
+			flightIndex: 0,
+			flightTimer: null,
+			poiLayerBound: false,
+			loadController: null
+		};
+
+		minemap.domainUrl = 'https://minedata.cn';
+		minemap.dataDomainUrl = 'https://minedata.cn';
+		minemap.serverDomainUrl = 'https://minedata.cn';
+		minemap.spriteUrl = 'https://minedata.cn/minemapapi/sprite/latest/sprite';
+		minemap.serviceUrl = 'https://minedata.cn/service/';
+		minemap.key = '0c6ac62182404e5ebc7a789981f6db72';
+		minemap.solution = 11001;
+
+		// 使用空样式初始化地图，底图在 `load` 后按需补充。
+		const style = {
+			glyphs: 'minemap://fonts/{fontstack}/{range}',
+			sprite: 'minemap://sprite/sprite',
+			sources: {},
+			layers: [],
+			version: 8
+		};
+
+		// 初始化地图实例。
+		const map = new minemap.Map({
+			container: 'map',
+			style,
+			center: DEMO_CONFIG.center,
+			zoom: DEMO_CONFIG.defaultZoom,
+			pitch: 0,
+			maxZoom: 22,
+			minZoom: 1,
+			projection: 'MERCATOR'
+		});
+		map.repaint = true;
+
+
+		// Demo 主入口：批量加载图片，展示进度、结果和自动 addImage 能力。
+		function loadImagesDemo() {
+			if (state.loadController) {
+				state.loadController.cancel();
+			}
+
+			clearLogs();
+			resetDemoState();
+			updateButtons(true);
+			setStatus('状态：加载中...');
+			appendLog('开始批量加载图片...', 'info');
+
+			const startTime = performance.now();
+
+			state.loadController = map.loadImages(SAMPLE_IMAGES, function (error, results) {
+				state.loadController = null;
+				handleLoadResults(error, results, startTime);
+			}, {
+				onProgress: updateProgress,
+				maxConcurrent: 4,
+				retryCount: 2
+			});
+		}
+
+		// 更新顶部进度条。
+		function setProgress(loaded, total) {
+			const percent = total > 0 ? Math.round((loaded / total) * 100) : 0;
+			UI.progressFill.style.width = `${percent}%`;
+			UI.progressFill.textContent = `${percent}%`;
+		}
+
+		function setStatus(text) {
+			UI.statusText.textContent = text;
+		}
+
+		function setResult(text) {
+			UI.resultText.textContent = text;
+		}
+
+		// 追加日志，并限制最大条数，避免长时间演示时 DOM 持续增长。
+		function appendLog(message, type = 'info') {
+			const item = document.createElement('div');
+			item.className = `log-item ${type}`;
+			item.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+			UI.logArea.appendChild(item);
+			while (UI.logArea.children.length > DEMO_CONFIG.maxLogItems) {
+				UI.logArea.removeChild(UI.logArea.firstChild);
+			}
+			UI.logArea.scrollTop = UI.logArea.scrollHeight;
+		}
+
+		function clearLogs() {
+			UI.logArea.innerHTML = '';
+		}
+
+		// 清理飞行定时器，避免重复触发。
+		function clearFlightTimer() {
+			if (state.flightTimer) {
+				clearTimeout(state.flightTimer);
+				state.flightTimer = null;
+			}
+		}
+
+		// 根据加载/飞行状态统一更新按钮可用性。
+		function updateButtons(isLoading) {
+			UI.loadBtn.disabled = isLoading;
+			UI.flyBtn.disabled = isLoading || state.poiPositions.length === 0 || state.isFlying;
+		}
+
+		function updateProgress(loaded, total) {
+			setProgress(loaded, total);
+			setStatus(`状态：加载中 ${loaded}/${total}`);
+		}
+
+		// 每次重新加载前，重置 UI 和飞行状态。
+		function resetDemoState() {
+			clearFlightTimer();
+			state.poiPositions = [];
+			state.isFlying = false;
+			state.flightIndex = 0;
+			UI.flightInfo.classList.remove('active');
+			UI.flightStatus.textContent = '准备起飞';
+			setProgress(0, SAMPLE_IMAGES.length);
+			setResult('');
+		}
+
+		// 将成功加载的图片 ID 转成围绕中心点分布的 POI 数据。
+		function buildPoiFeatures(imageIds) {
+			state.poiPositions = imageIds.map((imageId, index) => {
+				const angle = (index / imageIds.length) * Math.PI * 2;
+				const lng = DEMO_CONFIG.center[0] + Math.cos(angle) * DEMO_CONFIG.poiRadius;
+				const lat = DEMO_CONFIG.center[1] + Math.sin(angle) * DEMO_CONFIG.poiRadius;
+
+				return {
+					lng,
+					lat,
+					iconId: imageId,
+					title: `POI ${index + 1}`,
+					imageName: imageId
+				};
+			});
+
+			return state.poiPositions.map((poi) => ({
+				type: 'Feature',
+				geometry: {
+					type: 'Point',
+					coordinates: [poi.lng, poi.lat]
+				},
+				properties: {
+					icon: poi.iconId,
+					title: poi.title,
+					imageName: poi.imageName
+				}
+			}));
+		}
+
+		// 图层点击事件只绑定一次，避免重复注册。
+		function ensurePoiInteraction() {
+			if (state.poiLayerBound) {
+				return;
+			}
+
+			map.on('click', 'poi-layer', function (event) {
+				const properties = event.features[0].properties;
+				appendLog(`点击了 ${properties.title} - 图片: ${properties.imageName}`, 'info');
+			});
+
+			state.poiLayerBound = true;
+		}
+
+		// 渲染或更新 POI 图层；图片资源已在 `map.loadImages()` 内部自动 addImage。
+		function renderPoiLayer(imageIds) {
+			const features = buildPoiFeatures(imageIds);
+			const sourceData = {
+				type: 'FeatureCollection',
+				features
+			};
+
+			if (map.getSource('poi-source')) {
+				map.getSource('poi-source').setData(sourceData);
+			} else {
+				map.addSource('poi-source', {
+					type: 'geojson',
+					data: sourceData
+				});
+
+				map.addLayer({
+					id: 'poi-layer',
+					type: 'symbol',
+					source: 'poi-source',
+					layout: {
+						'icon-image': '{icon}',
+						'icon-size': 0.8,
+						'icon-allow-overlap': true,
+						'icon-anchor': 'bottom'
+					}
+				});
+
+				ensurePoiInteraction();
+			}
+
+			appendLog(`已创建 POI 图层，包含 ${imageIds.length} 个点位`, 'success');
+		}
+
+		// 飞行测试结束后，恢复默认视角和按钮状态。
+		function finishFlightTest() {
+			clearFlightTimer();
+			state.isFlying = false;
+			state.flightIndex = 0;
+			UI.flightInfo.classList.remove('active');
+			UI.flightStatus.textContent = '准备起飞';
+			map.flyTo({
+				center: DEMO_CONFIG.center,
+				zoom: DEMO_CONFIG.defaultZoom,
+				pitch: 0,
+				bearing: 0,
+				duration: DEMO_CONFIG.flightDuration
+			});
+			updateButtons(false);
+		}
+
+		// 按顺序飞向下一个 POI，验证图标是否可正常显示。
+		function flyToNextPoi() {
+			if (!state.isFlying) {
+				return;
+			}
+
+			if (state.flightIndex >= state.poiPositions.length) {
+				appendLog('飞行测试完成！所有图片均已成功加载显示', 'success');
+				finishFlightTest();
+				return;
+			}
+
+			const poi = state.poiPositions[state.flightIndex];
+			UI.flightStatus.textContent = `飞向 ${poi.title} (${poi.imageName})`;
+			appendLog(`飞向 ${poi.title}: [${poi.lng.toFixed(5)}, ${poi.lat.toFixed(5)}] - ${poi.imageName}`, 'flight');
+
+			map.flyTo({
+				center: [poi.lng, poi.lat],
+				zoom: DEMO_CONFIG.flightZoom,
+				pitch: DEMO_CONFIG.flightPitch,
+				bearing: (state.flightIndex % 3) * 20 - 20,
+				duration: DEMO_CONFIG.flightDuration
+			});
+
+			state.flightIndex++;
+			state.flightTimer = setTimeout(flyToNextPoi, DEMO_CONFIG.flightInterval);
+		}
+
+		// 开始自动飞行巡检。
+		function startFlightTest() {
+			if (state.isFlying || state.poiPositions.length === 0) {
+				return;
+			}
+
+			state.isFlying = true;
+			state.flightIndex = 0;
+			UI.flightInfo.classList.add('active');
+			updateButtons(false);
+			appendLog('开始飞行测试，将在各POI之间飞行...', 'flight');
+			flyToNextPoi();
+		}
+
+		// 汇总加载结果，并在成功后生成示例图层。
+		function handleLoadResults(error, results, startTime) {
+
+			processUIStatus(error, results, startTime);
+
+			const successResults = results.filter((item) => item && item.isOk);
+			const imageIds = successResults.map((item) => item.id);
+
+			if (imageIds.length > 0) {
+				renderPoiLayer(imageIds);
+				appendLog(`已自动添加 ${imageIds.length} 个图标到样式，可直接用于图层`, 'success');
+			}
+
+			updateButtons(false);
+		}
+
+		// 负责更新状态文案、统计信息和明细日志。
+		function processUIStatus(error, results, startTime) {
+
+			const duration = Math.round(performance.now() - startTime);
+			const successResults = results.filter((item) => item && item.isOk);
+			const failedResults = results.filter((item) => item && !item.isOk);
+
+			setStatus(`状态：完成 (${duration}ms)`);
+			setResult(`成功加载 ${successResults.length}/${SAMPLE_IMAGES.length} 张图片`);
+			setProgress(SAMPLE_IMAGES.length, SAMPLE_IMAGES.length);
+
+			if (error) {
+				appendLog(`加载出错: ${error.message}`, 'error');
+			}
+
+			failedResults.forEach((item) => {
+				appendLog(`失败: ${item.id} (${item.url}) - ${item.errorType || 'unknown'}`, 'error');
+			});
+
+			appendLog(`加载完成！耗时: ${duration}ms`, 'success');
+			appendLog(`成功: ${successResults.length}/${SAMPLE_IMAGES.length}`, 'success');
+
+			successResults.forEach((item) => {
+				appendLog(`已加载 ${item.id} (${item.image.width}x${item.image.height})`, 'success');
+			});
+		}
+
+		// 添加简化底图，便于观察 POI 图标效果。
+		function addImageryLayer() {
+			if (!map.getSource('IMAGERY_SOURCE')) {
+				map.addSource('IMAGERY_SOURCE', {
+					type: 'raster',
+					tiles: ['https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg'],
+					tileSize: 512
+				});
+			}
+
+			if (!map.getLayer('IMAGERY')) {
+				map.addLayer({
+					id: 'IMAGERY',
+					type: 'raster',
+					source: 'IMAGERY_SOURCE',
+					minzoom: 0,
+					maxzoom: 23
+				});
+			}
+		}
+
+		// 统一注册交互入口。
+		function initializeDemo() {
+			UI.loadBtn.addEventListener('click', loadImagesDemo);
+			UI.flyBtn.addEventListener('click', startFlightTest);
+			map.on('load', function () {
+				addImageryLayer();
+				appendLog('地图加载完成，点击“加载图片”按钮开始演示', 'info');
+			});
+		}
+
+		initializeDemo();
+	</script>
+</body>
+
+</html>

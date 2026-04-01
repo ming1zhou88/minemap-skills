@@ -1,0 +1,176 @@
+<!--
+ * @Author: liwei
+ * @Date: 2022-09-07 23:54:16
+ * @LastEditTime: 2023-06-06 15:42:50
+ * @LastEditors: liwei
+ * @Description:
+ * @FilePath: \MineMap3DEngine\demo\html\PolylineGeometry.html
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8"/>
+	<title>基于局部坐标系的多段线</title>
+	<script src="../../dist/minemap-dev.js"></script>
+	<style>
+		html,
+		#map,
+		body {
+			margin: 0;
+			padding: 0;
+			width: 100%;
+			height: 100%;
+		}
+	</style>
+</head>
+
+<body>
+<div id="map"></div>
+<script type="module">
+	//用于创建局部坐标系的多段线
+
+	minemap.domainUrl = "https://minedata.cn";
+	minemap.dataDomainUrl = "https://minedata.cn";
+	minemap.serverDomainUrl = "https://minedata.cn";
+	minemap.spriteUrl = "http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite";
+	minemap.serviceUrl = "https://minedata.cn/service/";
+
+	minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+	minemap.solution = 11001;
+	window.minemapCDN = "https://minedata.cn/minemapapi/minemap-CDN";
+	// 定义空底图样式
+	var style = {
+		glyphs: "minemap://fonts/{fontstack}/{range}",
+		sprite: "minemap://sprite/sprite",
+		sources: {},
+		layers: [],
+		version: 8
+	};
+
+	/**
+	 * 初始化地图实例
+	 */
+	var map = new minemap.Map({
+		container: "map",
+		style: style,
+		/*球面矢量底图样式*/
+		center: [116.3988671572592, 39.934457935565295],
+		// center: [102.38653416841908, 38.83632088061965],
+		/*地图中心点*/
+		bearing: 0,
+		zoom: 16,
+		/*地图默认缩放等级*/
+		pitch: 0,
+		/*地图俯仰角度*/
+		maxZoom: 22,
+		/*地图最大缩放等级*/
+		minZoom: 1,
+		/*地图最小缩放等级*/
+		projection: "MERCATOR"
+	});
+	map.repaint = true;
+	window.map = map;
+
+	const heartPattern = [
+		[0, 0, 0], [15, 1, 0], [30, 4, 0], [44, 9, 0], [58, 15, 0], [73, 23, 0],
+		[87, 33, 0], [101, 44, 0], [115, 56, 0], [129, 70, 0], [142, 85, 0], [156, 101, 0],
+		[169, 118, 0], [182, 136, 0], [195, 155, 0], [207, 175, 0], [219, 196, 0],
+		[231, 218, 0], [243, 240, 0], [254, 263, 0], [265, 287, 0], [276, 312, 0],
+		[286, 337, 0], [297, 363, 0], [306, 389, 0], [316, 415, 0], [325, 442, 0],
+		[334, 469, 0], [343, 497, 0], [351, 525, 0], [359, 553, 0], [367, 581, 0],
+		[374, 609, 0], [381, 638, 0], [388, 666, 0], [395, 695, 0], [401, 724, 0],
+		[407, 753, 0], [413, 781, 0], [419, 810, 0], [424, 839, 0], [429, 867, 0],
+		[434, 896, 0], [438, 924, 0], [442, 952, 0], [446, 980, 0], [450, 1007, 0],
+		[453, 1034, 0], [456, 1061, 0], [459, 1087, 0], [461, 1113, 0], [464, 1138, 0],
+		[466, 1163, 0], [468, 1187, 0], [470, 1211, 0], [471, 1234, 0], [473, 1256, 0],
+		[474, 1278, 0], [475, 1299, 0], [476, 1320, 0], [476, 1340, 0], [477, 1359, 0],
+		[477, 1377, 0], [477, 1395, 0], [477, 1412, 0], [476, 1428, 0], [476, 1443, 0],
+		[475, 1457, 0], [474, 1471, 0], [473, 1483, 0], [471, 1495, 0], [469, 1506, 0],
+		[467, 1516, 0], [465, 1525, 0], [462, 1534, 0], [460, 1541, 0], [457, 1548, 0],
+		[454, 1554, 0], [450, 1559, 0], [447, 1563, 0], [443, 1566, 0], [439, 1569, 0],
+		[435, 1570, 0], [431, 1571, 0], [426, 1571, 0], [422, 1571, 0], [417, 1569, 0],
+		[412, 1567, 0], [407, 1563, 0], [402, 1559, 0], [397, 1554, 0], [392, 1548, 0],
+		[386, 1541, 0], [381, 1533, 0], [375, 1525, 0], [369, 1516, 0], [363, 1506, 0],
+		[357, 1495, 0], [351, 1483, 0], [345, 1471, 0], [338, 1457, 0], [332, 1443, 0],
+		[325, 1428, 0], [318, 1412, 0], [311, 1395, 0], [304, 1377, 0], [297, 1359, 0],
+		[290, 1340, 0], [283, 1320, 0], [276, 1299, 0], [269, 1278, 0], [262, 1256, 0],
+		[255, 1234, 0], [248, 1211, 0], [241, 1187, 0], [234, 1163, 0], [227, 1138, 0],
+		[220, 1113, 0], [213, 1087, 0], [206, 1061, 0], [200, 1034, 0], [193, 1007, 0],
+		[187, 980, 0], [181, 952, 0], [175, 924, 0], [169, 896, 0], [163, 867, 0],
+		[157, 839, 0], [152, 810, 0], [146, 781, 0], [141, 753, 0], [136, 724, 0],
+		[131, 695, 0], [126, 666, 0], [121, 638, 0], [117, 609, 0], [112, 581, 0],
+		[108, 553, 0], [104, 525, 0], [100, 497, 0], [96, 469, 0], [92, 442, 0],
+		[89, 415, 0], [85, 389, 0], [82, 363, 0], [79, 337, 0], [76, 312, 0],
+		[73, 287, 0], [70, 263, 0], [67, 240, 0], [65, 218, 0], [62, 196, 0],
+		[60, 175, 0], [58, 155, 0], [56, 136, 0], [54, 118, 0], [52, 101, 0],
+		[51, 85, 0], [49, 70, 0], [48, 56, 0], [46, 44, 0], [45, 33, 0],
+		[44, 23, 0], [43, 15, 0], [42, 9, 0], [41, 4, 0], [41, 1, 0],
+		[40, 0, 0]
+	]
+
+
+	for (let i = 0; i < heartPattern.length; i++) {
+		heartPattern[i] = new minemap.Math.Vector3(heartPattern[i]);
+	}
+	const polyline = new minemap.LocalPolylineGeometry({
+		positions: heartPattern,
+		width: 20
+	});
+
+	const material = minemap.PolylineMaterial.fromType("Color", {
+		color: "red"
+	});
+
+	const redPolylinePrimitive = new minemap.Primitive({
+		geometry: polyline,
+		material: material,
+		name: "polyline",
+		modelMatrix: minemap.Transforms.cartographicToFixedFrame([116.3988671572592, 39.934457935565295, 10]),
+		allowPick: true
+	});
+
+	map.addPrimitive(redPolylinePrimitive);
+
+
+	// 添加虚线
+
+	map.on("load", function () {
+		/*添加栅格图*/
+		map.addSource("IMAGERY_SOURCE", {
+			type: "raster", //数据源类型：栅格数据源
+			tiles: ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+			tileSize: 512 //瓦片尺寸
+		});
+
+		map.addLayer({
+			id: "IMAGERY",
+			type: "raster", //图层类型为"raster"
+			source: "IMAGERY_SOURCE",
+			minzoom: 1,
+			maxzoom: 23,
+			paint: {
+				"raster-opacity": 1
+			}
+		});
+	});
+
+	map.on("mousemove", function (e) {
+		const feat = map.getFeatureByGPUPick(e.point);
+		console.log(feat);
+	})
+
+	const options = {
+		positions: [],
+		width: 30,
+		arcType: minemap.ARCTYPE.GEODESIC
+	};
+
+	// setTimeout(() => {
+	// 	// 更新几何属性
+	// 	polyline.setData(options);
+	// 	material.uniformMap.color = "gold";
+	// 	material.uniformMap.opacity = 0.5;
+	// }, 5000);
+</script>
+</body>
+</html>

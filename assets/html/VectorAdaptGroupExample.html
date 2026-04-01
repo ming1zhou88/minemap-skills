@@ -1,0 +1,495 @@
+<!--
+ * @FileDescription:
+ * @Author: weipeng11132@navinfo.com
+ * @Date: 2023-04-26 13:41:41
+ * @LastEditors: defineconst
+ * @LastEditTime: 2026-01-29 10:43:03
+ * @FilePath: \demo\line-classificationType.html
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8" />
+	<title>线面贴地组合案例</title>
+
+	<link rel="stylesheet" href="../../dist/minemap.css">
+	<script src="../../dist/minemap-dev.js"></script>
+	<script src="../js/lil-gui.umd.min.js"></script>
+
+	<style>
+		html,
+		body,
+		#map {
+			margin: 0;
+			padding: 0;
+			width: 100%;
+			height: 100%;
+		}
+
+		table {
+			position: fixed;
+			top: 16px;
+			right: 14px;
+			z-index: 999;
+			background: #fff;
+			border: solid 1px #000000;
+			border-collapse: collapse;
+			padding: 2px 3px;
+			text-align: center;
+		}
+
+		tbody {
+			max-height: 600px;
+			max-width: 400px;
+			display: block;
+			overflow: auto;
+		}
+
+		td,
+		th {
+			border: solid 1px #000000;
+			border-collapse: collapse;
+			padding: 2px 3px;
+			text-align: center;
+		}
+
+		th {
+			font-weight: bold;
+		}
+	</style>
+</head>
+
+<body>
+<div id="map">
+	<div id="showTable"></div>
+</div>
+<script>
+	minemap.domainUrl = "https://minedata.cn";
+	minemap.dataDomainUrl = "https://minedata.cn";
+	minemap.serverDomainUrl = "https://minedata.cn";
+	minemap.spriteUrl =
+		"http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite";
+	minemap.serviceUrl = "https://minedata.cn/service/";
+
+	minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+	minemap.solution = 11001;
+	window.minemapCDN = "http://minemap.minedata.cn/minemapapi/minemap-CDN"; // minemapCDN 配置
+
+	// 定义空底图样式
+	var style = {
+		glyphs: "minemap://fonts/{fontstack}/{range}",
+		sprite: "minemap://sprite/sprite",
+		sources: {},
+		layers: [],
+		version: 8
+	};
+	/**
+	 * 初始化地图实例
+	 */
+
+	var map = new minemap.Map({
+		container: "map",
+		style: style,
+		bearing: 0,
+		position: [120.39836247771655, 36.1294155569738, 3602.5930550805024],
+		pitch:48.70869711092282,
+		bearing:-144.6166005955249,
+		maxZoom: 22 /*地图最大缩放等级*/,
+		minZoom: 1 /*地图最小缩放等级*/
+	});
+	map.enableLight();
+	// map.enableShadow();
+
+	map.repaint = true;
+
+	let linePrimitive, polygonPrimitive;
+
+	let vectorLineLayerId = "layerId", vectorLineSourceId = "sourceId";
+
+	let rasterLayerId = "rasterLayerId";
+
+	let cylinderPrimitive, tileset, model;
+
+	map.on("load", function() {
+		// 添加地形
+		map.setTerrain({
+			type: "terrain", //DEM的数据类型为"raster"
+			tiles: ["https://staticdata-b.minedata.cn:14434/dem/{z}/{r}/{c}/{z}_{x}_{y}.terrain"], //瓦片服务地址
+			tileSize: 512, //瓦片大小
+			maxzoom: 14 //dem最高切分zoom，30米一般是14级；12.5米一般是16级
+		});
+
+		/*添加栅格图*/
+		map.addSource("IMAGERY_SOURCE", {
+			type: "raster", //数据源类型：栅格数据源
+			tiles: [
+				"https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"
+			],
+			tileSize: 512 //瓦片尺寸
+		});
+
+		map.addLayer({
+			id: rasterLayerId,
+			type: "raster", //图层类型为"raster"
+			source: "IMAGERY_SOURCE",
+			minzoom: 1,
+			maxzoom: 23
+		});
+
+		tileset = map.addSceneComponent({
+			id: "serve",
+			type: "3d-tiles",
+			show: true,
+			translation: new minemap.Math.Vector3(0, 0, 0), //在enu坐标系下的位置移动距离，顺序为[east, north, height]，单位为m，并且只用于3dtiles图层
+			url: "https://staticdata-b.minedata.cn:14434/oblique/tileset.json",
+			skipLevelOfDetail: false, //跨层调度
+			maximumScreenSpaceError: 8,
+			/**
+			 * 飞行选择
+			 * index: 指定飞行目标(优先)
+			 * combine: 合并bounds为飞行目标
+			 */
+			geoBoundsOptions: {
+				index: 1,
+				combine: true
+			},
+			allowPick: true,
+			lightingModel: minemap.LightingModelType.NONE
+		});
+
+		//glb模型
+		model = map.addSceneComponent({
+			id: "glbModel",
+			type: "3d-model", // 数据类型为“3d-model”
+			data: "../data/cat/bengal_cat_non_commercial.glb", // 要加载的gltf格式数据
+			modelFolder: "../data/winter", // 该数据引用图片等资源的文件夹路径
+			scale: [500, 500, 500], // 在xyz轴方向上的缩放比例
+			rotation: [90, 0, 0], // 绕xyz轴方向上的旋转，单位为度
+			position: [120.3868838804861, 36.07350258225639, 40], // 锚点（模型局部坐标原点）的经纬度位置
+			activeAnimation: true,
+			lightingModel: minemap.LightingModelType.PBR
+		});
+
+		//minemap.ClassificationType 可选值
+		// ALL
+		// FORCE_VECTOR_OVER_MODEL
+		// IGNORECLASSIFICATION
+		// VECTOR_WITH_HEIGHT
+
+		//注意：
+		//4.14.0之前的版本支持的classificationType的矢量图层叠加形式不再支持，最主要的原因是性能问题！
+		//现在需要转成在source上添加adaptTerrain的方式，这样能够保证正常的使用性能，而且能够基本保留配图的原貌
+
+		addVectorLineSource(true);
+		addVectorLineLayer();
+
+		addPolyline(true);
+		addPolygon(true);
+
+
+		//独立的柱体
+		const texDefault = minemap.TextureLoader.load({ map, texUrl: "../data/image/uv.jpg" });
+
+		const stdTexMaterial = minemap.StandardMaterial.fromType("Texture", {
+			baseColorMap: texDefault,
+			opacity: 1.0,
+			doubleSided: false
+		});
+
+		const geometry = new minemap.Geometries.CylinderGeometry({
+			radiusTop: 200,
+			radiusBottom: 200,
+			height: 300,
+			radialSegments: 36,
+			heightSegments: 1,
+			openEnded: false,
+			thetaStart: 0,
+			thetaLength: Math.PI * 2
+		});
+		const matrix = minemap.Transforms.cartographicToFixedFrame([120.34861442745898, 36.10963228879362, 1]);
+
+		cylinderPrimitive = new minemap.Primitive({
+			modelMatrix: matrix,
+			geometry: geometry,
+			material: stdTexMaterial
+		});
+
+		map.addPrimitive(cylinderPrimitive);
+	});
+
+	function addVectorLineLayer(){
+		map.addLayer({
+			type: "line",
+			id: vectorLineLayerId,
+			paint: {
+				"line-color": "yellow",
+				"line-width": 5
+			},
+			source: vectorLineSourceId,
+			minzoom: 1,
+			maxzoom: 23
+		});
+
+	}
+
+	/**
+	 * 添加矢量线数据源
+	 * @param {boolean} adapt
+	 */
+	function addVectorLineSource(adapt){
+		map.addSource(vectorLineSourceId, {
+			adaptTerrain: adapt,
+			type: "geojson",
+			data: {
+				type: "FeatureCollection",
+				features: [
+					{
+						type: "Feature",
+						properties: {},
+						geometry: {
+							coordinates: [
+								[120.35777036980073, 36.102329780958584],
+								[120.36340479585755, 36.08819702647396],
+								[120.3945115230444, 36.08421283785363],
+								[120.39850257483306, 36.100432914619034],
+								[120.38899448086403, 36.10839944549093],
+								[120.37537795122773, 36.111339270651],
+								[120.37854731588345, 36.09825146171329],
+								[120.38946401636775, 36.096828742406316],
+								[120.35847467305734, 36.10868394950877],
+								[120.34603198218343, 36.101855568667474],
+								[120.3448581434211, 36.09075818395614],
+								[120.35037518560148, 36.080038709392326],
+								[120.37479103184558, 36.0716897876831],
+								[120.41364509486101, 36.078710531137375],
+								[120.41035834632692, 36.09720813674001],
+								[120.39087262288291, 36.10678723659028],
+								[120.36035281507623, 36.113425531428874],
+								[120.35542269227807, 36.111339270651],
+								[120.34861442745898, 36.10963228879362]
+							],
+							type: "LineString"
+						}
+					}
+				]
+			}
+		});
+	}
+
+	/**
+	 * 添加线段
+	 * @param {boolean} adapt 是否贴合
+	 */
+	function addPolyline(adapt){
+		//添加贴地的polyline
+		const lineGeometry = new minemap.Geometries.PolylineGeometry({
+			positions: minemap.Math.Vector3.fromDegreesArrayHeights([
+				120.34861442745898, 36.10963228879362, 40,
+				120.38821826057783, 36.07906420296752, 40,
+				120.38629556586879, 36.07030923105534, 40
+			]),
+			width: 10
+		});
+		const lineMaterial = new minemap.PolylineMaterial({
+			color: new minemap.Color(1, 0, 0, 0.5)
+		});
+		linePrimitive = new minemap.Primitive({
+			geometry: lineGeometry,
+			material: lineMaterial,
+			name: "polyline",
+			adaptTerrain: adapt, //贴合三维场景，单体化操作
+			allowPick: true
+		});
+		map.addPrimitive(linePrimitive);
+	}
+	/**
+	 * 添加多边形
+	 * @param {boolean} adapt 是否贴合
+	 */
+	function addPolygon(adapt){
+		//添加贴地的polygon
+		const polygonGeometry = new minemap.Geometries.PolygonGeometry({
+			polygonHierarchy: {
+				positions: minemap.Math.Vector3.fromDegreesArray([120.40345978551554, 36.06759066727159, 120.39588775092521, 36.072266343448675,
+					120.38709080730935, 36.073328940876245, 120.38583348964374, 36.0694307182803,
+					120.3926530380159, 36.062898779243646, 120.40067661435837, 36.064844561713315, 120.40345978551554, 36.06759066727159])
+			},
+			height: 40
+		});
+		const polygonMaterial = minemap.StandardMaterial.fromType("Color", {
+			color: new minemap.Color(0, 0, 1, 0.5),
+			doubleSided: true
+		});
+		polygonPrimitive = new minemap.Primitive({
+			geometry: polygonGeometry,
+			material: polygonMaterial,
+			adaptTerrain: adapt, //贴合三维场景，单体化操作
+			allowPick: true
+		});
+		map.addPrimitive(polygonPrimitive);
+
+	}
+
+	//添加gui
+	const gui = new lil.GUI({ title: "参数调节面板" });
+
+	function declineAdaptOfObj(obj) {
+		if(!obj) return;
+
+		obj.classificationType = minemap.ClassificationType.IGNORECLASSIFICATION;
+	}
+
+	function receiveAdaptOfObj(obj) {
+		if(!obj) return;
+
+		obj.classificationType = minemap.ClassificationType.NONE;
+	}
+
+	function empty(){}
+
+	let eventObj = {
+		// 全屏事件
+		vectorLineAdapt: function(){
+			const source = map.getSource(vectorLineSourceId);
+			if(!source.adaptTerrain){
+				map.removeLayer(vectorLineLayerId);
+				map.removeSource(vectorLineSourceId);
+				addVectorLineSource(true);
+				addVectorLineLayer();
+			}
+			str1.setValue("贴合");
+		},
+		vectorLineNormal: function(){
+			const source = map.getSource(vectorLineSourceId);
+			if(source.adaptTerrain){
+				map.removeLayer(vectorLineLayerId);
+				map.removeSource(vectorLineSourceId);
+				addVectorLineSource(false);
+				addVectorLineLayer();
+			}
+			str1.setValue("正常");
+		},
+		strVectorLineStatus: "贴合",
+
+		linePrimitiveAdapt: function(){
+			if (!linePrimitive.adaptTerrain) {
+				map.removePrimitive(linePrimitive);
+				linePrimitive.destroy();
+
+				addPolyline(true);
+			}
+			str2.setValue("贴合");
+		},
+		linePrimitiveNormal: function(){
+			if(linePrimitive.adaptTerrain){
+				map.removePrimitive(linePrimitive);
+				linePrimitive.destroy();
+
+				addPolyline(false);
+			}
+			str2.setValue("正常");
+		},
+		strLinePrimitiveStatus: "贴合",
+
+		polygonPrimitiveAdapt: function(){
+			if(!polygonPrimitive.adaptTerrain){
+				map.removePrimitive(polygonPrimitive);
+				polygonPrimitive.destroy();
+
+				addPolygon(true);
+			}
+			str3.setValue("贴合");
+		},
+		polygonPrimitiveNormal: function(){
+			if(polygonPrimitive.adaptTerrain){
+				map.removePrimitive(polygonPrimitive);
+				polygonPrimitive.destroy();
+
+				addPolygon(false);
+			}
+			str3.setValue("正常");
+		},
+		strPolygonPrimitiveStatus: "贴合",
+
+		tilesetDeclineAdapt: function(){
+			declineAdaptOfObj(tileset);
+			str4.setValue("拒绝贴合");
+		},
+		tilesetReceiveAdapt: function(){
+			receiveAdaptOfObj(tileset);
+			str4.setValue("接受贴合");
+		},
+		strTilesetStatus: "接受贴合",
+
+		modelDeclineAdapt: function(){
+			declineAdaptOfObj(model);
+			str5.setValue("拒绝贴合");
+		},
+		modelReceiveAdapt: function(){
+			receiveAdaptOfObj(model);
+			str5.setValue("接受贴合");
+		},
+		strModelStatus: "接受贴合",
+
+		primitiveCylinderDeclineAdapt: function() {
+			declineAdaptOfObj(cylinderPrimitive);
+			str6.setValue("拒绝贴合");
+		},
+		primitiveCylinderReceiveAdapt: function() {
+			receiveAdaptOfObj(cylinderPrimitive);
+			str6.setValue("接受贴合");
+		},
+		strPrimitiveStatus: "接受贴合",
+
+		rasterDeclineAdapt: function() {
+			declineAdaptOfObj(map.getLayer(rasterLayerId));
+			str7.setValue("拒绝贴合");
+		},
+		rasterReceiveAdapt: function() {
+			receiveAdaptOfObj(map.getLayer(rasterLayerId));
+			str7.setValue("接受贴合");
+		},
+		strRasterStatus: "接受贴合"
+	};
+
+
+	const projector = gui.addFolder("投射纹理类型");
+	const folder1 = projector.addFolder("矢量线图层");
+	const str1 = folder1.add(eventObj, "strVectorLineStatus").name("矢量线图层状态");
+	folder1.add(eventObj, "vectorLineAdapt").name("矢量线图层贴地");
+	folder1.add(eventObj, "vectorLineNormal").name("矢量线图层正常非贴地渲染");
+
+	const folder2 = projector.addFolder("线图元");
+	const str2 = folder2.add(eventObj, "strLinePrimitiveStatus").name("图元线图层状态");
+	folder2.add(eventObj, "linePrimitiveAdapt").name("图元线贴地");
+	folder2.add(eventObj, "linePrimitiveNormal").name("图元线正常渲染");
+
+	const folder3 = projector.addFolder("面图元");
+	const str3 = folder3.add(eventObj, "strPolygonPrimitiveStatus").name("图元面图层状态");
+	folder3.add(eventObj, "polygonPrimitiveAdapt").name("图元面贴地");
+	folder3.add(eventObj, "polygonPrimitiveNormal").name("图元面正常渲染");
+
+	const receiver = gui.addFolder("贴合接收类型");
+	const folder4 = receiver.addFolder("3d-tiles场景组件");
+	const str4 = folder4.add(eventObj, "strTilesetStatus").name("层级模型部件状态");
+	folder4.add(eventObj, "tilesetReceiveAdapt").name("层级模型接受贴合");
+	folder4.add(eventObj, "tilesetDeclineAdapt").name("层级模型拒绝贴合");
+
+
+	const folder5 = receiver.addFolder("模型三维组件");
+	const str5 = folder5.add(eventObj, "strModelStatus").name("模型部件状态");
+	folder5.add(eventObj, "modelReceiveAdapt").name("模型接受贴合");
+	folder5.add(eventObj, "modelDeclineAdapt").name("模型拒绝贴合");
+
+	const folder6 = receiver.addFolder("柱体图元");
+	const str6 = folder6.add(eventObj, "strPrimitiveStatus").name("柱体图元部件状态");
+	folder6.add(eventObj, "primitiveCylinderReceiveAdapt").name("柱体图元接受贴合");
+	folder6.add(eventObj, "primitiveCylinderDeclineAdapt").name("柱体图元拒绝贴合");
+
+	const folder7 = receiver.addFolder("栅格图层");
+	const str7 = folder7.add(eventObj, "strRasterStatus").name("栅格图层状态");
+	folder7.add(eventObj, "rasterReceiveAdapt").name("栅格图层接受贴合");
+	folder7.add(eventObj, "rasterDeclineAdapt").name("栅格图层拒绝贴合");
+</script>
+</body>
+</html>

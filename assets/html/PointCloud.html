@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8" />
+	<title>3dtiles-点云加载</title>
+	<!-- 引入MineMap API插件 -->
+	<link rel="stylesheet" href="../../dist/minemap.css" />
+	<script src="../../dist/minemap-dev.js"></script>
+	<style>
+		html,
+		body,
+		#map {
+			margin: 0;
+			padding: 0;
+			width: 100%;
+			height: 100%;
+		}
+	</style>
+</head>
+
+<body>
+	<div id="map"></div>
+	<script>
+		/**
+		 * 全局参数设置
+		 */
+		minemap.domainUrl = "https://minedata.cn";
+		minemap.dataDomainUrl = "https://minedata.cn";
+		minemap.serverDomainUrl = "https://minedata.cn";
+		minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+		minemap.serviceUrl = "https://minedata.cn/service/";
+
+		minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+		minemap.solution = 11001;
+		// window.minemapCDN = 'https://minedata.cn/minemapapi/minemap-CDN'; // minemapCDN 配置
+		window.minemapCDN = "http://192.168.152.123/minemap-engine/minemap-CDN/"; // minemapCDN 配置 http://192.168.152.123/
+
+		// 定义空底图样式
+		var style = {
+			glyphs: "minemap://fonts/{fontstack}/{range}",
+			sprite: "minemap://sprite/sprite",
+			sources: {},
+			layers: [],
+			version: 8
+		};
+		/**
+		 * 初始化地图实例
+		 */
+
+		var map = new minemap.Map({
+			container: "map",
+			style: style,
+			// style: "https://mineservice.minedata.cn/map/solu/style/11001" /*底图样式*/ /*球面矢量底图样式*/,
+			bearing: 7.776003658312044,
+			center: [116.45984040104928, 39.90017624328174],
+			pitch: 16.915283451704912,
+			zoom: 17.23549586779259,
+			maxZoom: 24 /*地图最大缩放等级*/,
+			minZoom: 1 /*地图最小缩放等级*/,
+		});
+
+		map.on("load", function () {
+			/*添加栅格图*/
+			map.addSource("IMAGERY_SOURCE", {
+				"type": "raster",//数据源类型：栅格数据源
+				"tiles": ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+				"tileSize": 512,//瓦片尺寸
+			});
+
+			map.addLayer({
+				"id": "IMAGERY",
+				"type": "raster", //图层类型为"raster"
+				"source": "IMAGERY_SOURCE",
+				"minzoom": 1,
+				"maxzoom": 23,
+			});
+
+			const tileset = map.addSceneComponent({
+				id: "serve",
+				type: "3d-tiles",
+				visible: true,
+				translation: new minemap.Math.Vector3(0, 0, 0), //在enu坐标系下的位置移动距离，顺序为[east, north, height]，单位为m，并且只用于3dtiles图层
+				url: "http://192.168.152.123/minemap-engine/EngineCanaryDemo/data/point-cloud/yun-point-cloud-1mm/tileset.json",
+				maximumScreenSpaceError: 8,
+				pointSize: 10
+			});
+		});
+	</script>
+</body>
+
+</html>

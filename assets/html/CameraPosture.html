@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8" />
+	<meta
+		name="viewport"
+		content="initial-scale=1,maximum-scale=1,user-scalable=no"
+	/>
+	<title>获取和设置相机姿态(glTF)</title>
+	<link rel="stylesheet" href="https://minedata.cn/mine-support/assets/web/support-data/css/demo.css" />
+	<link rel="stylesheet" href="https://minedata.cn/minemapapi/v4/latest/minemap.css" />
+	<script src="../../dist/minemap-dev.js"></script>
+	<script
+		type="text/javascript"
+		src="https://minedata.cn/mine-support/assets/web/support-data/js/lil-gui.umd.min.js"
+	></script>
+	<style>
+		#map {
+			width: 100%;
+			height: 100%;
+		}
+	</style>
+</head>
+<body>
+<div id="map"></div>
+<script>
+	/**
+	 * 全局参数设置
+	 */
+	minemap.domainUrl = "http://192.168.152.123";
+	minemap.serverDomainUrl = "https://ol-data.minedata.cn";
+	window.minemapCDN = "https://minedata.cn/minemapapi/minemap-CDN";
+
+	// 定义空底图样式
+	const style = {
+		glyphs: "minemap://fonts/{fontstack}/{range}",
+		sprite: "minemap://sprite/sprite",
+		sources: {},
+		layers: [],
+		version: 8
+	};
+
+	/**
+	 * 初始化地图实例
+	 */
+	const map = new minemap.Map({
+		container: "map",
+		style: style /*球面矢量底图样式*/,
+		position: [
+			116.45979610683673, 39.89459547234605, 1000
+		] /*地图中心点*/,
+		zoom: 12 /*地图默认缩放等级*/,
+		projection: "MERCATOR"
+	});
+
+	// map.repaint = true;
+
+	let gltfModel;
+	map.on("load", function() {
+		/*添加栅格图*/
+		map.addSource("IMAGERY_SOURCE", {
+			type: "raster",
+			tiles: ["https://ol-data.minedata.cn/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+			tileSize: 256 //瓦片尺寸
+		});
+
+		map.addLayer({
+			id: "IMAGERY",
+			type: "raster",
+			source: "IMAGERY_SOURCE",
+			minzoom: 1,
+			maxzoom: 23
+		});
+
+		initializeGUI();
+	});
+
+	const params = {
+		经度: 120.45979610683673,
+		纬度: 39.89459547234605,
+		高度: 1000,
+		偏航角: 0,
+		俯仰角: 0,
+		滚转角: 0,
+		飞行测试: flyToTarget
+	};
+
+	let gui;
+
+	function initializeGUI() {
+		gui = new lil.GUI({ title: "相机姿态调整", width: 300 });
+		gui.onChange(event => {
+			params.property = event.value;
+		});
+
+		gui.add(params, "经度", -180, 180, 0.000001)
+			.onChange(value => {
+				const positionHeadingPitchRoll = map.getCameraPositionHeadingPitchRoll();
+				const position = positionHeadingPitchRoll.position;
+				const headingPitchRoll = positionHeadingPitchRoll.headingPitchRoll;
+				position.x = value;
+				setCameraPosture(position, headingPitchRoll);
+			})
+			.listen();
+
+		gui.add(params, "纬度", -90, 90, 0.000001)
+			.onChange(value => {
+				const positionHeadingPitchRoll = map.getCameraPositionHeadingPitchRoll();
+				const position = positionHeadingPitchRoll.position;
+				const headingPitchRoll = positionHeadingPitchRoll.headingPitchRoll;
+				position.y = value;
+				setCameraPosture(position, headingPitchRoll);
+			})
+			.listen();
+
+		gui.add(params, "高度", 0, 10000, 1)
+			.onChange(value => {
+				const positionHeadingPitchRoll = map.getCameraPositionHeadingPitchRoll();
+				const position = positionHeadingPitchRoll.position;
+				const headingPitchRoll = positionHeadingPitchRoll.headingPitchRoll;
+				position.z = value;
+				setCameraPosture(position, headingPitchRoll);
+			})
+			.listen();
+
+		gui.add(params, "偏航角", -180, 180, 1)
+			.onChange(value => {
+				const positionHeadingPitchRoll = map.getCameraPositionHeadingPitchRoll();
+				const position = positionHeadingPitchRoll.position;
+				const headingPitchRoll = positionHeadingPitchRoll.headingPitchRoll;
+				headingPitchRoll.heading = minemap.Math.toRadians(value);
+				setCameraPosture(position, headingPitchRoll);
+			})
+			.listen();
+
+		gui.add(params, "俯仰角", 0, 180, 1)
+			.onChange(value => {
+				const positionHeadingPitchRoll = map.getCameraPositionHeadingPitchRoll();
+				const position = positionHeadingPitchRoll.position;
+				const headingPitchRoll = positionHeadingPitchRoll.headingPitchRoll;
+				headingPitchRoll.pitch = minemap.Math.toRadians(value);
+				setCameraPosture(position, headingPitchRoll);
+			})
+			.listen();
+
+		gui.add(params, "滚转角", -180, 180, 1)
+			.onChange(value => {
+				const positionHeadingPitchRoll = map.getCameraPositionHeadingPitchRoll();
+				const position = positionHeadingPitchRoll.position;
+				const headingPitchRoll = positionHeadingPitchRoll.headingPitchRoll;
+				headingPitchRoll.roll = minemap.Math.toRadians(value);
+				setCameraPosture(position, headingPitchRoll);
+			})
+			.listen();
+
+		gui.add(params, "飞行测试");
+	}
+
+	function setCameraPosture(position, headingPitchRoll) {
+		map.setCameraPositionHeadingPitchRoll({
+			position: position,
+			headingPitchRoll: headingPitchRoll
+		});
+	}
+
+	map.on("move", function() {
+		const positionHeadingPitchRoll = map.getCameraPositionHeadingPitchRoll();
+		const position = positionHeadingPitchRoll.position;
+		const headingPitchRoll = positionHeadingPitchRoll.headingPitchRoll;
+		const heading = minemap.Math.toDegrees(headingPitchRoll.heading);
+		const pitch = minemap.Math.toDegrees(headingPitchRoll.pitch);
+		const roll = minemap.Math.toDegrees(headingPitchRoll.roll);
+
+		params.经度 = position.x;
+		params.纬度 = position.y;
+		params.高度 = position.z;
+		params.偏航角 = heading;
+		params.俯仰角 = pitch;
+		params.滚转角 = roll;
+	});
+
+	function flyToTarget() {
+		map.flyTo({
+			target: [120.45979610683673, 39.89459547234605, 1000],
+			bearing: 55,
+			pitch: 42,
+			roll: 0
+		});
+	}
+</script>
+</body>
+</html>

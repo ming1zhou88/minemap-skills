@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8"/>
+	<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no"/>
+	<title>threejs融合</title>
+	<!-- demo样式文件 -->
+	<link rel="stylesheet" href="https://minedata.cn/nce-static/support/demo/js-3d-ultra/zh/css/demo.css"/>
+	<!-- 引入MineMap API插件 -->
+	<link rel="stylesheet" href="http://192.168.152.123/minemap-engine/v4.0.0/minemap.css"/>
+	<script src="../../dist/minemap-dev.js"></script>
+	<script src="../js/lil-gui.umd.min.js"></script>
+	<style>
+		#map {
+			width: 100%;
+			height: 100%;
+		}
+	</style>
+</head>
+
+<body>
+<div id="map"></div>
+<script type="importmap">
+	{
+	  "imports": {
+		"three": "https://unpkg.com/three@0.165.0/build/three.module.js",
+		"three/examples/": "https://unpkg.com/three@0.165.0/examples/",
+		"three/addons/": "https://unpkg.com/three@0.165.0/examples/jsm/"
+	  }
+	}
+</script>
+<script type="module">
+	import * as THREE from 'three';
+
+	window.THREE = THREE;
+	import { ThreeLayer } from '../js/minemap-three-plugin/index.js'
+
+	/**
+	 * 全局参数设置
+	 */
+	minemap.domainUrl = 'https://minemap.minedata.cn';
+	minemap.dataDomainUrl = 'https://minemap.minedata.cn';
+	minemap.serverDomainUrl = 'https://sd-data.minedata.cn';
+	minemap.spriteUrl = 'https://minemap.minedata.cn/minemapapi/v4.0.0/sprite/sprite';
+	minemap.serviceUrl = 'https://service.minedata.cn/service';
+
+	minemap.key = "fe68957c8e374122a807c146bacc794d";
+	minemap.solution = 11003;
+
+	// 定义空底图样式
+	const style = {
+		glyphs: "minemap://fonts/{fontstack}/{range}",
+		sprite: "minemap://sprite/sprite",
+		sources: {},
+		layers: [],
+		version: 8
+	};
+
+	/**
+	 * 初始化地图实例
+	 */
+	window.map = new minemap.Map({
+		container: "map",
+		style,
+		position: [120.30102215030331, 28.57483019781855, 44.52508226222104],
+		pitch: 71.69167517525204 /*地图俯仰角度*/,
+		bearing: 19.75459385606422,
+		maxZoom: 24 /*地图最大缩放等级*/,
+		minZoom: 1 /*地图最小缩放等级*/,
+		projection: "MERCATOR",
+		logoControl: false,
+	});
+	map.repaint = true;
+
+	map.on("load", function () {
+		map.addSource("IMAGERY_SOURCE", {
+			type: "raster", //数据源类型：栅格数据源
+			tiles: ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+			tileSize: 512 //瓦片尺寸
+		});
+
+		map.addLayer({
+			"id": "IMAGERY",
+			"type": "raster",
+			"source": "IMAGERY_SOURCE",
+			"minzoom": 1,
+			"maxzoom": 23,
+			"paint": {
+				"raster-opacity": 1
+			},
+			"depth-test": true
+		});
+
+		map.addSceneComponent({
+			id: 'fdafa',
+			type: "3d-model", // 数据类型为“3d-model”
+			data: 'https://docs.mapbox.com/mapbox-gl-js/assets/34M_17/34M_17.gltf', // 动画无法加载
+			scale: [1, 1, 1], // 在xyz轴方向上的缩放比例
+			rotation: [90, 0, 0], // 绕xyz轴方向上的旋转，单位为度
+			position: new minemap.Math.Vector3(120.301663, 28.576729, 0),
+			// minimumPixelSize: 512, // 最小屏幕像素尺寸
+		});
+		// 构造threejs图层
+		const threeLayer = new ThreeLayer({
+			id: 'test-scene', // id
+			refCenter: [120.301663, 28.576329] // 参考中心点坐标，threejs图层会以此为原点进行坐标转换
+		});
+		map.addLayer(threeLayer);
+
+		// 立方体盒子：放在相机视野内，便于观察光照变化
+		const boxGeometry = new THREE.BoxGeometry(20, 20, 20);
+		const boxMaterial = new THREE.MeshStandardMaterial({
+			color: 0x00aaff,
+			metalness: 0.1,
+			roughness: 0.8
+		});
+		const boxMesh = new THREE.Mesh(boxGeometry, boxMaterial);
+		boxMesh.position.set(0, 0, 10);
+		threeLayer.addObject(boxMesh);
+	});
+</script>
+</body>
+
+</html>

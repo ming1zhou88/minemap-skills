@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+	<title>BillboardInstance动画</title>
+	<!-- demo样式文件 -->
+	<link rel="stylesheet" href="../style/demo.css" />
+	<!-- 引入MineMap API插件 -->
+	<link rel="stylesheet" href="https://minemap.minedata.cn/minemapapi/v4.0.0/minemap.css" />
+	<script src="../../dist/minemap-dev.js"></script>
+	<style>
+		#map {
+			width: 100%;
+			height: 100%;
+		}
+	</style>
+</head>
+<body>
+<div id="map"></div>
+<script>
+	minemap.domainUrl = "https://minemap.minedata.cn";
+	minemap.dataDomainUrl = "https://minemap.minedata.cn";
+	minemap.serverDomainUrl = "https://sd-data.minedata.cn";
+	minemap.spriteUrl = "https://minemap.minedata.cn/minemapapi/v4.0.0/sprite/sprite";
+	minemap.serviceUrl = "https://service.minedata.cn/service";
+
+	minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+	minemap.solution = 11001;
+	window.minemapCDN = "https://minemap.minedata.cn/minemapapi/minemap-CDN/"; // minemapCDN 配置
+
+	// 定义空底图样式
+	var style = {
+		glyphs: "minemap://fonts/{fontstack}/{range}",
+		sprite: "minemap://sprite/sprite",
+		sources: {},
+		layers: [],
+		version: 8
+	};
+
+	/*初始化地图实例*/
+	var map = new minemap.Map({
+		container: "map",
+		style: style,
+		position: [119.44726666274485, 32.17614029756226, 736.1689045970184], //建筑物中心点经纬度
+		bearing: 0,
+		pitch: 59,
+		maxZoom: 22, //地图最大缩放等级
+		minZoom: 1, //地图最小缩放等级
+		projection: "MERCATOR"
+	});
+
+	map.repaint = true;
+	map.cameraController.enableCollisionDetection = false;
+	// map.enableLight();
+
+	map.on("load", function() {
+		/*添加栅格图*/
+		map.addSource("IMAGERY_SOURCE", {
+			type: "raster", //数据源类型：栅格数据源
+			tiles: ["https://ol-data.minedata.cn/service/data/satellite?x={x}&y={y}&z={z}"], //瓦片服务地址
+			maxzoom: 15,
+			tileSize: 512 //瓦片尺寸
+		});
+
+		map.addLayer({
+			id: "IMAGERY",
+			type: "raster", //图层类型为"raster"
+			source: "IMAGERY_SOURCE",
+			minzoom: 1,
+			maxzoom: 23,
+			paint: {
+				"raster-opacity": 1
+			}
+		});
+
+		addBillboardPrimitive();
+		createBillboardInstanceAnimation();
+	});
+
+	/**
+	 * TODO: 本动画主要有两部分组成：动画部分和交互部分。
+	 *
+	 * 动画部分：数据的加载和处理，创建billboardInstance动画；
+	 * 1. 加载数据并处理数据；
+	 * 2. 创建billboardInstance动画；
+	 * billboardInstance.animationCallbackFunction
+	 * 交互部分：包括高亮显示、显示车辆的圆形波纹、轨迹、显示车辆的信息popup信息窗；
+	 * 1. 拾取后高亮显示，如：billboardInstance.color = new minemap.Color(1.0, 0.0, 0.0, 0.3);
+	 * 2. 显示车辆的圆形波纹，参考createCircleWavePrimitive方法；
+	 * 3. 显示车辆的轨迹，参考createTrackingPath方法，但是需要先设置recordAnimationPositions属性为true，开启记录动画位置的功能，从animationPositions属性中获取动画位置数据；
+	 * 4. 显示车辆的信息popup信息窗，参考addPopup方法；
+	 * 注意：圆形波纹、轨迹、popup信息窗跟随车辆的移动方法参考billboardInstance.animationCallbackFunction方法；
+	 */
+
+	let selectedBillboard = null; // 记录当前选中的billboardInstance
+	let circlePrimitive = null; // 记录当前选中的billboardInstance的圆形波纹
+	let trackingPathPrimitive = null; // 记录当前选中的billboardInstance的轨迹
+	let popup = null; // 当前选中的billboardInstance的popup
+	let showRealTimeTrackingPath = false; // 是否显示实时轨迹
+	map.on("click", (e) => {
+		const feature = map.getFeatureByGPUPick(e.point);
+		highLightBillboardInstance(feature);
+
+		if (feature) {
+			console.log("当前拾取的车辆车牌号为：" + feature.instanceName);
+		}
+	});
+
+	/**
+	 * 动画相关部分
+	 * ↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓
+	 */
+
+	/**
+	 * 添加billboard
+	 * @type {number}
+	 */
+	const dataNumber = 6;
+
+	function addBillboardPrimitive() {
+		for (let i = 1; i < dataNumber; i++) {
+			const material = new minemap.BillboardMaterial({
+				sizeattenuation: true,
+				// position: [120.2469803142035, 29.71612832972716, 0],
+				// pixelResolution: [90, 40], //公告板像素大小
+				pixelResolution: {
+					stops: [
+						[500, 90, 40],
+						[1000, 162, 72],
+						[1500, 144, 64],
+						[2500, 126, 56],
+						[5000, 108, 48],
+						[10000, 90, 40]
+					],
+					default: [100, 45, 20]
+				}, //公告板像素大小
+				scale: [90, 40],
+				imageUrl: "../image/greyCar.png" //image和imageUrl两选一，imageUrl是图片路径，image是图片
+				// imageUrl: "../image/yellowCar.png", //image和imageUrl两选一，imageUrl是图片路径，image是图片
+			});
+			billBoardPrimitive = new minemap.Primitive({
+				id: "billboardCars" + i,
+				name: "billboardInstance",
+				geometry: new minemap.Geometries.BillboardGeometry({}),
+				material,
+				allowPick: true
+			});
+			map.addPrimitive(billBoardPrimitive);
+		}
+	}
+
+	/**
+	 * 加载数据并处理数据,创建billboardInstance动画
+	 */
+	function createBillboardInstanceAnimation() {
+		let billboardNumber = 0;
+		for (let i = 1; i < dataNumber; i++) {
+			minemap.util.getJSON({
+					url: "../data/GPSPoints/GPS" + i + ".txt"
+				},
+				(error, data) => {
+					if (data && data.success) {
+						processData(data, "billboardCars" + i);
+						billboardNumber += data.data.length;
+						console.log("当前加载了" + billboardNumber + "个billboard");
+					}
+				}
+			);
+		}
+	}
+
+	/**
+	 * 处理数据
+	 * @param data
+	 * @param contentID
+	 */
+	function processData(data, contentID) {
+		const dataList = data.data;
+		const billboardPositions = [];
+		const ids = [];
+		let currentTime, lastTime;
+		for (let i = 0; i < dataList.length; i++) {
+			const positions = [];
+			const lastLongitude = dataList[i].longitudeLast;
+			const lastLatitude = dataList[i].latitudeLast;
+			const height = 0;
+			const longitude = dataList[i].longitude;
+			const latitude = dataList[i].latitude;
+			positions.push(lastLongitude, lastLatitude, height, longitude, latitude, height);
+			billboardPositions.push(positions);
+
+			// 设置车牌号为billboardInstance的name，在拾取时可根据拾取到的对象instanceName获取到车牌号
+			// 可依据车牌号查询车辆轨迹等信息
+			// 若要修改popup的内容，可根据查询到的车辆相关信息修改vehicleData中的内容
+			ids.push(dataList[i].vehicleCode);
+			if (!currentTime || !lastTime) {
+				currentTime = new Date(dataList[i].occurTime);
+				lastTime = new Date(currentTime);
+				// 时间间隔为10秒，如果需要修改时间间隔，修改下面的10即可
+				lastTime.setSeconds(currentTime.getSeconds() - 10);
+				currentTime = currentTime.toISOString();
+				lastTime = lastTime.toISOString();
+			}
+		}
+
+		const billboardInstanceContent = {
+			id: contentID,
+			type: "billboardInstance",
+			trackIds: ids, // 可选, 每条轨迹数据的唯一标识
+			reference: "ellipsoid", // 轨迹数据需要用"rotations"显示朝向时选择none, 不需要时选择ellipsoid
+			// reference: "none", // 轨迹数据需要用"rotations"显示朝向时选择none, 不需要时选择ellipsoid
+			positions: billboardPositions,
+			times: {
+				start: lastTime,
+				end: currentTime
+			},
+			loop: "repeat"
+			// "autoPlay": true // 默认:false
+		};
+
+		const animationJson = {
+			document: "Animation",
+			contents: [billboardInstanceContent]
+		};
+
+		// map.animationManager.removeAll();
+		const animation = map.animationManager.add(animationJson);
+		animation.then((values) => {
+			values.forEach((element) => {
+				element.play(); // 播放
+			});
+		});
+	}
+
+	/**
+	 * 动画相关部分
+	 * ↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑
+	 */
+
+	/**
+	 * 拾取后高亮、绘制圆形波纹和轨迹相关部分
+	 * ↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓
+	 */
+	/**
+	 * 高亮选中的billboardInstance及绘制圆形波纹和轨迹
+	 * @param billboardInstance
+	 */
+	function highLightBillboardInstance(billboardInstance) {
+		showRealTimeTrackingPath = false;
+		if (selectedBillboard) {
+			// 恢复选中的billboardInstance的颜色及动画回调函数等属性
+			selectedBillboard.color = new minemap.Color(0.0, 0.0, 0.0, 0.0);
+			selectedBillboard.animationCallbackFunction = null;
+			selectedBillboard = null;
+			// 移除圆形波纹
+			map.removePrimitive(circlePrimitive);
+			circlePrimitive = null;
+
+			// 移除轨迹
+			removeTrackingPathPrimitive(selectedBillboard);
+
+			// 移除popup
+			popup.remove();
+			popup = null;
+		}
+
+		if (billboardInstance) {
+			selectedBillboard = billboardInstance;
+			// 高亮选中的billboardInstance
+			billboardInstance.color = new minemap.Color(1.0, 0.0, 0.0, 0.3);
+
+			// 设置billboardInstance动画回调函数，用于记录动画位置，然后绘制圆形波纹和轨迹
+			billboardInstance.animationCallbackFunction = (billboardInstance) => {
+				billboardInstance.recordAnimationPositions = true;// 是否记录动画位置
+				createCircleWavePrimitive(billboardInstance);
+				if (showRealTimeTrackingPath) {
+					createTrackingPath(billboardInstance);
+				} else {
+					removeTrackingPathPrimitive(billboardInstance);
+				}
+
+				const lonLat = minemap.Transforms.cartesian3ToCartographic(billboardInstance.position);
+				popup.setLngLat([lonLat[0], lonLat[1]]).setAltitude(lonLat[2]);
+
+				// 更新popup的内容
+				updatePopupContent();
+			};
+
+			// 添加popup
+			addPopup(minemap.Transforms.cartesian3ToCartographic(billboardInstance.position));
+		}
+	}
+
+	/**
+	 * 绘制圆形波纹
+	 * @param billboardInstance
+	 */
+	function createCircleWavePrimitive(billboardInstance) {
+		let matrix = minemap.Transforms.cartesianToFixedFrame(billboardInstance.position);
+		if (circlePrimitive) {
+			circlePrimitive.setMatrix(matrix);
+		} else {
+			circlePrimitive = map.addPrimitive(
+				new minemap.Primitive({
+					modelMatrix: matrix,
+					// 此处修改radiusTop就可以修改圆形波纹的大小，无需修改其他参数
+					geometry: new minemap.Geometries.CircleGeometry({
+						radius: 50, // 半径
+						segments: 128, // 分段数
+						thetaStart: 0, // 起始角度
+						thetaLength: Math.PI * 2 // 终止角度
+					}),
+					// 此处修改color就可以修改圆形波纹的颜色
+					// 此处修改speed就可以修改圆形波纹的速度
+					// 此处修改waveCount就可以修改圆形波纹的数量
+					// 此处修改gradient就可以修改圆形波纹的渐变程度
+					material: minemap.StandardMaterial.fromType("CircleWave", {
+						color: "yellow",
+						speed: 1, // 周期
+						waveCount: 3,// 波纹数量
+						gradient: 0.5 // 梯度变化
+					})
+				})
+			);
+		}
+	}
+
+	/**
+	 * 创建轨迹
+	 * @param billboardInstance
+	 */
+	function createTrackingPath(billboardInstance) {
+		const animationPositions = billboardInstance?.animationPositions; // 记录动画的运行轨迹，从设置recordAnimationPositions开始起
+		if (!billboardInstance.animationPositions || animationPositions.length < 2) {
+			return;
+		}
+
+		if (!trackingPathPrimitive) {
+			trackingPathPrimitive = map.addPrimitive(new minemap.Primitive({
+				geometry: new minemap.Geometries.PolylineGeometry({
+					positions: animationPositions,
+					width: 2,
+					arcType: minemap.ARCTYPE.NONE
+				}),
+				material: new minemap.PolylineMaterial({
+					color: "red",
+					depthTest: false
+				}),
+				name: "routePrimitive"
+			}));
+		} else {
+			trackingPathPrimitive.geometry.setData({
+				positions: animationPositions,
+				width: 2
+			});
+		}
+	}
+
+	/**
+	 * 移除billboardInstance的轨迹
+	 * @param instance
+	 */
+	function removeTrackingPathPrimitive(instance) {
+		if (trackingPathPrimitive) {
+			map.removePrimitive(trackingPathPrimitive);
+			trackingPathPrimitive = null;
+			if (instance) {
+				instance.recordAnimationPositions = false; // 是否记录动画位置
+				instance.animationPositions = []; // 动画的位置
+			}
+		}
+	}
+
+	/**
+	 * popup面板显示的数据信息，可根据需要修改
+	 */
+	const vehicleData = {
+		title: "车辆信息",
+		content: {
+			"车牌号": "京A56789",
+			"总距离": 16.5,
+			"开始时间": "2025年5月8日18:03:04",
+			"剩余时间": "1小时34分钟42秒",
+			"剩余距离": 5.3
+		},
+		backgroundColor: "rgba(0, 183, 246, 0.5)",
+		horizontalLineColor: "rgba(128, 128, 128, 1)",
+		backgroundImageUrl: "../image/x5.png"
+	};
+
+	/**
+	 * 添加popup
+	 * @param pos
+	 */
+	function addPopup(pos) {
+		const longitude = pos[0];
+		const latitude = pos[1];
+		const height = pos[2];
+
+		popup = new minemap.Popup({
+			closeOnClick: false,
+			closeButton: false,
+			anchor: "top-left",
+			offset: [10, 5]
+		}).setHTML("").setLngLat([longitude, latitude]).setAltitude(height);
+		popup.addTo(map);
+		popup.setHTML(createPopupDiv(popup, vehicleData, "rgba(0, 183, 246, 0.5)", "rgba(128, 128, 128, 1)", "../image/x5.png"));
+		popup.setMaxWidth("400px");
+	}
+
+	/**
+	 * 创建popup的html内容；
+	 * 如果需要更新部分内容，而不是替换，可调用updatePopupContent方法
+	 * @param popup
+	 * @param popupData
+	 * @returns {string}
+	 */
+	function createPopupDiv(popup, popupData) {
+		const title = popupData.title;
+		const content = popupData.content;
+		const backgroundColor = popupData.backgroundColor;
+		const horizontalLineColor = popupData.horizontalLineColor;
+		const backgroundImageUrl = popupData.backgroundImageUrl;
+
+		popup._update(map);
+		popup._content.style.backgroundColor = backgroundColor;
+		popup._tip.style["border-bottom-color"] = backgroundColor;
+		popup._content.style.padding = 0;
+
+		let contentDiv = `<div style="position:absolute;top:20%;left:0;right:0;bottom:0;padding:0 1rem;box-sizing:border-box;overflow:hidden;">
+						  	  <ul style = "margin:0;padding:0;list-style:none;font-size:12px;z-index:2;overflow:auto;height:100%;">`;
+		if (content) {
+			for (const key in content) {
+				const value = content[key];
+				if (value) {
+					contentDiv += `<li name=${key} style="margin-bottom: 0.3rem; word-wrap: break-word; opacity: 1">${key}：${value}</li>`;
+				}
+			}
+		}
+		contentDiv += `</ul></div>`;
+
+		return `<div style='width: 400px; max-width: 100%; height: 200px; left: 0; top: 0; background-color: ${backgroundColor}; position: relative; border: 1px solid rgba(128,128,128,1)'>
+					<div style = "position:absolute;right:0;bottom:0;width:30%;height:80%;background-image:url(${backgroundImageUrl});background-size:contain;background-position:center;background-repeat:no-repeat;z-index:0;"></div>
+					<h2 name=${title}; style= "position:absolute;top:3%;left:5%;height:10%;max-width:95%;color:black;margin:0;z-index:1;font-size:14px;">${title}</h2>
+					<div style= "position:absolute;top:calc(15%);left:0;right:10px;width:100%;height:2px;background-color:${horizontalLineColor};z-index:3;"></div>
+					${contentDiv}
+					<div style="position: absolute; bottom:10px; display: flex; align-items: center; margin-top: auto; padding-left: 15px">
+						<span name="车辆轨迹" style="margin-right: 10px; font-weight: bold;">车辆轨迹：</span>
+						<button name="路径" class="realTimeButton" style="border: 1px solid #007bff; border-radius: 4px; background: #fff; cursor: pointer; margin-right: 10px; font-size: 12px; line-height: 1.5;" onclick="handleRealTimeTracking(this)">显示实时轨迹</button>
+					</div>
+				</div>`;
+	}
+
+	/**
+	 * 处理实时轨迹按钮点击事件
+	 * @param button
+	 */
+	function handleRealTimeTracking(button) {
+		if (button.innerHTML === "显示实时轨迹") {
+			showRealTimeTrackingPath = true;
+			button.innerHTML = "隐藏实时轨迹";
+		} else {
+			showRealTimeTrackingPath = false;
+			button.innerHTML = "显示实时轨迹";
+		}
+	}
+	/**
+	 * 拾取后高亮、绘制圆形波纹和轨迹相关部分
+	 * ↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑
+	 */
+
+	/**
+	 * 以下为popup内容更新相关测试操作，仅供参考，项目需要根据实际情况修改
+	 * ↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓
+	 */
+	const variableContent = {
+		"车牌号": "京A56789",
+		"总距离": 16.5,
+		"开始时间": "2025年5月8日18:03:04",
+		"剩余时间": "1小时34分钟42秒",
+		"剩余距离": vehicleData.content["剩余距离"]
+	};
+
+	/**
+	 * 动态更新popup的内容，如果需要全部替换使用setHTML方法，这里只是修改部分内容
+	 */
+	function updatePopupContent() {
+		// 测试更新剩余距离，非真实数据！！！
+		variableContent["剩余距离"] = (variableContent["剩余距离"] - 0.01).toFixed(2);
+		if(variableContent["剩余距离"] <= 0){
+			variableContent["剩余距离"] = vehicleData.content["剩余距离"];
+		}
+
+		for (const key in variableContent) {
+			const value = variableContent[key];
+			const liItem = document.getElementsByName(key);
+			if (liItem && liItem[0]) {
+				liItem[0].innerHTML = "" + key + "：" + value;
+			}
+		}
+	}
+	/**
+	 * 以下为popup内容更新相关测试操作，仅供参考，项目需要根据实际情况修改
+	 * ↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑
+	 */
+</script>
+</body>
+</html>

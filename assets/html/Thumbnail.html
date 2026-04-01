@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+	<title>导航地球控件</title>
+	<link rel="stylesheet" href="../style/demo.css">
+	<!-- 引入MineMap API插件 -->
+	<link rel="stylesheet" href="https://minemap.minedata.cn/minemapapi/v4.0.0/minemap.css">
+	<script src="../../dist/minemap-dev.js"></script>
+	<style>
+		#map {
+			width: 100%;
+			height: 100%;
+		}
+	</style>
+</head>
+<body>
+<div id="map"></div>
+<script>
+	/**
+	 * 全局参数设置
+	 */
+	minemap.domainUrl = 'https://minemap.minedata.cn';
+	minemap.dataDomainUrl = 'https://minemap.minedata.cn';
+	minemap.serverDomainUrl = 'https://sd-data.minedata.cn';
+	minemap.spriteUrl = 'https://minemap.minedata.cn/minemapapi/v3.4.0/sprite/sprite';
+	minemap.serviceUrl = 'https://service.minedata.cn/service';
+
+	minemap.key = '0c6ac62182404e5ebc7a789981f6db72';
+	minemap.solution = 11001;
+
+	// 定义空底图样式
+	var style = {
+		"glyphs": "minemap://fonts/{fontstack}/{range}",
+		"sprite": "minemap://sprite/sprite",
+		"sources": {},
+		"layers": [],
+		"version": 8
+	};
+
+	var map = new minemap.Map({
+		container: 'map',
+		style: style,
+		center: [116.46,39.92],
+		zoom: 1,
+		pitch: 0,
+		maxZoom: 22,
+		minZoom: 1,
+		projection: 'MERCATOR'
+	});
+
+	/**
+	 * 添加基本球体图层，包括球体表面、天空盒、大气层
+	 *
+	 */
+	map.on('load', function () {
+		/*添加栅格图*/
+		map.addSource("IMAGERY_SOURCE", {
+			type: "raster", //数据源类型：栅格数据源
+			tiles: ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+			tileSize: 512 //瓦片尺寸
+		});
+
+		map.addLayer({
+			id: "IMAGERY",
+			type: "raster", //图层类型为"raster"
+			source: "IMAGERY_SOURCE",
+			minzoom: 1,
+			maxzoom: 23,
+			"depth-test": true,
+			paint: {
+				"raster-opacity": 1
+			}
+		});
+	})
+
+	/**
+	 * 初始化导航地球控件
+	 * @params url 地球贴图路径
+	 * @function clickCallback 单击回调函数 可用于联动大球的位置
+	 */
+	var thumbnailControl = new minemap.Thumbnail({
+		url: 'https://minemap.minedata.cn/minemapapi/v3.4.0/assets/thumbnail.jpg',
+		clickCallback: (e) => {
+			map.easeTo({
+				zoom: 0,
+				center: e.lnglat,
+				duration: 3000,
+				bearing: 0,
+				pitch: 0
+			});
+		}
+	});
+
+	map.addControl(thumbnailControl, "bottom-right");
+</script>
+</body>

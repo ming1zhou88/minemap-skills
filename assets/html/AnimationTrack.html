@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+		<title>交通路口动画</title>
+		<!-- demo样式文件 -->
+		<link rel="stylesheet" href="../style/demo.css" />
+		<!-- 引入MineMap API插件 -->
+		<link rel="stylesheet" href="https://minemap.minedata.cn/minemapapi/v4.0.0/minemap.css" />
+		<script src="../../dist/minemap-dev.js"></script>
+		<style>
+			#map {
+				width: 100%;
+				height: 100%;
+			}
+		</style>
+	</head>
+	<body>
+		<div id="map"></div>
+		<script>
+			minemap.domainUrl = "https://minemap.minedata.cn";
+			minemap.dataDomainUrl = "https://minemap.minedata.cn";
+			minemap.serverDomainUrl = "https://sd-data.minedata.cn";
+			minemap.spriteUrl = "http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite";
+			minemap.serviceUrl = "https://service.minedata.cn/service";
+
+			minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+			minemap.solution = 11001;
+			window.minemapCDN = "https://minemap.minedata.cn/minemapapi/minemap-CDN/"; // minemapCDN 配置
+
+			// 定义空底图样式
+			var style = {
+				glyphs: "minemap://fonts/{fontstack}/{range}",
+				sprite: "minemap://sprite/sprite",
+				sources: {},
+				layers: [],
+				version: 8
+			};
+
+			/*初始化地图实例*/
+			var map = new minemap.Map({
+				container: "map",
+				style: style,
+				center: [120.248, 29.715, 0], //建筑物中心点经纬度
+				zoom: 17.7,
+				bearing: 0,
+				pitch: 0,
+				maxZoom: 22, //地图最大缩放等级
+				minZoom: 1, //地图最小缩放等级
+				logarithmicDepthBuffer: false,
+				projection: "MERCATOR"
+			});
+
+			map.repaint = true;
+			map.cameraController.enableCollisionDetection = false;
+			map.enableLight();
+
+			var trackLine, trackIDs, trackPlateNos;
+			var timer = null;
+
+			const img = new Image();
+			img.setAttribute("crossOrigin", "anonymous");
+
+			function getImage(src) {
+				return new Promise(function (resolve, reject) {
+					img.onload = function () {
+						resolve(img);
+					};
+					img.onerror = function () {
+						reject("图片加载失败");
+					};
+					img.src = src;
+				});
+			}
+
+			map.on("load", function () {
+				/*添加栅格图*/
+				map.addSource("IMAGERY_SOURCE", {
+					type: "raster", //数据源类型：栅格数据源
+					tiles: ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+					maxzoom: 15,
+					tileSize: 512 //瓦片尺寸
+				});
+
+				map.addLayer({
+					id: "IMAGERY",
+					type: "raster", //图层类型为"raster"
+					source: "IMAGERY_SOURCE",
+					minzoom: 1,
+					maxzoom: 23,
+					paint: {
+						"raster-opacity": 1
+					}
+				});
+				addHDroad();
+				addCar();
+
+				trackLine = minemap.util.getJSON(
+					{
+						url: "http://192.168.152.123:11187/demo-data/tracking/trackingRoute/tracking-30s.json"
+					},
+					(error, data) => {
+						trackLine = data;
+						movingFun();
+					}
+				);
+			});
+
+			function addHDroad() {
+				map.addSceneComponent({
+					id: "hd-road",
+					type: "3d-model",
+					data: "http://192.168.152.123:11187/demo-data/tracking/trakingModels/HD/21ZJS051NA1.glb", // gltf格式数据
+					modelFolder:
+						"http://192.168.152.123:11187/demo-data/tracking/trakingModels/HD/image", // 模型数据引用图片等资源的文件夹路径
+					scale: [1, 1, 1], // 在xyz轴方向上的缩放比例
+					rotation: [90, 0, 0], // 绕xyz轴方向上的旋转，单位为度
+					position: new minemap.Math.Vector3(120.2469803142035, 29.71612832972716) // 锚点（坐标原点）的经纬度位置
+				});
+			}
+
+			function moving(data) {
+				// 数据处理
+				const track = getTrackGeoJSON(data);
+
+				// 形成轨迹数据
+				animate(track);
+			}
+
+			function getTrackGeoJSON(data) {
+				const fmaps = new Map();
+				const track = new Map();
+				data.features.forEach((f) => {
+					const id = f.properties.vehicle_id;
+					if (!fmaps.get(id)) fmaps.set(id, []);
+					fmaps.get(id).push(f);
+				});
+				const seqSort = (a, b) => {
+					return a.properties.link_time - b.properties.link_time;
+				};
+
+				track.trackTime = [];
+				track.trackData = [];
+				track.trackDegree = [];
+				track.colors = [];
+				track.primitiveNames = [];
+				track.billboardData = [];
+				track.plateNo = [];
+				track.billboardTranslations = [];
+				track.primitiveTranslations = [];
+				track.scale = [];
+				track.id = [];
+
+				fmaps.forEach((arr, id) => {
+					if (arr.length) {
+						arr.sort(seqSort);
+						const startTime = arr[0].properties.link_time;
+						let trackTime = [],
+							trackData = [],
+							trackDegree = [],
+							billboardData = [],
+							billboardTranslations = [],
+							primitiveTranslations = [],
+							plateNo = [];
+						for (let i = 0, len = arr.length; i < len; i++) {
+							trackTime.push((arr[i].properties.link_time - startTime) / 1000);
+							trackData = trackData.concat([
+								arr[i].geometry.coordinates[0],
+								arr[i].geometry.coordinates[1],
+								0
+							]);
+							billboardData = billboardData.concat([
+								arr[i].geometry.coordinates[0],
+								arr[i].geometry.coordinates[1],
+								0
+							]);
+							trackDegree = trackDegree.concat([0, 0, 90 - arr[i].properties.car_rotate]); // car_rotate 北方向逆时针, 需转成东方向顺时针
+							plateNo = plateNo.concat(arr[i].properties.plateNo);
+							if (arr[i].properties.vehicleType === "小型越野客车") {
+								billboardTranslations = billboardTranslations.concat([0, 0, 10]);
+							} else {
+								billboardTranslations = billboardTranslations.concat([0, 0, 2]);
+							}
+							primitiveTranslations = primitiveTranslations.concat([0, 0, 0.8]);
+						}
+						track.billboardTranslations.push(billboardTranslations);
+						track.primitiveTranslations.push(primitiveTranslations);
+						track.trackTime.push(trackTime);
+						track.trackData.push(trackData);
+						track.trackDegree.push(trackDegree);
+						track.billboardData.push(billboardData);
+						track.totalTime =
+							(arr[0].properties.total_time_end - arr[0].properties.total_time_start) / 1000;
+						track.plateNo.push(plateNo);
+						track.scale.push([5 + Math.random() * 2, 2 + Math.random(), 1]);
+						track.id.push(id);
+					}
+				});
+				return track;
+			}
+
+			function addCar() {
+				// 添加小车模型
+				map.addSceneComponent({
+					id: "CAR", // 唯一标识
+					position: new minemap.Math.Vector3(120.2469803142035, 29.71612832972716, 0),
+					rotation: [90, 0, 0],
+					scale: [1, 1, 1],
+					type: "3d-model",
+					data: `../data/carModel/car-s-1.gltf`, // 要加载的gltf格式数据
+					visibility: "none"
+				});
+
+				const cartographic = new minemap.Math.Vector3([120.2469803142035, 29.71612832972716, 0]);
+				const matrix = minemap.Transforms.cartographicToFixedFrame(cartographic);
+
+				map.addPrimitive(
+					new minemap.Primitive({
+						modelMatrix: matrix,
+						geometry: new minemap.Geometries.BoxGeometry({
+							width: 5,
+							height: 2,
+							depth: 1.5
+						}),
+						material: minemap.StandardMaterial.fromType("Color", {
+							color: "green",
+							opacity: 0.3,
+							doubleSided: false
+						}),
+						id: "box",
+						show: false
+					})
+				);
+			}
+
+			function movingFun() {
+				getImage(
+					"../image/car-icons/car-plate-normal.png"
+				).then(function () {
+					if (trackLine.status) {
+						var index = 0;
+						timer = setInterval(() => {
+							moving(trackLine.datas[index]);
+							index++;
+							if (index >= trackLine.datas.length) {
+								index = 0;
+							}
+						}, 1000);
+					}
+				});
+			}
+
+			function animate(track) {
+				const model = map.getSceneComponent("CAR");
+				if (model.visibility === "none") {
+					model.visibility = "visible";
+				}
+
+				const modelInstanceContent = {
+					id: model.id,
+					type: "modelInstance",
+					trackIds: track.id, // 可选, 每条轨迹数据的唯一标识
+					reference: "none", // 轨迹数据需要用"rotations"显示朝向时选择none, 不需要时选择ellipsoid
+					positions: track.trackData,
+					rotations: track.trackDegree,
+					//"translations": track.translations, // 相对于轨迹点的偏移量
+					times: {
+						start: "2023-05-10T11:30:00.000Z",
+						end: "2023-05-10T11:30:10.000Z",
+						steps: track.trackTime
+					},
+					loop: "once"
+					// "autoPlay": true // 默认:false
+				};
+
+				const primitive = map.getPrimitiveById("box");
+				if (!primitive.show) {
+					// primitive.show = true;
+				}
+
+				// 将id和plateNo保存下来
+				trackIDs = track.id;
+				trackPlateNos= track.plateNo;
+				const primitiveInstanceContent = {
+					id: primitive.id,
+					type: "primitiveInstance",
+					trackIds: track.id, // 可选, 每条轨迹数据的唯一标识
+					reference: "none", // 轨迹数据需要用"rotations"显示朝向时选择none, 不需要时选择ellipsoid
+					positions: track.trackData,
+					rotations: track.trackDegree,
+					translations: track.primitiveTranslations, // 相对于轨迹点的偏移量
+					times: {
+						start: "2023-05-10T11:30:00.000Z",
+						end: "2023-05-10T11:30:10.000Z",
+						steps: track.trackTime
+					},
+					loop: "once"
+					// "autoPlay": true // 默认:false
+				};
+
+				const billboardContent = {
+					id: "plate", // 会添加每一条轨迹的编号
+					type: "billboard",
+					reference: "none", // billboard始终朝向相机, 因此reference设置无效
+					positions: track.billboardData,
+					rotations: track.trackDegree,
+					translations: track.billboardTranslations, // 相对于轨迹点的偏移量
+					times: {
+						start: "2023-05-10T11:30:00.000Z",
+						end: "2023-05-10T11:30:10.000Z",
+						steps: track.trackTime
+					},
+					extra: {
+						// 暂只支持billboard信息的扩展
+						// "scale": track.scale, // 告示板X Y Z轴的实际长宽(m), 默认[1, 1, 1], 可以每个轨迹传一个值
+						scale: [5, 2, 1], // 也可以传入固定值
+						imageInfo: {
+							// 类型为billboard时, 传入生成告示板所需的额外轨迹信息
+							plateNo: track.plateNo // 车牌号
+						},
+						image: (imageInfo) => {
+							// 类型为billboard时, 传入函数或者图像地址, 函数调用的imageInfo信息必须在"imageInfo"里传入
+							if (imageInfo.plateNo !== "") {
+								const ctx = document.createElement("canvas").getContext("2d");
+								ctx.canvas.width = 200;
+								ctx.canvas.height = 80;
+								ctx.fillStyle = "rgba(255, 255, 255, 1.0)";
+								ctx.font = `bold ${80 * 0.4}px sans-serif`;
+								ctx.textAlign = "center";
+								ctx.textBaseline = "middle";
+								ctx.drawImage(img, 0, 0, 200, 80);
+								ctx.fillText(imageInfo.plateNo, 100, 40);
+								return ctx.canvas;
+							} else {
+								return undefined; //没有信息则返回undefined
+							}
+						}
+					},
+					loop: "once"
+					// "autoPlay": true // 默认:false
+				};
+
+				const animationJson = {
+					document: "Animation",
+					contents: [primitiveInstanceContent, modelInstanceContent, billboardContent]
+				};
+
+				map.animationManager.removeAll();
+				const animation = map.animationManager.add(animationJson);
+				animation.then((values) => {
+					values.forEach((element) => {
+						element.play(); // 播放
+						// element.pause();// 停止
+						// map.animationManager.getByIndex(0);//通过索引获取动画对象
+						// map.animationManager.getById("BIM_SOURCE");//通过id获取动画对象
+						// map.animationManager.contains(element);//当前场景是否包含动画对象
+						// map.animationManager.remove(element);//移除
+						// map.animationManager.removeById("BIM_SOURCE");//通过id移除动画对象
+						// map.animationManager.removeAll();//移除所有
+					});
+				});
+			}
+
+			map.on("click", function (e) {
+				let instance = map.getFeatureByGPUPick(e.point);
+				if (instance) {
+					let instanceName, instanceNo;
+					// 如果是标牌，就从id里找到是第几条轨迹，进而获取对应的车实例，并设置颜色
+					if(instance.geometry?.type === "BillboardGeometry"){
+ 						let index = instance.id.split("_")[1];
+						instanceName = trackIDs[index];
+						instanceNo = trackPlateNos[index][0]; // 根据索引获取车牌号
+					} else {
+						instanceName = instance.instanceName;
+						instanceNo = trackPlateNos[instance._instanceId][0]; // 根据索引获取车牌号
+					}
+					instance = map.getSceneComponent("CAR").modelInstanceCollection?.getByName(instanceName);
+					if (instance) {
+						instance.color = new minemap.Color(1, 0, 0, 1);
+					}
+					console.log("选中的车牌号为：" + instanceNo)
+				}
+			});
+		</script>
+	</body>
+</html>

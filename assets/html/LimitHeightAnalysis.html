@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+		<title>限高分析</title>
+		<!-- 引入MineMap API插件 -->
+		<link rel="stylesheet" href="../../dist/minemap.css" />
+		<script src="../../dist/minemap-dev.js"></script>
+		<style>
+			html,
+			body,
+			#map {
+				margin: 0;
+				padding: 0;
+				width: 100%;
+				height: 100%;
+			}
+
+			.toolContainer {
+				position: absolute;
+				background: #fff;
+				top: 0;
+				left: 0;
+				z-index: 999;
+			}
+		</style>
+	</head>
+
+	<div class="toolContainer">
+		<div class="draw" style="border: 3px solid gray; text-align: center">
+			<button style="font-size: 16px" onclick="drawPolygon()">绘制限高范围</button>
+		</div>
+		<div class="invalidArea" style="border: 3px solid gray">
+			<div>
+				<input type="color" id="invalidColor" name="color" value="#FF0000" />
+				<label for="invalidColor">超高建筑物颜色</label>
+			</div>
+			<div id="invalidOpacity">
+				<script src="../lib/jquery-2.0.3.min.js"></script>
+				<p>超高建筑物透明度</p>
+				<input type="range" id="invalidOpacityRange" value="50" min="0" max="100" style="width: 200px" />
+				<div id="invalidOpacityValue">0.5</div>
+			</div>
+		</div>
+		<div class="validArea" style="border: 3px solid gray">
+			<div>
+				<input type="color" id="validColor" name="color" value="#00FF00" />
+				<label for="validColor">限高范围颜色</label>
+			</div>
+			<div id="validOpacity">
+				<script src="../lib/jquery-2.0.3.min.js"></script>
+				<p>限高范围透明度</p>
+				<input type="range" id="validOpacityRange" value="50" min="0" max="100" style="width: 200px" />
+				<div id="validOpacityValue">0.5</div>
+			</div>
+			<div>
+				<input type="color" id="validOutlineColor" name="color" value="#000000" />
+				<label for="validOutlineColor">限高范围边线颜色</label>
+			</div>
+			<div id="validOutlineOpacity">
+				<script src="../lib/jquery-2.0.3.min.js"></script>
+				<p>限高范围边线透明度</p>
+				<input type="range" id="validOutlineOpacityRange" value="100" min="0" max="100" style="width: 200px" />
+				<div id="validOutlineOpacityValue">1.0</div>
+			</div>
+			<div>
+				<input type="checkbox" id="extrude" name="extrude" checked="checked" />
+				<label for="extrude">拉伸限高范围</label><br />
+			</div>
+		</div>
+		<div id="baseHeight" style="border: 3px solid gray">
+			<script src="../lib/jquery-2.0.3.min.js"></script>
+			<p>底面高程</p>
+			<input type="range" id="baseHeightRange" value="0" min="-50" max="50" style="width: 200px" />
+			<div id="baseHeightValue">等待限高区域绘制完成</div>
+		</div>
+		<div id="limitHeight" style="border: 3px solid gray">
+			<script src="../lib/jquery-2.0.3.min.js"></script>
+			<p>限高</p>
+			<input type="range" id="limitHeightRange" value="50" min="0" max="200" style="width: 200px" />
+			<div id="limitHeightValue">50</div>
+		</div>
+	</div>
+
+	<body>
+		<div id="map"></div>
+		<script>
+			minemap.domainUrl = "https://minedata.cn";
+			minemap.dataDomainUrl = "https://minedata.cn";
+			minemap.serverDomainUrl = "https://minedata.cn";
+			minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+			minemap.serviceUrl = "https://minedata.cn/service/";
+
+			minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+			minemap.solution = 11001;
+			window.minemapCDN = "https://minedata.cn/minemapapi/minemap-CDN"; // minemapCDN 配置
+			// window.minemapCDN = "http://192.168.152.123/minemap-engine/minemap-CDN/"; // minemapCDN 配置 http://192.168.152.123/
+
+			// 定义空底图样式
+			var style = {
+				glyphs: "minemap://fonts/{fontstack}/{range}",
+				sprite: "minemap://sprite/sprite",
+				sources: {},
+				layers: [],
+				version: 8
+			};
+			/**
+			 * 初始化地图实例
+			 */
+
+			var map = new minemap.Map({
+				container: "map",
+				style: style,
+				// style: "https://mineservice.minedata.cn/map/solu/style/11001" /*底图样式*/ /*球面矢量底图样式*/,
+				bearing: -87.18744098264303,
+				center: [108.94733550459136, 34.30940496948484],
+				pitch: 61.603551292866726,
+				zoom: 15.7,
+				maxZoom: 22 /*地图最大缩放等级*/,
+				minZoom: 1 /*地图最小缩放等级*/,
+				logDepth: true,
+			});
+			map.repaint = true;
+
+			// 颜色
+			let validColor = "#00FF00";
+			let validOutlineColor = "#000000";
+			let invalidColor = "#FF0000";
+			// 透明度
+			let validOpacity = 0.5;
+			let validOutlineOpacity = 1.0;
+			let invalidOpacity = 0.5;
+			// 底面高程
+			let baseHeightValue;
+			// 限高
+			let limitHeightValue = 50;
+			// 限高范围拉伸
+			let extrude = true;
+			const limitHeight = new minemap.LimitHeight({
+				positions: [], // 限高范围
+				limitHeight: limitHeightValue, // 限高, 距离底面的相对高程，默认是0
+				invalidColor: invalidColor, // 超高建筑颜色，默认红色
+				invalidOpacity: invalidOpacity, // 超高建筑透明度，默认0.5
+				validColor: validColor, // 限高区域颜色，默认绿色
+				validOpacity: validOpacity, // 限高区域透明度，默认0.5
+				validOutlineColor: validOutlineColor, // 限高区域边线颜色，默认黑色
+				validOutlineOpacity: validOutlineOpacity, // 限高区域边线透明度，默认1.0
+				extrudeValidArea: extrude, // 是否拉伸限高区域，是则限高区域拉伸成体要素，否则按分界面绘制，默认拉伸
+				// baseHeight: baseHeight 底面高程，若不设置则按传入限高范围角点的最低高度计算
+				enabled: true // 是否开启限高
+			});
+			map.analysis.highlightCollection.add(limitHeight);
+
+			map.on("load", function () {
+				/*添加栅格图*/
+				map.addSource("IMAGERY_SOURCE", {
+					type: "raster", //数据源类型：栅格数据源
+					tiles: ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+					tileSize: 512 //瓦片尺寸
+				});
+
+				map.addLayer({
+					id: "IMAGERY",
+					type: "raster", //图层类型为"raster"
+					source: "IMAGERY_SOURCE",
+					minzoom: 1,
+					maxzoom: 23,
+					"depth-test": true
+				});
+
+				// 3dtiles
+				const tileset = map.addSceneComponent({
+					id: "serve",
+					type: "3d-tiles",
+					show: true,
+					translation: new minemap.Math.Vector3(0, 0, 0), //在enu坐标系下的位置移动距离，顺序为[east, north, height]，单位为m，并且只用于3dtiles图层
+					url: "https://staticdata-b.minedata.cn:14434/oblique/tileset.json",
+					skipLevelOfDetail: false, //跨层调度
+					maximumScreenSpaceError: 8,
+					allowPick: true,
+					lightingModel: minemap.LightingModelType.NONE
+				});
+				window.tileset = tileset;
+			});
+
+			let geometry,
+				startDraw = false, //开始绘制
+				positions = [],
+				tempPoint = []; // polygon点
+			function drawPolygon() {
+				limitHeight.baseHeight = undefined;
+				limitHeight.limitHeight = limitHeightValue;
+				limitHeight.positions = [];
+
+				$("#baseHeightValue").text("等待限高区域绘制完成");
+				const baseHeightRange = document.getElementById("baseHeightRange");
+				baseHeightRange.min = -50;
+				baseHeightRange.max = 50;
+				baseHeightRange.value = 0;
+
+				positions = [];
+				startDraw = true;
+			}
+
+			// leftClick
+			map.on("click", function (e) {
+				if (startDraw) {
+					const point = map.painter.getPositionByGPUPick(e.point);
+					positions = positions.concat(point.x, point.y, point.z);
+				}
+			});
+
+			// mouseMove
+			map.on("mousemove", function (e) {
+				if (startDraw) {
+					tempPoint = [];
+					const point = map.painter.getPositionByGPUPick(e.point);
+					tempPoint.push(point.x, point.y, point.z);
+					if (positions.length >= 6) {
+						limitHeight.positions = minemap.Math.Vector3.fromDegreesArrayHeights(
+							positions.concat(tempPoint)
+						);
+					}
+				}
+			});
+
+			// rightClick
+			map.on("contextmenu", function (e) {
+				if (startDraw) {
+					startDraw = false;
+					if (positions.length > 6) {
+						limitHeight.positions = minemap.Math.Vector3.fromDegreesArrayHeights(positions);
+						$("#baseHeightValue").text(Math.floor(limitHeight.baseHeight));
+						const baseHeightRange = document.getElementById("baseHeightRange");
+						baseHeightRange.min = Math.floor(limitHeight.baseHeight) - 50;
+						baseHeightRange.max = Math.floor(limitHeight.baseHeight) + 50;
+						baseHeightRange.value = Math.floor(limitHeight.baseHeight);
+					} else {
+						limitHeight.baseHeight = undefined;
+						limitHeight.limitHeight = limitHeightValue;
+						limitHeight.positions = [];
+
+						$("#baseHeightValue").text("等待限高区域绘制完成");
+						const baseHeightRange = document.getElementById("baseHeightRange");
+						baseHeightRange.min = -50;
+						baseHeightRange.max = 50;
+						baseHeightRange.value = 0;
+					}
+				}
+			});
+
+			// color
+			let colorWell, extrudeStatus;
+
+			window.addEventListener("load", startup, false);
+
+			function startup() {
+				colorWell = document.getElementById("invalidColor");
+				colorWell.value = invalidColor;
+				colorWell.addEventListener("input", updateInvalidColor, false);
+				colorWell.select();
+				colorWell = document.getElementById("validColor");
+				colorWell.value = validColor;
+				colorWell.addEventListener("input", updateValidColor, false);
+				colorWell.select();
+				colorWell = document.getElementById("validOutlineColor");
+				colorWell.value = validOutlineColor;
+				colorWell.addEventListener("input", updateValidOutlineColor, false);
+				colorWell.select();
+				extrudeStatus = document.getElementById("extrude");
+				extrudeStatus.addEventListener("change", updateExtrudeOption, false);
+			}
+
+			function updateInvalidColor(event) {
+				invalidColor = event.target.value;
+				if (limitHeight) {
+					limitHeight.invalidColor = invalidColor;
+				}
+			}
+
+			function updateValidColor(event) {
+				validColor = event.target.value;
+				if (limitHeight) {
+					limitHeight.validColor = validColor;
+				}
+			}
+
+			function updateValidOutlineColor(event) {
+				validOutlineColor = event.target.value;
+				if (limitHeight) {
+					limitHeight.validOutlineColor = validOutlineColor;
+				}
+			}
+
+			function updateExtrudeOption(event) {
+				extrude = !!event.target.checked;
+				if (limitHeight) {
+					limitHeight.extrudeValidArea = extrude;
+				}
+			}
+
+			$("#invalidOpacityRange").mousemove(function () {
+				$("#invalidOpacityValue").text($("#invalidOpacityRange").val() / 100.0);
+
+				invalidOpacity = parseFloat($("#invalidOpacityValue").text());
+				if (limitHeight) {
+					limitHeight.invalidOpacity = invalidOpacity;
+				}
+			});
+
+			$("#validOpacityRange").mousemove(function () {
+				$("#validOpacityValue").text($("#validOpacityRange").val() / 100.0);
+
+				validOpacity = parseFloat($("#validOpacityValue").text());
+				if (limitHeight) {
+					limitHeight.validOpacity = validOpacity;
+				}
+			});
+
+			$("#validOutlineOpacityRange").mousemove(function () {
+				$("#validOutlineOpacityValue").text($("#validOutlineOpacityRange").val() / 100.0);
+
+				validOutlineOpacity = parseFloat($("#validOutlineOpacityValue").text());
+				if (limitHeight) {
+					limitHeight.validOutlineOpacity = validOutlineOpacity;
+				}
+			});
+
+			$("#baseHeightRange").mousemove(function () {
+				if ($("#baseHeightValue").text() !== "等待限高区域绘制完成") {
+					$("#baseHeightValue").text(document.getElementById("baseHeightRange").value);
+					baseHeightValue = parseFloat($("#baseHeightValue").text());
+					limitHeight.baseHeight = baseHeightValue;
+				}
+			});
+
+			$("#limitHeightRange").mousemove(function () {
+				$("#limitHeightValue").text($("#limitHeightRange").val());
+				limitHeightValue = parseFloat($("#limitHeightValue").text());
+				if (limitHeight) {
+					limitHeight.limitHeight = limitHeightValue;
+				}
+			});
+		</script>
+	</body>
+</html>

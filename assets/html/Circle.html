@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>大规模散点</title>
+	<link rel="stylesheet" href="../style/demo.css">
+	<!-- 引入MineMap API插件 -->
+	<link rel="stylesheet" href="//minedata.cn/minemapapi/v4.0.0/minemap.css">
+	<script src="../../dist/minemap-dev.js"></script>
+	<style>
+		#map {
+			width: 100%;
+			height: 100%;
+		}
+	</style>
+</head>
+<body>
+<div id="map"></div>
+<script>
+	/**
+	 * 全局参数设置
+	 */
+	minemap.domainUrl = '//minedata.cn';
+	minemap.dataDomainUrl = '//minedata.cn';
+	minemap.serverDomainUrl = '//minedata.cn';
+	minemap.spriteUrl = '//minedata.cn/minemapapi/v2.1.0/sprite/sprite';
+	minemap.serviceUrl = '//minedata.cn/service/';
+
+	minemap.key = '0c6ac62182404e5ebc7a789981f6db72';
+	minemap.solution = 11001;
+
+	var map = new minemap.Map({
+		container: 'map',
+		style: 'https://service.minedata.cn/map/solu/style/11001',
+		center: [116.4066765, 39.9079326],
+		zoom: 3,
+		pitch: 0,
+		maxZoom: 5,
+		minZoom: 3,
+		projection: 'MERCATOR'
+	});
+
+	map.repaint = true;
+
+	/**
+	 * 创建地图对象后，开始加载地图资源，地图资源加载完成后触发load事件
+	 */
+	map.on('load', function () {
+		// 增加自定义数据源、自定义图层
+
+		minemap.util.getJSON('https://minedata.cn/nce-static/support/demo/js-3d-ultra/zh/assets/large_scatter.json', function (error, data) {
+			console.log(data);
+			addSources(data);
+			addLayers();
+		});
+	});
+
+	function addSources(data) {
+		// 处理数据
+		var scatterData = data.map(function (item, idx) {
+			var px = item[0] / 1000;
+			var py = item[1] / 1000;
+			var res = [[px, py]];
+
+			for (var i = 2; i < item.length; i += 2) {
+				var dx = item[i] / 1000;
+				var dy = item[i + 1] / 1000;
+				var x = px + dx;
+				var y = py + dy;
+				res.push([x, y]);
+
+				px = x;
+				py = y;
+			}
+			return res;
+		});
+
+		var features = [];
+		scatterData.map(function (coords, idx) {
+			coords.map(function (c, i) {
+				features.push(
+					{
+						"geometry": {
+							"type": "Point",
+							"coordinates": c
+						},
+						"properties": {
+							"kind": idx + 1
+						},
+						"type": "Feature"
+					}
+				);
+			});
+		});
+		var jsonData = {"type": "FeatureCollection", "features": features};
+
+		map.addSource("scatterPoint", {
+			type: "geojson",
+			data: jsonData
+		});
+	}
+
+	function addLayers() {
+		map.addLayer({
+			"id": "scatter-point",
+			"type": "circle",   // 圆图层
+			"source": "scatterPoint",
+			"paint": {
+				"circle-color": {   // 圆的颜色，默认为"#000000"
+					"property": "kind",
+					"stops": [
+						[1, 'rgba(37, 140, 249, 0.8)'],
+						[2, 'rgba(14, 241, 242, 0.8)'],
+						[3, 'rgba(255, 255, 255, 0.8)']
+					]
+				},
+				"circle-radius": 1.5,   // 圆的半径，值为数值，默认为5
+				"circle-blur": 1    // 圆的模糊度（%），值为数值，默认为0
+			}
+		});
+	}
+
+</script>
+</body>

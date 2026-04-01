@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no"/>
+    <title>城市实时数据监控 - MineMap + ECharts Marker 集成示例</title>
+    <link rel="stylesheet" href="../style/demo.css">
+    <!-- 引入MineMap API插件 -->
+    <link rel="stylesheet" href="../../dist/minemap.css">
+    <script src="../../dist/minemap-dev.js"></script>
+    <!-- 引入ECharts -->
+    <script src="../js/echarts.min.js"></script>
+    <style>
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+        
+        .info-panel {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            font-family: 'Arial', sans-serif;
+            z-index: 1000;
+            max-width: 300px;
+        }
+        
+        .info-panel h3 {
+            margin: 0 0 10px 0;
+            color: #333;
+            font-size: 16px;
+        }
+        
+        .info-panel p {
+            margin: 5px 0;
+            color: #666;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+        
+        /* 自定义marker样式 */
+        .chart-marker {
+            background: rgba(255, 255, 255, 0.95);
+            border: 2px solid #4CAF50;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+        
+        .chart-marker:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+            border-color: #45a049;
+        }
+        
+        .chart-marker::before {
+            content: '';
+            position: absolute;
+            bottom: -8px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0;
+            height: 0;
+            border-left: 8px solid transparent;
+            border-right: 8px solid transparent;
+            border-top: 8px solid #4CAF50;
+        }
+        
+        .marker-title {
+            position: absolute;
+            top: -25px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            white-space: nowrap;
+            pointer-events: none;
+        }
+        
+        .control-panel {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+        }
+        
+        .control-panel button {
+            display: block;
+            width: 100%;
+            margin: 5px 0;
+            padding: 8px 12px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.3s ease;
+        }
+        
+        .control-panel button:hover {
+            background: #45a049;
+        }
+        
+        .control-panel button.active {
+            background: #2196F3;
+        }
+    </style>
+</head>
+<body>
+<div id="map"></div>
+
+<div class="info-panel">
+    <h3>🏙️ 城市实时数据监控</h3>
+    <p><strong>功能特色：</strong></p>
+    <p>• ECharts图表直接嵌入Marker元素</p>
+    <p>• 实时数据可视化展示</p>
+    <p>• 多种图表类型切换</p>
+    <p>• 交互式数据更新</p>
+    <p><strong>操作说明：</strong></p>
+    <p>• 点击右侧按钮切换图表类型</p>
+    <p>• 悬停marker查看详细信息</p>
+</div>
+
+<div class="control-panel">
+    <button id="pieChart" class="active">饼图模式</button>
+    <button id="barChart">柱状图模式</button>
+    <button id="lineChart">折线图模式</button>
+    <button id="refreshData">刷新数据</button>
+</div>
+
+<script>
+    /**
+     * 全局参数设置
+     */
+    minemap.domainUrl = 'https://minemap.minedata.cn';
+    minemap.dataDomainUrl = 'https://minemap.minedata.cn';
+    minemap.serverDomainUrl = 'https://sd-data.minedata.cn';
+    minemap.spriteUrl = 'https://minemap.minedata.cn/minemapapi/v3.4.0/sprite/sprite';
+    minemap.serviceUrl = 'https://service.minedata.cn/service';
+    minemap.key = '0c6ac62182404e5ebc7a789981f6db72';
+    minemap.solution = 11001;
+
+    // 城市监控数据
+    const cityData = [
+        {
+            name: '北京',
+            coordinates: [116.4074, 39.9042],
+            data: {
+                population: 2154,
+                gdp: 4027,
+                pollution: 65,
+                traffic: 78,
+                temperature: 15,
+                humidity: 45
+            }
+        },
+        {
+            name: '上海',
+            coordinates: [121.4737, 31.2304],
+            data: {
+                population: 2428,
+                gdp: 4323,
+                pollution: 58,
+                traffic: 82,
+                temperature: 18,
+                humidity: 52
+            }
+        },
+        {
+            name: '广州',
+            coordinates: [113.2644, 23.1291],
+            data: {
+                population: 1868,
+                gdp: 2873,
+                pollution: 72,
+                traffic: 75,
+                temperature: 25,
+                humidity: 68
+            }
+        },
+        {
+            name: '深圳',
+            coordinates: [114.0579, 22.5431],
+            data: {
+                population: 1756,
+                gdp: 3222,
+                pollution: 69,
+                traffic: 80,
+                temperature: 26,
+                humidity: 65
+            }
+        },
+        {
+            name: '杭州',
+            coordinates: [120.1551, 30.2741],
+            data: {
+                population: 1196,
+                gdp: 1810,
+                pollution: 55,
+                traffic: 68,
+                temperature: 20,
+                humidity: 58
+            }
+        }
+    ];
+
+    // 初始化地图
+    const map = new minemap.Map({
+        container: 'map',
+        style: 'https://service.minedata.cn/map/solu/style/11001',
+        center: [116.4074, 39.9042],
+        zoom: 5,
+        pitch: 0,
+        maxZoom: 17,
+        minZoom: 3,
+        projection: 'MERCATOR'
+    });
+
+    let markers = [];
+    let currentChartType = 'pie';
+    let activeMarker = null;
+    let activeChart = null;
+
+    // 地图加载完成后初始化
+    map.on('load', function() {
+        createMarkers();
+        setupControls();
+    });
+
+    /**
+     * 创建简单的点标记
+     */
+    function createMarkers() {
+        // 清除现有markers
+        markers.forEach(marker => marker.remove());
+        markers = [];
+
+        cityData.forEach(city => {
+            const markerElement = createSimpleMarkerElement(city);
+            
+            const marker = new minemap.Marker({
+                element: markerElement,
+                offset: [0, -8]
+            })
+            .setLngLat(city.coordinates)
+            .addTo(map);
+
+            markers.push(marker);
+        });
+    }
+
+    /**
+     * 创建简单的点标记元素
+     */
+    function createSimpleMarkerElement(city) {
+        const container = document.createElement('div');
+        container.className = 'simple-marker';
+        container.style.cssText = `
+            width: 20px;
+            height: 20px;
+            background: #4ecdc4;
+            border: 2px solid #fff;
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            transition: background 0.3s ease, box-shadow 0.3s ease, width 0.3s ease, height 0.3s ease;
+        `;
+        
+        // 添加城市名称标签
+        const label = document.createElement('div');
+        label.style.cssText = `
+            position: absolute;
+            top: 25px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 12px;
+            white-space: nowrap;
+            pointer-events: none;
+        `;
+        label.textContent = city.name;
+        container.appendChild(label);
+        
+        // 添加点击事件
+        container.addEventListener('click', (e) => {
+            e.stopPropagation();
+            showChartForCity(city, container);
+        });
+        
+        // 鼠标悬停效果
+        container.addEventListener('mouseenter', () => {
+            if (activeMarker !== container) {
+                container.style.width = '24px';
+                container.style.height = '24px';
+                container.style.background = '#45b7d1';
+                container.style.boxShadow = '0 4px 8px rgba(0,0,0,0.4)';
+            }
+        });
+        
+        container.addEventListener('mouseleave', () => {
+            if (activeMarker !== container) {
+                container.style.width = '20px';
+                container.style.height = '20px';
+                container.style.background = '#4ecdc4';
+                container.style.boxShadow = '0 2px 4px rgba(0,0,0,0.3)';
+            }
+        });
+        
+        container._cityData = city;
+        
+        return container;
+    }
+
+    /**
+     * 为指定城市显示图表
+     */
+    function showChartForCity(city, markerElement) {
+        // 如果已有活跃图表，先清除
+        if (activeChart) {
+            hideActiveChart();
+        }
+        
+        // 创建图表容器
+        const chartContainer = document.createElement('div');
+        chartContainer.className = 'chart-marker active';
+        chartContainer.style.cssText = `
+            width: 150px;
+            height: 150px;
+            position: absolute;
+            top: -75px;
+            left: -75px;
+            z-index: 1000;
+            pointer-events: auto;
+        `;
+        
+        // 添加城市名称标题
+        const title = document.createElement('div');
+        title.className = 'marker-title';
+        title.textContent = city.name;
+        chartContainer.appendChild(title);
+        
+        // 创建ECharts容器
+        const echartsDiv = document.createElement('div');
+        echartsDiv.style.width = '100%';
+        echartsDiv.style.height = '100%';
+        chartContainer.appendChild(echartsDiv);
+        
+        // 添加关闭按钮
+        const closeBtn = document.createElement('div');
+        closeBtn.style.cssText = `
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            width: 20px;
+            height: 20px;
+            background: #ff4757;
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: bold;
+        `;
+        closeBtn.textContent = '×';
+        closeBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            hideActiveChart();
+        });
+        chartContainer.appendChild(closeBtn);
+        
+        // 将图表容器添加到marker元素
+        markerElement.appendChild(chartContainer);
+        
+        // 初始化ECharts实例
+        const chart = echarts.init(echartsDiv);
+        const option = getChartOption(city, currentChartType);
+        chart.setOption(option);
+        
+        // 设置活跃状态
+        activeMarker = markerElement;
+        activeChart = { container: chartContainer, chart: chart, cityData: city };
+        
+        // 更新marker样式
+        markerElement.style.width = '26px';
+        markerElement.style.height = '26px';
+        markerElement.style.background = '#ff6b6b';
+        markerElement.style.boxShadow = '0 4px 8px rgba(0,0,0,0.5)';
+        
+        // 点击地图其他地方关闭图表
+        setTimeout(() => {
+            document.addEventListener('click', hideActiveChart, { once: true });
+        }, 100);
+    }
+    
+    /**
+     * 隐藏活跃的图表
+     */
+    function hideActiveChart() {
+        if (activeChart) {
+            activeChart.chart.dispose();
+            activeChart.container.remove();
+            activeChart = null;
+        }
+        
+        if (activeMarker) {
+            activeMarker.style.width = '20px';
+            activeMarker.style.height = '20px';
+            activeMarker.style.background = '#4ecdc4';
+            activeMarker.style.boxShadow = '0 2px 4px rgba(0,0,0,0.3)';
+            activeMarker = null;
+        }
+    }
+
+    /**
+     * 获取图表配置
+     */
+    function getChartOption(city, type) {
+        const data = city.data;
+        
+        switch(type) {
+            case 'pie':
+                return {
+                    series: [{
+                        type: 'pie',
+                        radius: ['30%', '70%'],
+                        center: ['50%', '50%'],
+                        data: [
+                            {value: data.pollution, name: '污染指数'},
+                            {value: data.traffic, name: '交通指数'},
+                            {value: 100 - data.pollution, name: '空气质量'}
+                        ],
+                        label: {
+                            show: false
+                        },
+                        emphasis: {
+                            itemStyle: {
+                                shadowBlur: 10,
+                                shadowOffsetX: 0,
+                                shadowColor: 'rgba(0, 0, 0, 0.5)'
+                            }
+                        }
+                    }],
+                    color: ['#ff6b6b', '#4ecdc4', '#45b7d1']
+                };
+                
+            case 'bar':
+                return {
+                    grid: {
+                        left: '10%',
+                        right: '10%',
+                        top: '10%',
+                        bottom: '10%'
+                    },
+                    xAxis: {
+                        type: 'category',
+                        data: ['人口', 'GDP', '污染'],
+                        axisLabel: {
+                            fontSize: 8
+                        }
+                    },
+                    yAxis: {
+                        type: 'value',
+                        show: false
+                    },
+                    series: [{
+                        type: 'bar',
+                        data: [
+                            {value: data.population / 10, itemStyle: {color: '#5470c6'}},
+                            {value: data.gdp / 10, itemStyle: {color: '#91cc75'}},
+                            {value: data.pollution, itemStyle: {color: '#fac858'}}
+                        ],
+                        label: {
+                            show: true,
+                            position: 'top',
+                            fontSize: 8
+                        }
+                    }]
+                };
+                
+            case 'line':
+                const timeData = generateTimeSeriesData(data);
+                return {
+                    grid: {
+                        left: '10%',
+                        right: '10%',
+                        top: '10%',
+                        bottom: '15%'
+                    },
+                    xAxis: {
+                        type: 'category',
+                        data: timeData.time,
+                        axisLabel: {
+                            fontSize: 8
+                        }
+                    },
+                    yAxis: {
+                        type: 'value',
+                        show: false
+                    },
+                    series: [{
+                        type: 'line',
+                        data: timeData.values,
+                        smooth: true,
+                        symbol: 'circle',
+                        symbolSize: 3,
+                        lineStyle: {
+                            color: '#5470c6',
+                            width: 2
+                        },
+                        areaStyle: {
+                            color: 'rgba(84, 112, 198, 0.3)'
+                        }
+                    }]
+                };
+        }
+    }
+
+    /**
+     * 生成时间序列数据
+     */
+    function generateTimeSeriesData(data) {
+        const time = ['00:00', '06:00', '12:00', '18:00', '24:00'];
+        const baseValue = data.temperature;
+        const values = time.map((_, index) => {
+            return baseValue + Math.sin(index * Math.PI / 2) * 5 + Math.random() * 3;
+        });
+        return { time, values };
+    }
+
+
+
+    /**
+     * 设置控制面板
+     */
+    function setupControls() {
+        document.getElementById('pieChart').addEventListener('click', () => {
+            switchChartType('pie');
+            updateActiveButton('pieChart');
+        });
+        
+        document.getElementById('barChart').addEventListener('click', () => {
+            switchChartType('bar');
+            updateActiveButton('barChart');
+        });
+        
+        document.getElementById('lineChart').addEventListener('click', () => {
+            switchChartType('line');
+            updateActiveButton('lineChart');
+        });
+        
+        document.getElementById('refreshData').addEventListener('click', () => {
+            refreshData();
+        });
+    }
+
+    /**
+     * 切换图表类型
+     */
+    function switchChartType(type) {
+        currentChartType = type;
+        
+        // 如果有活跃的图表，更新它
+        if (activeChart) {
+            const option = getChartOption(activeChart.cityData, type);
+            activeChart.chart.setOption(option, true);
+        }
+    }
+
+    /**
+     * 更新活跃按钮样式
+     */
+    function updateActiveButton(activeId) {
+        document.querySelectorAll('.control-panel button').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        document.getElementById(activeId).classList.add('active');
+    }
+
+    /**
+     * 刷新数据
+     */
+    function refreshData() {
+        // 模拟数据更新
+        cityData.forEach(city => {
+            city.data.pollution = Math.max(30, Math.min(90, city.data.pollution + (Math.random() - 0.5) * 20));
+            city.data.traffic = Math.max(40, Math.min(95, city.data.traffic + (Math.random() - 0.5) * 15));
+            city.data.temperature = Math.max(-10, Math.min(40, city.data.temperature + (Math.random() - 0.5) * 10));
+        });
+        
+        // 如果有活跃的图表，更新它
+        if (activeChart) {
+            const option = getChartOption(activeChart.cityData, currentChartType);
+            activeChart.chart.setOption(option, true);
+        }
+    }
+
+    // 窗口大小改变时重新调整图表
+    window.addEventListener('resize', () => {
+        if (activeChart) {
+            activeChart.chart.resize();
+        }
+    });
+</script>
+</body>
+</html>

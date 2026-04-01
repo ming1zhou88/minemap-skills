@@ -1,0 +1,208 @@
+<!--
+ * @Author: liwei
+ * @Date: 2022-05-05 21:28:37
+ * @LastEditTime: 2022-11-14 17:20:10
+ * @LastEditors: liwei
+ * @Description:
+ * @FilePath: \MineMap3DEngine\demo\html\WallGeometry.html
+-->
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<title>PostProcessBlackAndWhite</title>
+		<link
+			rel="stylesheet"
+			href="../style/demo.css"
+		/>
+		<link rel="stylesheet" href="../../dist/minemap.css" />
+		<script src="../../dist/minemap-dev.js"></script>
+		<style>
+			#map {
+				width: 100%;
+				height: 100%;
+			}
+		</style>
+	</head>
+	<body>
+		<div id="map"></div>
+		<script>
+			/**
+			 * 全局参数设置
+			 */
+			minemap.domainUrl = "https://minedata.cn";
+			minemap.dataDomainUrl = "https://minedata.cn";
+			minemap.serverDomainUrl = "https://minedata.cn";
+			minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+			minemap.serviceUrl = "https://minedata.cn/service/";
+
+			minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+			minemap.solution = 11001;
+			window.minemapCDN = "https://minedata.cn/minemapapi/minemap-CDN";
+
+			// 定义空底图样式
+			var style = {
+				glyphs: "minemap://fonts/{fontstack}/{range}",
+				sprite: "minemap://sprite/sprite",
+				sources: {},
+				layers: [],
+				version: 8
+			};
+
+			/**
+			 * 初始化地图实例
+			 */
+			var map = new minemap.Map({
+				container: "map",
+				style: style,
+				/*球面矢量底图样式*/
+				center: [102.41679051698327, 29.43057430892659],
+				/*地图中心点*/
+				bearing: 0,
+				zoom: 5,
+				/*地图默认缩放等级*/
+				pitch: 30,
+				/*地图俯仰角度*/
+				maxZoom: 22,
+				/*地图最大缩放等级*/
+				minZoom: 1,
+				/*地图最小缩放等级*/
+				projection: "MERCATOR"
+			});
+			map.repaint = true;
+
+			map.postProcessStages.add(minemap.PostProcessStageLibrary.createBlackAndWhiteStage());
+
+			/**
+			 * // Example 1: 使用恒定最大最小高度，绘制一个红色的墙对象，
+			 * 使用maximumHeight和minimumheight指定墙的顶部和底部的高度。
+			 * // Attention: 使用minemap.Geometries.WallGeometry的静态函数fromConstantHeights创建Wall对象
+			 */
+			const redWallGeometry = minemap.Geometries.WallGeometry.fromConstantHeights({
+				positions: minemap.Math.Vector3.fromDegreesArray([115.0, 44.0, 90.0, 44.0]),
+				maximumHeight: 200000.0,
+				minimumHeight: 100000.0
+			});
+
+			const redWallPrimitive = new minemap.Primitive({
+				geometry: redWallGeometry,
+				material: minemap.StandardMaterial.fromType("Color", {
+					color: new minemap.Color(1.0, 0.0, 0.0, 1),
+					doubleSided: true
+				})
+			});
+			map.addPrimitive(redWallPrimitive);
+
+			const redWallOutlineGeometry = minemap.Geometries.WallOutlineGeometry.fromConstantHeights({
+				positions: minemap.Math.Vector3.fromDegreesArray([115.0, 44.0, 90.0, 44.0]),
+				maximumHeight: 200000.0,
+				minimumHeight: 100000.0
+			});
+
+			const redWallOutlinePrimitive = new minemap.Primitive({
+				geometry: redWallOutlineGeometry,
+				material: minemap.StandardMaterial.fromType("Color", {
+					color: new minemap.Color(0.0, 0.0, 0.0, 1)
+				})
+			});
+			map.addPrimitive(redWallOutlinePrimitive);
+
+			/**
+			 * // Example 2: 使用恒定最大高度，绘制一个绿色的墙对象，
+			 * 使用maximumHeight指定墙的顶部高度。
+			 * // Attention: 使用minemap.Geometries.WallGeometry的静态函数fromConstantHeights创建Wall对象
+			 */
+			const redWallPositions = [107.0, 43.0, 97.0, 43.0, 97.0, 40.0, 107.0, 40.0, 107.0, 43.0];
+			const redWallMaximumHeight = 100000.0;
+			const greenWallGeometry = minemap.Geometries.WallGeometry.fromConstantHeights({
+				positions: minemap.Math.Vector3.fromDegreesArray(redWallPositions),
+				maximumHeight: redWallMaximumHeight
+			});
+
+			const greenWallPrimitive = new minemap.Primitive({
+				geometry: greenWallGeometry,
+				material: minemap.StandardMaterial.fromType("Color", {
+					color: "#008000",
+					doubleSided: true
+				})
+			});
+			map.addPrimitive(greenWallPrimitive);
+
+			const greeWallOutlineGeometry = minemap.Geometries.WallOutlineGeometry.fromConstantHeights({
+				positions: minemap.Math.Vector3.fromDegreesArray(redWallPositions),
+				maximumHeight: redWallMaximumHeight
+			});
+
+			const greeWallOutlinePrimitive = new minemap.Primitive({
+				geometry: greeWallOutlineGeometry,
+				material: minemap.StandardMaterial.fromType("Color", {
+					color: new minemap.Color(0.0, 0.0, 0.0, 1)
+				})
+			});
+			map.addPrimitive(greeWallOutlinePrimitive);
+
+			/**
+			 * // Example 3: 使用自定义最大最小高度数组，绘制一个蓝色的墙对象，
+			 * 使用maximumHeights和minimumHeights指定墙的顶部和底部高度。
+			 * // Attention: 使用new minemap.Geometries.WallGeometry构建Wall对象
+			 */
+			const blueWallPositions = [
+				115.0, 35.0, 112.5, 35.0, 110.0, 35.0, 107.5, 35.0, 105.0, 35.0, 102.5, 35.0, 100.0, 35.0, 97.5, 35.0,
+				95.0, 35.0, 92.5, 35.0, 90.0, 35.0
+			];
+			const blueWallMaximumHeights = [
+				100000, 200000, 100000, 200000, 100000, 200000, 100000, 200000, 100000, 200000, 100000
+			];
+			const blueWallMinimumHeights = [0, 100000, 0, 100000, 0, 100000, 0, 100000, 0, 100000, 0];
+			const blueWallGeometry = new minemap.Geometries.WallGeometry({
+				positions: minemap.Math.Vector3.fromDegreesArray(blueWallPositions),
+				maximumHeights: blueWallMaximumHeights,
+				minimumHeights: blueWallMinimumHeights
+			});
+
+			const blueWallPrimitive = new minemap.Primitive({
+				geometry: blueWallGeometry,
+				material: minemap.StandardMaterial.fromType("Color", {
+					color: "#0000FF",
+					doubleSided: true
+				})
+			});
+			map.addPrimitive(blueWallPrimitive);
+
+			const blueWallOutlineGeometry = new minemap.Geometries.WallOutlineGeometry({
+				positions: minemap.Math.Vector3.fromDegreesArray(blueWallPositions),
+				maximumHeights: blueWallMaximumHeights,
+				minimumHeights: blueWallMinimumHeights
+			});
+
+			const blueWallOutlinePrimitive = new minemap.Primitive({
+				geometry: blueWallOutlineGeometry,
+				material: minemap.StandardMaterial.fromType("Color", {
+					color: new minemap.Color(0.0, 0.0, 0.0, 1)
+				})
+			});
+			map.addPrimitive(blueWallOutlinePrimitive);
+
+			map.on("load", function () {
+				/*添加栅格图*/
+				map.addSource("IMAGERY_SOURCE", {
+					type: "raster", //数据源类型：栅格数据源
+					tiles: ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+					tileSize: 512 //瓦片尺寸
+				});
+
+				map.addLayer({
+					id: "IMAGERY",
+					type: "raster", //图层类型为"raster"
+					source: "IMAGERY_SOURCE",
+					minzoom: 1,
+					maxzoom: 23,
+					paint: {
+						"raster-opacity": 1
+					},
+					"depth-test": true
+				});
+			});
+		</script>
+	</body>
+</html>

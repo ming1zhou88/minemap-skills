@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8" />
+	<title>TubeGeometry</title>
+	<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+	<!-- demo样式文件 -->
+	<link rel="stylesheet" href="../style/demo.css" />
+	<!-- 引入MineMap API插件 -->
+	<link rel="stylesheet" href="../../dist/minemap.css" />
+	<script src="../../dist/minemap-dev.js"></script>
+	<script type="text/javascript" src="../js/lil-gui.umd.min.js"></script>
+	<style>
+		#map {
+			width: 100%;
+			height: 100%;
+		}
+	</style>
+</head>
+<body>
+<div id="map"></div>
+<script>
+	/**
+	 * 全局参数设置
+	 */
+	minemap.domainUrl = "https://minedata.cn";
+	minemap.dataDomainUrl = "https://minedata.cn";
+	minemap.serverDomainUrl = "https://minedata.cn";
+	minemap.spriteUrl = "https://minedata.cn/minemapapi/v3.3.0/sprite/sprite";
+	minemap.serviceUrl = "https://minedata.cn/service/";
+
+	minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+	minemap.solution = 12877;
+	window.minemapCDN = "https://minedata.cn/minemapapi/minemap-CDN";
+
+	// 定义空底图样式
+	const style = {
+		glyphs: "minemap://fonts/{fontstack}/{range}",
+		sprite: "minemap://sprite/sprite",
+		sources: {},
+		layers: [],
+		version: 8
+	};
+
+	/**
+	 * 初始化地图实例
+	 */
+	const map = new minemap.Map({
+		container: "map",
+		style: style,
+		/*球面矢量底图样式*/
+		position: [116.24961469437905, 40.06826932427589, 300],
+		/*地图中心点*/
+		bearing: -20,
+		pitch: 50,
+		zoom: 14,
+		/*地图俯仰角度*/
+		maxZoom: 25,
+		/*地图最大缩放等级*/
+		minZoom: 1,
+		/*地图最小缩放等级*/
+		projection: "MERCATOR"
+	});
+	map.repaint = true;
+	map.enableLight();
+
+	// map.setTerrain({
+	// 	tiles: ["https://staticdata-b.minedata.cn:14434/dem/{z}/{r}/{c}/{z}_{x}_{y}.terrain"], //瓦片服务地址
+	// 	tileSize: 512, //瓦片大小
+	// 	maxzoom: 14 //dem最高切分zoom，30米一般是14级；12.5米一般是16级
+	// });
+
+	map.on("load", function() {
+		/*添加DEM数字高程模型数据*/
+		map.addSource("3D_SOURCE", {
+			"type": "raster",//DEM的数据类型为"raster"
+			"tiles": ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+			"tileSize": 512  //瓦片大小
+		});
+		map.addLayer({
+			"type": "raster",//DEM的图层类型为"raster"
+			"id": "3d-layer",
+			"source": "3D_SOURCE",
+			"depth-test": false,
+			"layout": {}
+		});
+	});
+
+	let radius = 10, radiusSegments = 64, segmentAngle = Math.PI / 36,
+		texRepeatHorizontal = 10, texRepeatVertical = 2;
+	const materialCollection = createMaterial();
+	let material = materialCollection[0], tubePrimitive;
+	let params = {
+		radius: radius,
+		radiusSegments: radiusSegments,
+		segmentAngle: 5,
+		material: "texture",
+		textureRepeatHorizontal: texRepeatHorizontal,
+		textureRepeatVertical: texRepeatVertical,
+		drawTubeGeometry: drawTubeGeometry,
+		removeTubeGeometry: removeTubeGeometry
+	};
+	const gui = new lil.GUI({ title: "参数调节面板" });
+	gui.add(params, "radius", 1, 100, 0.1).onChange((value) => {
+		radius = value;
+		if (tubePrimitive) {
+			updateTubeGeometry();
+		}
+	});
+
+	gui.add(params, "radiusSegments", 3, 100, 1).onChange((value) => {
+		radiusSegments = value;
+		if (tubePrimitive) {
+			updateTubeGeometry();
+		}
+	});
+
+	gui.add(params, "segmentAngle", 1, 10, 1).onChange((value) => {
+		segmentAngle = minemap.Math.toRadians(value);//转换为弧度
+		if (tubePrimitive) {
+			updateTubeGeometry();
+		}
+	});
+
+	gui.add(params, "material")
+		.options(["texture", "flowTexture", "color"])
+		.onChange(function(value) {
+			switch (value) {
+				case "texture":
+					material = materialCollection[0];
+					break;
+				case "flowTexture":
+					material = materialCollection[1];
+					break;
+				default:
+					material = materialCollection[2];
+			}
+			if (tubePrimitive) {
+				tubePrimitive.material = material;
+			}
+		});
+
+	gui.add(params, "textureRepeatHorizontal", 1, 100, 1).onChange((value) => {
+		texRepeatHorizontal = value;
+		materialCollection[1].flowTexture({
+			speed: 5,           // 速度取值范围：1-10, 值越大，流动速度越快
+			direction: "right",   // 纹理流动方向，取值：left,right,up,down,
+			rotation: 0,         // 纹理旋转角度，取值范围：0-360
+			texRepeat: [texRepeatHorizontal, texRepeatVertical]    // 纹理重复次数，第一个值为横向重复次数，第二个值为纵向重复次数，取值大于0
+		});
+	});
+
+	gui.add(params, "textureRepeatVertical", 1, 5, 1).onChange((value) => {
+		texRepeatVertical = value;
+		materialCollection[1].flowTexture({
+			speed: 5,           // 速度取值范围：1-10, 值越大，流动速度越快
+			direction: "right",   // 纹理流动方向，取值：left,right,up,down,
+			rotation: 0,         // 纹理旋转角度，取值范围：0-360
+			texRepeat: [texRepeatHorizontal, texRepeatVertical]     // 纹理重复次数，第一个值为横向重复次数，第二个值为纵向重复次数，取值大于0
+		});
+	});
+
+	gui.add(params, "drawTubeGeometry").name("绘制管线");
+	gui.add(params, "removeTubeGeometry").name("移除管线");
+
+	let drawTube = false;
+	let positions = [], tempPoint = [];
+
+	function drawTubeGeometry() {
+		removeTubeGeometry();
+		positions = [];
+		drawTube = true;
+	}
+
+	map.on("click", function(e) {
+		if (drawTube) {
+			const point = map.painter.getPositionByGPUPick(e.point);
+			const position = minemap.Math.Vector3.fromDegrees(point.x, point.y, 0);
+			positions.push(position);
+			updateTubeGeometry();
+		}
+	});
+
+	map.on("mousemove", function(e) {
+		if (drawTube) {
+			tempPoint = [];
+			const point = map.painter.getPositionByGPUPick(e.point);
+			tempPoint.push(minemap.Math.Vector3.fromDegrees(point.x, point.y, 0));
+			if (positions.length >= 1) {
+				updateTubeGeometry(positions.concat(tempPoint));
+			}
+		}
+	});
+
+	map.on("contextmenu", function() {
+		if (drawTube) {
+			tempPoint = [];
+			updateTubeGeometry();
+			drawTube = false;
+		}
+	});
+
+	function updateTubeGeometry(dynamicPositions) {
+		if (tubePrimitive) {
+			tubePrimitive.geometry.setData({
+				positions: dynamicPositions ? dynamicPositions : positions,
+				radius: radius,
+				radiusSegments: radiusSegments,
+				segmentAngle: segmentAngle
+			});
+		} else {
+			addTubeGeometry();
+		}
+	}
+
+	function addTubeGeometry() {
+		if (tubePrimitive !== undefined) {
+			return;
+		}
+
+		const tubeGeometry = new minemap.Geometries.TubeGeometry({
+			positions: positions,
+			radius: radius,// 管线半径
+			radiusSegments: radiusSegments, // 管线切面分段数
+			segmentAngle: segmentAngle // 转角分割角度(弧度)
+		});
+
+		tubePrimitive = new minemap.Primitive({
+			geometry: tubeGeometry,
+			material: material,
+			allowPick: false
+		});
+		map.addPrimitive(tubePrimitive);
+	}
+
+	function removeTubeGeometry() {
+		if (tubePrimitive !== undefined) {
+			map.removePrimitive(tubePrimitive);
+			tubePrimitive.geometry.destroy();
+			tubePrimitive = undefined;
+		}
+	}
+
+	function createMaterial() {
+		const arrowMaterial = minemap.StandardMaterial.fromType("Texture", {
+			baseColorMap: minemap.TextureLoader.load({
+				map,
+				texUrl: "http://192.168.152.123/minemapapi/v4.0.0/assets/arrow.png"
+			}),
+			opacity: 1.0,
+			doubleSided: true,
+			texRepeat: [100, 3]
+		});
+		arrowMaterial.flowTexture({
+			speed: 5,           // 速度取值范围：1-10, 值越大，流动速度越快
+			direction: "right",   // 纹理流动方向，取值：left,right,up,down,
+			rotation: 0,         // 纹理旋转角度，取值范围：0-360
+			texRepeat: [texRepeatHorizontal, texRepeatVertical]     // 纹理重复次数，第一个值为横向重复次数，第二个值为纵向重复次数，取值大于0
+		});
+
+		const textureMaterial = minemap.StandardMaterial.fromType("Texture", {
+			baseColorMap: minemap.TextureLoader.load({
+				map,
+				texUrl: "http://192.168.152.123/minemapapi/v4.0.0/assets/DigBody.jpg"
+			}),
+			doubleSided: true
+		});
+
+		const colorMaterial = minemap.StandardMaterial.fromType("Color", {
+			color: "#008000",
+			doubleSided: true
+		});
+		return [textureMaterial, arrowMaterial, colorMaterial];
+	}
+</script>
+</body>
+</html>

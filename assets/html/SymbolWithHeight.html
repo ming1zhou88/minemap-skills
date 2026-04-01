@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8" />
+	<meta
+		name="viewport"
+		content="initial-scale=1,maximum-scale=1,user-scalable=no"
+	/>
+	<title>带高度的symbol</title>
+	<!-- demo样式文件 -->
+	<link rel="stylesheet" href="../style/demo.css" />
+	<!-- 引入MineMap API插件 -->
+	<link rel="stylesheet" href="https://minemap.minedata.cn/minemapapi/v4.0.0/minemap.css" />
+	<script src="../../dist/minemap-dev.js"></script>
+	<style>
+		#map {
+			width: 100%;
+			height: 100%;
+		}
+	</style>
+</head>
+<body>
+<div id="map"></div>
+<script>
+	/**
+	 * 全局参数设置
+	 */
+	minemap.domainUrl = 'https://minemap.minedata.cn';
+	minemap.dataDomainUrl = 'https://minemap.minedata.cn';
+	minemap.serverDomainUrl = 'https://sd-data.minedata.cn';
+	minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+	minemap.serviceUrl = 'https://service.minedata.cn/service';
+
+	minemap.key = '0c6ac62182404e5ebc7a789981f6db72';
+	minemap.solution = 11001;
+
+	var style = {
+		"glyphs": "minemap://fonts/{fontstack}/{range}",
+		"sprite": "minemap://sprite/sprite",
+		"sources": {},
+		"layers": [],
+		"version": 8
+	};
+
+	/**
+	 * 初始化地图实例
+	 */
+	var map = new minemap.Map({
+		container: 'map',
+		style: style, /*球面矢量底图样式*/
+		// style: 'https://minedata.cn/nce-static/support/demo/js-3d-ultra/zh/assets/5723.json', /*球面矢量底图样式*/
+		center: [116.45708888985739,39.92072426168809], /*地图中心点*/
+		bearing: -20.371720425811834,
+		zoom: 14.97388763452186, /*地图默认缩放等级*/
+		pitch: 64.40060814634279, /*地图俯仰角度*/
+		maxZoom: 22, /*地图最大缩放等级*/
+		minZoom: 1,  /*地图最小缩放等级*/
+		projection: 'MERCATOR'
+	});
+	map.repaint = true;
+	map.on('load', function() {
+		map.addSource("IMAGERY_SOURCE", {
+			"type": "raster",//数据源类型：栅格数据源
+			"tiles": ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+			"tileSize": 512,//瓦片尺寸
+		});
+
+		map.addLayer({
+			"id": "IMAGERY",
+			"type": "raster", //图层类型为"raster"
+			"source": "IMAGERY_SOURCE",
+			"minzoom": 1,
+			"maxzoom": 23,
+		})
+		Promise.all([
+			addImage("https://minedata.cn/nce-static/support/demo/js-3d-ultra/zh/images/symbol-hospital-icon.png","hospital-icon"),
+			addImage("https://minedata.cn/nce-static/support/demo/js-3d-ultra/zh/images/symbol-park-icon.png","park-icon"),
+			addImage("https://minedata.cn/nce-static/support/demo/js-3d-ultra/zh/images/symbol-university-icon.png","university-icon")]
+		).then((res)=>{
+			addSources();
+			addLayers();
+		})
+
+
+	})
+	function addImage(url,name) {
+		return new Promise((resolve,reject)=>{
+			map.loadImage(url, (err, images) => {
+				if (err) throw err;
+				// 添加自定义图标
+				map.addImage(name, images);
+				resolve(name);
+			});
+		})
+	}
+
+
+	function addSources() {
+		var center = map.getCenter();
+		var jsonData = {
+			"type": "FeatureCollection",
+			"features": [
+				{
+					"type": "Feature",
+					"geometry": {
+						"type": "Point",
+						"coordinates": [center.lng + 0.003, center.lat + 0.002]
+					},
+					"properties": {
+						"title": "大学",
+						"kind": "school",
+						"icon":"university-icon",
+						"height": 100
+					},
+				}, {
+					"type": "Feature",
+					"geometry": {
+						"type": "Point",
+						"coordinates": [center.lng + 0.001, center.lat - 0.003]
+					},
+					"properties": {
+						"title": "公园",
+						"kind": "park",
+						"icon":"park-icon",
+						"height": 200
+					},
+				}, {
+					"type": "Feature",
+					"geometry": {
+						"type": "Point",
+						"coordinates": [center.lng - 0.006, center.lat - 0.005]
+					},
+					"properties": {
+						"title": "医院",
+						"kind": "hospital",
+						"icon":"hospital-icon",
+						"height": 300
+					}
+				}
+			]
+		};
+		map.addSource("pointSource", {
+			"type": "geojson",
+			"data": jsonData
+		});
+	}
+
+	function addLayers() {
+		map.addLayer({
+			"id": "symbolLayer",
+			"type": "symbol",//图层类型为"symbol"
+			"source": "pointSource",
+			"layout": {
+				//"icon-image": "traffic_light_18",
+				"icon-image": "{icon}",
+				"text-field": "{title}",
+				"text-size": 14,
+				"visibility": "visible",
+				"icon-pitch-alignment": "viewport",
+				"text-pitch-alignment": "viewport",
+				"icon-anchor":"bottom",
+				"icon-size":0.6,
+				"symbol-height-key": "height" //设置高度字段, 不设置此字段时，symbol不带高程
+			},
+			"paint": {
+				"icon-color": "#ff0000",
+				"text-color": "#fff"
+			},
+		});
+	}
+
+	map.on("click", function (e) {
+		// symbol不带高程时查询用此方法
+		const feature = map.queryRenderedFeatures(e.point, { layers: ["symbolLayer", "symbolLayer2"] });
+		console.log(feature);
+	});
+</script>
+</body>
+</html>

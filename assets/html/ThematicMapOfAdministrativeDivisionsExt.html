@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+		<title>行政区划专题图-扩展版</title>
+		<!-- demo样式文件 -->
+		<link rel="stylesheet" href="https://minedata.cn/nce-static/support/demo/js-3d-ultra/zh/css/demo.css" />
+		<!-- 引入MineMap API插件 -->
+		<link rel="stylesheet" href="https://minemap.minedata.cn/minemapapi/v4.0.0/minemap.css" />
+		<script src="../../dist/minemap-dev.js"></script>
+		<script src="../data/division-data.js"></script>
+		<script src="../js/lil-gui.umd.min.js"></script>
+		<style>
+			#map {
+				width: 100%;
+				height: 100%;
+			}
+		</style>
+	</head>
+	<body>
+		<div id="map"></div>
+		<script>
+			/**
+			 * 全局参数设置
+			 */
+			minemap.domainUrl = "http://192.168.152.123/minemapapi";
+			// minemap.domainUrl = "https://minemap.minedata.cn";  //线上资源需要将division-edge.png放到线上服务器
+			minemap.dataDomainUrl = "https://minemap.minedata.cn";
+			minemap.serverDomainUrl = "https://sd-data.minedata.cn";
+			minemap.spriteUrl = "http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite";
+			minemap.serviceUrl = "https://service.minedata.cn/service";
+
+			minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+			minemap.solution = 11001;
+
+			// 定义空底图样式
+			const style = {
+				glyphs: "minemap://fonts/{fontstack}/{range}",
+				sprite: "minemap://sprite/sprite",
+				sources: {},
+				layers: [],
+				version: 8
+			};
+
+			/**
+			 * 初始化地图实例
+			 */
+			const map = new minemap.Map({
+				container: "map",
+				style: style /*底图样式*/,
+				center: [117.72430394876416, 37.677224699519506],
+				zoom: 6.04806,
+				pitch: 29.151 /*地图俯仰角度*/,
+				bearing: 0.0,
+				maxZoom: 22 /*地图最大缩放等级*/,
+				minZoom: 1 /*地图最小缩放等级*/,
+				projection: "MERCATOR",
+				MSAASamples: 4
+			});
+			map.repaint = true;
+
+			const data1 = {
+				"type": "FeatureCollection",
+				"features": [
+					{
+						"type": "Feature",
+						"properties": {
+							"name": "城市片区组合",
+							"description": "包含3个多边形，其中1个带内部空洞（模拟湖泊）"
+						},
+						"geometry": {
+							"type": "MultiPolygon",
+							"coordinates": [
+								// 带有两个洞的多边形
+								[
+									[
+										[116.35, 39.92],
+										[116.42, 39.92],
+										[116.42, 39.97],
+										[116.35, 39.97],
+										[116.35, 39.92]
+									],
+									[ // 第一个洞范围
+										[116.36, 39.93],
+										[116.38, 39.93],
+										[116.38, 39.95],
+										[116.36, 39.95],
+										[116.36, 39.93]
+									],
+									[ // 第二个洞范围
+										[116.39, 39.94],
+										[116.41, 39.94],
+										[116.41, 39.96],
+										[116.39, 39.96],
+										[116.39, 39.94]
+									]
+								],
+								// 带有一个洞的多边形，此多边形也算飞地
+								[
+									[
+										[116.45, 39.90],
+										[116.53, 39.90],
+										[116.53, 39.95],
+										[116.45, 39.95],
+										[116.45, 39.90]
+									],
+									[ // 洞范围
+										[116.47, 39.91],
+										[116.51, 39.91],
+										[116.51, 39.93],
+										[116.47, 39.93],
+										[116.47, 39.91]
+									]
+								],
+								// 没有洞的多边形，此多边形也算飞地
+								[
+									[
+										[116.30, 39.88],
+										[116.38, 39.85],
+										[116.40, 39.90],
+										[116.33, 39.92],
+										[116.30, 39.88]
+									]
+								]
+							]
+						}
+					}
+				]
+			};
+
+			map.on("load", function () {
+				map.addSource("IMAGERY_SOURCE", {
+					type: "raster",
+					tiles: ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"],
+					tileSize: 256
+				});
+
+				map.addLayer({
+					id: "IMAGERY",
+					type: "raster",
+					source: "IMAGERY_SOURCE",
+					minzoom: 1,
+					maxzoom: 23,
+					paint: {
+						"raster-opacity": 1
+					},
+
+				});
+				initializeData();
+				initializeGUI();
+			});
+
+
+
+			const divisions0 = [];
+			const divisions1 = [];
+			let adminDivision0 = null;
+			let adminDivision1 = null;
+			function initializeData() {
+				// 存放普通区域数据
+				JSON.parse(data).features.forEach((feature) => {
+					feature.geometry.coordinates.forEach((subFeature) => {
+						const division = {
+							hierarchy: {
+								positions: [],
+								holes: []
+							},
+							height: Math.random() * 5000 + Math.random() * 5000
+						};
+						divisions0.push(division);
+						subFeature.forEach((positions, index) => {
+							if (index === 0) {
+								positions.forEach((position) => {
+									division.hierarchy.positions.push(position[0], position[1]);
+								});
+							} else {
+								division.hierarchy.holes[index-1] = {
+									positions: []
+								};
+								positions.forEach((position) => {
+									division.hierarchy.holes[index-1].positions.push(position[0], position[1]);
+								});
+							}
+						})
+					});
+				});
+				// 存放洞区域数据
+				data1.features.forEach((feature) => {
+					feature.geometry.coordinates.forEach((subFeature) => {
+						const division = {
+							hierarchy: {
+								positions: [],
+								holes: []
+							},
+							height: Math.random() * 5000 + Math.random() * 5000
+						};
+						divisions1.push(division);
+						subFeature.forEach((positions, index) => {
+							if (index === 0) {
+								positions.forEach((position) => {
+									division.hierarchy.positions.push(position[0], position[1]);
+								});
+							} else {
+								division.hierarchy.holes[index-1] = {
+									positions: []
+								};
+								positions.forEach((position) => {
+									division.hierarchy.holes[index-1].positions.push(position[0], position[1]);
+								});
+							}
+						})
+					});
+				});
+			}
+			function initializeGUI() {
+				const GUIOptions = {
+					add: () => addAdminDivision(),
+					remove: () => removeAdminDivision()
+				};
+
+				const GUI = new lil.GUI({ title: "控制菜单" });
+				GUI.add(GUIOptions, "add").name("添加(分别在北京和青岛)");
+				GUI.add(GUIOptions, "remove").name("移除");
+			}
+			function addAdminDivision() {
+				if (adminDivision0) return;
+				map.setPaintProperty(
+					"IMAGERY",
+					"raster-brightness-max",
+					0.5
+				)
+				/**
+				 * AdminDivision在实例化时接收一个参数，它是一个区域数据的列表
+				 * 区域数据包含边界（及洞）的坐标点和一个要突出展示的高度，使用方式可参考此示例和相关文档
+				 */
+				adminDivision0 = new minemap.AdminDivision({
+					divisions: divisions0
+				});
+				map.addSceneComponent(adminDivision0);
+
+				adminDivision1 = new minemap.AdminDivision({
+					divisions: divisions1
+				});
+				map.addSceneComponent(adminDivision1);
+			}
+			function removeAdminDivision() {
+				if (!adminDivision0) return;
+				map.setPaintProperty(
+					"IMAGERY",
+					"raster-brightness-max",
+					1.0
+				)
+				map.removeSceneComponent(adminDivision0.id);
+				adminDivision0 = null;
+				map.removeSceneComponent(adminDivision1.id);
+				adminDivision1 = null;
+			}
+		</script>
+	</body>
+</html>

@@ -1,0 +1,258 @@
+<!--
+ * @FileDescription:
+ * @Author: weipeng11132@navinfo.com
+ * @Date: 2023-10-11 14:54:20
+ * @LastEditors: defineconst
+ * @LastEditTime: 2024-08-26 17:14:01
+ * @FilePath: \demo\地图无法同步.html
+-->
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+	<title>全景图</title>
+	<!-- demo样式文件 -->
+	<link rel="stylesheet" href="http://192.168.152.123:11187/demo-data/3d-ultra/css/demo.css" />
+	<!-- 引入MineMap API插件 -->
+	<link rel="stylesheet" href="https://minemap.minedata.cn/minemapapi/v4.0.0/minemap.css" />
+	<script src="../js/lil-gui.umd.min.js"></script>
+
+	<script src="../../dist/minemap-dev.js"></script>
+	<style>
+		body {
+			overflow: hidden;
+		}
+
+		#map1,
+		#map2 {
+			width: 50%;
+			height: 100%;
+			position: absolute;
+			/*使用卷帘时，注意添加该样式。交互更平滑*/
+			user-select: none;
+		}
+
+		#map2 {
+			right: 0;
+			border-left: 4px solid;
+		}
+	</style>
+</head>
+
+<body>
+<div id="app">
+	<div id="map1"></div>
+	<div id="map2"></div>
+</div>
+<script type="module">
+	// 全局参数设置
+	minemap.domainUrl = "https://minemap.minedata.cn";
+	minemap.dataDomainUrl = "https://minemap.minedata.cn";
+	minemap.serverDomainUrl = "https://sd-data.minedata.cn";
+	minemap.spriteUrl =
+		"http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite";
+	minemap.serviceUrl = "https://service.minedata.cn/service";
+	window.minemapCDN = "http://minecim.navinfo.com/minemapapi/minemap-CDN"; // minemapCDN 配置
+
+	minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+	minemap.solution = 11001;
+
+
+	// 通用参数
+	const style = {
+		"glyphs": "minemap://fonts/{fontstack}/{range}",
+		"sprite": "minemap://sprite/sprite",
+		"sources": {},
+		"layers": [],
+		"version": 8
+	};
+	// 全景图
+	let panorama;
+	// GUI相关
+	let headingController, pitchController,
+		lngController, latController, heightController;
+	let dragStat1 = false, dragStat2 = false;
+	// 相机初始位置
+	const startLocation = [118.30544188, 27.09857977];
+	const startHeight = 219.39
+	let cameraLocation = startLocation;
+	// 原始数据提供pitch0、roll0、yaw0
+	// 对应关系如下：
+	// heading = -yaw0 + 90
+	// pitch =  pitch0
+	// roll = -roll0
+	let headingOffset = 8.28,
+		pitchOffset = -10,
+		rollOffset = 0;
+
+	let currentHeading = 0,
+		currentPitch = 0
+
+	// 左侧显示栅格图
+	const map1 = new minemap.Map({
+		container: 'map1',
+		style: style, /*底图样式*/
+		center: [0, 0], /*地图中心点*/
+		bearing: 0,
+		zoom: 18, /*地图默认缩放等级*/
+		pitch: 90, /*地图俯仰角度*/
+		maxZoom: 21, /*地图最大缩放等级*/
+		minZoom: 1,  /*地图最小缩放等级*/
+		projection: 'MERCATOR',
+		enableUnderGround: true
+	});
+
+	map1.setCameraPosition(new minemap.Math.Vector3(...startLocation, startHeight));
+	map1.repaint = true;
+	map1.setTerrain({
+		"tiles": ["https://staticdata-b.minedata.cn:14434/dem/{z}/{r}/{c}/{z}_{x}_{y}.terrain"], //瓦片服务地址
+		"availabilities": ["https://staticdata-b.minedata.cn:14434/dem/layer.json"], //索引文件是可选项
+		"tileSize": 512,  //瓦片大小
+		"maxzoom": 14        //dem最高切分zoom，30米一般是14级；12.5米一般是16级
+	});
+	map1.on("load", function () {
+		map1.addSource("3D_SOURCE", {
+			"type": "raster",//DEM的数据类型为"raster"
+			"tiles": ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+			"tileSize": 512,  //瓦片大小
+		});
+		map1.addLayer({
+			"type": "raster",//DEM的图层类型为"raster"
+			"id": "3d-layer",
+			"source": "3D_SOURCE",
+			"minzoom": 1,
+			"maxzoom": 20,
+			"layout": {}
+		});
+	});
+
+
+	// 右侧显示全景图
+	const map2 = new minemap.Map({
+		container: 'map2',
+		style: style, /*底图样式*/
+		center: [0, 0], /*地图中心点*/
+		projection: 'MERCATOR'
+	});
+	map2.repaint = true;
+
+	map2.on("load", function () {
+		panorama = new minemap.Panorama({
+			url: '../data/panorama/20240826-105034.jpg',
+			heading: headingOffset, // 方位角从正北0度顺时针方向起算，范围在0-360度之间
+			pitch: pitchOffset, // 俯仰角水平向前为0度，范围从垂直地面向上90度至垂直地面向下-90度
+			roll: rollOffset, // 横滚角水平时为0度，顺势针方向为正,范围在-180-180度之间
+			fov: 50
+		});
+		map2.addSceneComponent(panorama);
+		map2.panoramaMode = true;
+		// 改变map2时的联动
+		map2.on("mousedown", () => {
+			dragStat1 = true;
+		});
+		map2.on("mousemove", () => {
+			if (dragStat1) {
+				currentHeading = panorama.heading - headingOffset;
+				currentPitch = panorama.pitch - pitchOffset;
+				headingController.setValue(currentHeading);
+				pitchController.setValue(currentPitch);
+				map1.jumpTo({
+					target: map1.camera.cartographicPosition,
+					bearing: currentHeading,
+					pitch: currentPitch + 90
+				})
+			}
+		});
+		map2.on("mouseup", () => {
+			dragStat1 = false;
+		});
+		// 改变map1时的联动
+		map1.on("mousedown", () => {
+			dragStat2 = true;
+		});
+		map1.on("move", () => {
+			if (dragStat2) {
+				const heading = map1.getCameraBearing();
+				currentHeading =
+					heading > 0 ? heading : heading + 360;
+				currentPitch = map1.getCameraPitch() - 90;
+				headingController.setValue(currentHeading);
+				pitchController.setValue(currentPitch);
+				panorama.heading = currentHeading + headingOffset;
+				panorama.pitch = currentPitch + pitchOffset;
+			}
+			cameraLocation = map1.getCameraPosition();
+			lngController.setValue(cameraLocation.x);
+			latController.setValue(cameraLocation.y);
+			heightController.setValue(cameraLocation.z);
+		});
+		// map1.on("wheel", () => {
+		//
+		// }
+		map1.on("mouseup", () => {
+			dragStat2 = false;
+		});
+		// 添加GUI
+		initializeGUI();
+	});
+
+
+	function initializeGUI() {
+		const gui = new lil.GUI({ width: 300 });
+		const panoramaGUI = gui.addFolder("全景图选项");
+
+		panoramaGUI.open();
+		cameraLocation = map1.getCameraPosition();
+		const props = {
+			"方向角偏差值": headingOffset,
+			"俯仰角偏差值": pitchOffset,
+			"当前方向角": currentHeading,
+			"当前俯仰角": currentPitch,
+			"当前横滚角": rollOffset,
+			"当前经度": cameraLocation.x,
+			"当前纬度": cameraLocation.y,
+			"当前高度": cameraLocation.z,
+			"重置位置": resetLocation
+		};
+
+		panoramaGUI.add(props, "方向角偏差值", 0, 360).onChange((value) => {
+			panorama.heading = panorama.heading - headingOffset + value;
+			headingOffset = value;
+		});
+		panoramaGUI.add(props, "俯仰角偏差值", -90, 90).onChange((value) => {
+			panorama.pitch = panorama.pitch - pitchOffset + value;
+			pitchOffset = value;
+		});
+
+		headingController = panoramaGUI.add(props, "当前方向角", 0, 360).onChange((value) => {
+			if (!dragStat1 && !dragStat2) {
+				panorama.heading = value + headingOffset;
+				map1.setCameraBearing(value);
+			}
+		});
+		pitchController = panoramaGUI.add(props, "当前俯仰角", -90, 90).onChange((value) => {
+			if (!dragStat1 && !dragStat2) {
+				panorama.pitch = value + pitchOffset;
+				map1.setCameraPitch(value + 90);
+			}
+		});
+		panoramaGUI.add(props, "当前横滚角", -180, 180).onChange((value) => {
+			panorama.roll = value;
+		});
+
+		lngController = panoramaGUI.add(props, "当前经度").disable();
+		latController = panoramaGUI.add(props, "当前纬度").disable();
+		heightController = panoramaGUI.add(props, "当前高度").disable();
+
+		panoramaGUI.add(props, "重置位置");
+	}
+
+	function resetLocation() {
+		map1.setCameraPosition(new minemap.Math.Vector3(...startLocation, startHeight));
+	}
+</script>
+</body>
+
+</html>

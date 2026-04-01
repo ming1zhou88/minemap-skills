@@ -1,0 +1,169 @@
+<!--
+ * @Author: liwei
+ * @Date: 2022-09-07 23:54:16
+ * @LastEditTime: 2023-06-06 15:42:50
+ * @LastEditors: liwei
+ * @Description:
+ * @FilePath: \MineMap3DEngine\demo\html\PolylineGeometry.html
+-->
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<title>PolylineUpdate</title>
+		<script src="../../dist/minemap-dev.js"></script>
+		<style>
+			html,
+			#map,
+			body {
+				margin: 0;
+				padding: 0;
+				width: 100%;
+				height: 100%;
+			}
+		</style>
+	</head>
+
+	<body>
+		<div id="map"></div>
+		<script type="module">
+			minemap.domainUrl = "https://minedata.cn";
+			minemap.dataDomainUrl = "https://minedata.cn";
+			minemap.serverDomainUrl = "https://minedata.cn";
+			minemap.spriteUrl = "http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite";
+			minemap.serviceUrl = "https://minedata.cn/service/";
+
+			minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+			minemap.solution = 11001;
+			window.minemapCDN = "https://minedata.cn/minemapapi/minemap-CDN";
+			// 定义空底图样式
+			var style = {
+				glyphs: "minemap://fonts/{fontstack}/{range}",
+				sprite: "minemap://sprite/sprite",
+				sources: {},
+				layers: [],
+				version: 8
+			};
+
+			/**
+			 * 初始化地图实例
+			 */
+			var map = new minemap.Map({
+				container: "map",
+				style: style,
+				/*球面矢量底图样式*/
+				center: [116.3988671572592, 39.934457935565295],
+				// center: [102.38653416841908, 38.83632088061965],
+				/*地图中心点*/
+				bearing: 0,
+				zoom: 16,
+				/*地图默认缩放等级*/
+				pitch: 0,
+				/*地图俯仰角度*/
+				maxZoom: 22,
+				/*地图最大缩放等级*/
+				minZoom: 1,
+				/*地图最小缩放等级*/
+				projection: "MERCATOR"
+			});
+			map.repaint = true;
+			window.map = map;
+
+			const height = 50;
+			const polyline = new minemap.Geometries.PolylineGeometry({
+				positions: minemap.Math.Vector3.fromDegreesArrayHeights([
+					116.39842671572592,
+					39.935657935565295,
+					height,
+					116.39884471586343,
+					39.9333134036087,
+					height,
+					116.40045910599054,
+					39.934738844865834,
+					height
+				]),
+				width: 10,
+				arcType: minemap.ARCTYPE.GEODESIC
+			});
+
+			const material = minemap.PolylineMaterial.fromType("Color", {
+				color: "red"
+				// color: new minemap.Color(1, 0, 0, 1)
+			});
+
+			const redPolylinePrimitive = new minemap.Primitive({
+				geometry: polyline,
+				material: material,
+				name: "polyline"
+			});
+
+			map.addPrimitive(redPolylinePrimitive);
+
+			const polyline2 = new minemap.Geometries.PolylineGeometry({
+				positions: minemap.Math.Vector3.fromDegreesArrayHeights([
+					116.39642671572592,
+					39.932657935565295,
+					height,
+					116.39884471586343,
+					39.9323134036087,
+					height,
+					116.40045910599054,
+					39.932738844865834,
+					height
+				]),
+				width: 5
+			});
+
+			const dashMaterial = minemap.PolylineMaterial.fromType("Dash", {
+				color: "blue",
+				dashed: true, // 是否为虚线
+				dashLength: 20 // 虚线长度
+			});
+
+			const bluePolylinePrimitive = new minemap.Primitive({
+				geometry: polyline2,
+				material: dashMaterial,
+				name: "polyline2"
+			});
+
+			map.addPrimitive(bluePolylinePrimitive);
+
+			// 添加虚线
+
+			map.on("load", function () {
+				/*添加栅格图*/
+				map.addSource("IMAGERY_SOURCE", {
+					type: "raster", //数据源类型：栅格数据源
+					tiles: ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+					tileSize: 512 //瓦片尺寸
+				});
+
+				map.addLayer({
+					id: "IMAGERY",
+					type: "raster", //图层类型为"raster"
+					source: "IMAGERY_SOURCE",
+					minzoom: 1,
+					maxzoom: 23,
+					paint: {
+						"raster-opacity": 1
+					}
+				});
+			});
+
+			const options = {
+				positions: minemap.Math.Vector3.fromDegreesArrayHeights([
+					116.398, 39.937, 10, 116.399, 39.9325, 10, 116.405, 39.936, 10
+				]),
+				width: 30,
+				arcType: minemap.ARCTYPE.GEODESIC
+			};
+
+			setTimeout(() => {
+				// 更新几何属性
+				polyline.setData(options);
+				material.uniformMap.color = "gold";
+				material.uniformMap.opacity = 0.5;
+			}, 5000);
+		</script>
+	</body>
+</html>

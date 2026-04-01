@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<title>Dem裁剪</title>
+		<!-- demo样式文件 -->
+		<link rel="stylesheet" href="../style/demo.css" />
+		<!-- 引入MineMap API插件 -->
+		<link rel="stylesheet" href="../../dist/minemap.css" />
+		<script src="../../dist/minemap-dev.js"></script>
+		<script src="../js/lil-gui.umd.min.js"></script>
+		<style>
+			#map {
+				width: 100%;
+				height: 100%;
+			}
+		</style>
+	</head>
+	<body>
+		<div id="map"></div>
+		<script>
+			/**
+			 * 全局参数设置
+			 */
+			minemap.domainUrl = "https://minedata.cn";
+			minemap.dataDomainUrl = "https://minedata.cn";
+			minemap.serverDomainUrl = "https://minedata.cn";
+			minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+			minemap.serviceUrl = "https://mineservice.minedata.cn/service/";
+
+			minemap.key = "16be596e00c44c86bb1569cb53424dc9";
+			minemap.solution = 11001;
+
+			// 定义空底图样式
+			var style = {
+				glyphs: "minemap://fonts/{fontstack}/{range}",
+				sprite: "minemap://sprite/sprite",
+				sources: {},
+				layers: [],
+				version: 8
+			};
+			/**
+			 * 初始化地图实例
+			 */
+			var map = new minemap.Map({
+				container: "map",
+				style: style /*球面矢量底图样式*/,
+				center: [116.0, 40.1] /*地图中心点*/,
+				bearing: -30,
+				zoom: 11 /*地图默认缩放等级*/,
+				pitch: 0 /*地图俯仰角度*/,
+				maxZoom: 22 /*地图最大缩放等级*/,
+				minZoom: 1 /*地图最小缩放等级*/,
+				projection: "MERCATOR",
+				logDepth: true
+			});
+			map.repaint = true;
+			map.setTerrain({
+				"tiles": ["https://staticdata-b.minedata.cn:14434/dem/{z}/{r}/{c}/{z}_{x}_{y}.terrain"], //瓦片服务地址
+				"tileSize": 512,  //瓦片大小
+				"availabilities": ["https://staticdata-b.minedata.cn:14434/dem/layer.json"], // 查询最高级别DEM时必须设定索引文件
+			});
+			map.enableLight();
+
+
+			const myObj = {
+				是否显示盒子: true,
+				长: 3000,
+				宽: 2000,
+				高: 1000,
+				点击添加裁剪区域: addClippingPosition
+			};
+			let position = [0, 0, 0]
+			//添加gui
+			const gui = new lil.GUI({ title: "控制菜单" });
+			gui.add(myObj, "是否显示盒子").onChange((value) => {
+				if (boxPrimitive) {
+					if (value) {
+						boxPrimitive.visible = true;
+					} else {
+						boxPrimitive.visible = false;
+					}
+				}
+			});
+			gui.add(myObj, "长", 100, 9000, 1).onChange((value) => {
+				drawBox();
+				changeClipping();
+			});
+			gui.add(myObj, "宽", 100, 9000, 1).onChange((value) => {
+				drawBox();
+				changeClipping();
+			});
+			gui.add(myObj, "高", 100, 9000, 1).onChange((value) => {
+				drawBox();
+				changeClipping();
+			});
+			gui.add(myObj, "点击添加裁剪区域");
+
+			const clippingPlanesEnabled = true;
+			let clippingPlaneCollection;
+
+			function addClippingPosition () {
+				map.on("click", function (e) {
+					map.queryAccurateDEMHeightByPoint(e.point).then((point) => {
+						position = [point[0], point[1], point[2]];
+						// if (clippingPlaneCollection) {
+						// 	clippingPlaneCollection = clippingPlaneCollection.destroy();
+						// }
+						changeClipping();
+						drawBox();
+					});
+				})
+			}
+			function clippingMethod () {
+				const cartographicForRed = new minemap.Math.Vector3([position[0], position[1], position[2]]);
+				const modelMatrix = minemap.Transforms.cartographicToFixedFrame(cartographicForRed);
+
+				clippingPlaneCollection = new minemap.ClippingPlaneCollection({
+					modelMatrix: modelMatrix,
+					edgeColor: new minemap.Color(0, 0, 0, 1), //注意minemap.Color的数据范围是0-1
+					edgeWidth: 5.0,
+					enabled: clippingPlanesEnabled,
+					unionClippingRegions: false,
+					planes: [
+						new minemap.ClippingPlane({
+							position: minemap.Math.Vector3.fromDegrees(position[0], position[1], position[2] + myObj.高 / 2),
+							normal: new minemap.Math.Vector3(1.0, 0.0, 0.0),
+							distance: -myObj.长 / 2
+						}),
+						new minemap.ClippingPlane({
+							position: minemap.Math.Vector3.fromDegrees(position[0], position[1], position[2] + myObj.高 / 2),
+							normal: new minemap.Math.Vector3(-1.0, 0.0, 0.0),
+							distance: -myObj.长 / 2
+						}),
+						new minemap.ClippingPlane({
+							position: minemap.Math.Vector3.fromDegrees(position[0], position[1], position[2] + myObj.高 / 2),
+							normal: new minemap.Math.Vector3(0.0, 1.0, 0.0),
+							distance: -myObj.宽 / 2
+						}),
+						new minemap.ClippingPlane({
+							position: minemap.Math.Vector3.fromDegrees(position[0], position[1], position[2] + myObj.高 / 2),
+							normal: new minemap.Math.Vector3(0.0, -1.0, 0.0),
+							distance: -myObj.宽 / 2
+						}),
+						new minemap.ClippingPlane({
+							position: minemap.Math.Vector3.fromDegrees(position[0], position[1], position[2] + myObj.高 / 2),
+							normal: new minemap.Math.Vector3(0.0, 0.0, 1.0),
+							distance: -myObj.高 / 2
+						}),
+						new minemap.ClippingPlane({
+							position: minemap.Math.Vector3.fromDegrees(position[0], position[1], position[2] + myObj.高 / 2),
+							normal: new minemap.Math.Vector3(0.0, 0.0, -1.0),
+							distance: -myObj.高 / 2
+						})
+					]
+				});
+			}
+			let boxPrimitive;
+			function drawBox () {
+				const cartographicForGreen = new minemap.Math.Vector3([position[0], position[1], position[2]]);
+				const matrixForGreen = minemap.Transforms.cartographicToFixedFrame(cartographicForGreen);
+
+				const greenBoxGeometry = new minemap.Geometries.BoxGeometry({
+					width: myObj.长,
+					height: myObj.宽,
+					depth: myObj.高
+				});
+				if (boxPrimitive) {
+					boxPrimitive.setMatrix(matrixForGreen);
+					boxPrimitive.geometry = greenBoxGeometry;
+				} else {
+					boxPrimitive = map.addPrimitive(
+						new minemap.Primitive({
+							modelMatrix: matrixForGreen,
+							geometry: greenBoxGeometry,
+							material: minemap.StandardMaterial.fromType("Color", {
+								color: "green",
+								opacity: 0.5,
+								doubleSided: true
+							})
+						})
+					);
+				}
+			}
+			function changeClipping () {
+				clippingPlaneCollection.removeAll();
+				clippingPlaneCollection.add(new minemap.ClippingPlane({
+					position: minemap.Math.Vector3.fromDegrees(position[0], position[1], position[2]),
+					normal: new minemap.Math.Vector3(1.0, 0.0, 0.0),
+					distance: -myObj.长 / 2
+				}))
+				clippingPlaneCollection.add(new minemap.ClippingPlane({
+					position: minemap.Math.Vector3.fromDegrees(position[0], position[1], position[2]),
+					normal: new minemap.Math.Vector3(-1.0, 0.0, 0.0),
+					distance: -myObj.长 / 2
+				}))
+				clippingPlaneCollection.add(new minemap.ClippingPlane({
+					position: minemap.Math.Vector3.fromDegrees(position[0], position[1], position[2]),
+					normal: new minemap.Math.Vector3(0.0, 1.0, 0.0),
+					distance: -myObj.宽 / 2
+				}))
+				clippingPlaneCollection.add(new minemap.ClippingPlane({
+					position: minemap.Math.Vector3.fromDegrees(position[0], position[1], position[2]),
+					normal: new minemap.Math.Vector3(0.0, -1.0, 0.0),
+					distance: -myObj.宽 / 2
+				}))
+				clippingPlaneCollection.add(new minemap.ClippingPlane({
+					position: minemap.Math.Vector3.fromDegrees(position[0], position[1], position[2]),
+					normal: new minemap.Math.Vector3(0.0, 0.0, 1.0),
+					distance: -myObj.高 / 2
+				}))
+				clippingPlaneCollection.add(new minemap.ClippingPlane({
+					position: minemap.Math.Vector3.fromDegrees(position[0], position[1], position[2]),
+					normal: new minemap.Math.Vector3(0.0, 0.0, -1.0),
+					distance: -myObj.高 / 2
+				}))
+			}
+			clippingMethod();
+			map.on("load", function () {
+				/*添加栅格图*/
+				map.addSource("IMAGERY_SOURCE", {
+					type: "raster", //数据源类型：栅格数据源
+					tiles: ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+					tileSize: 512 //瓦片尺寸
+				});
+
+				map.addLayer({
+					id: "IMAGERY",
+					type: "raster", //图层类型为"raster"
+					source: "IMAGERY_SOURCE",
+					minzoom: 1,
+					maxzoom: 23,
+					clippingPlanes: clippingPlaneCollection
+				});
+
+				// 添加gltf
+				map.addSceneComponent({
+					id: "trafficScene",
+					type: "3d-model",
+					data: "../data/traffic/scene.gltf", // 要加载的gltf格式数据
+					// data: "../data/test-gltf/trangles.gltf", // 要加载的gltf格式数据
+					modelFolder: "../data/traffic/", // 该数据引用图片等资源的文件夹路径
+					scale: [100, 100, 100], // 在xyz轴方向上的缩放比例
+					rotation: [90, 90, 0], // 绕xyz轴方向上的旋转，单位为度
+					position: [116.0, 40.1], // 锚点（模型局部坐标原点）的经纬度位置
+					allowPick: true,
+					loaded: () => {
+						// 模型加载完成的回调函数
+					}
+				});
+			});
+		</script>
+	</body>
+</html>

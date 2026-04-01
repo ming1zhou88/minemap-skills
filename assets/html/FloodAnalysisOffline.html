@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+	<title>离线淹没分析</title>
+	<!-- demo样式文件 -->
+	<link rel="stylesheet" href="https://minedata.cn/nce-static/support/demo/js-3d-ultra/zh/css/demo.css">
+	<!-- 引入MineMap API插件 -->
+	<link rel="stylesheet" href="../../dist/minemap.css">
+	<script src="../../dist/minemap-dev.js"></script>
+	<script src="../js/lil-gui.umd.min.js"></script>
+	<style>
+		#map {
+			width: 100%;
+			height: 100%;
+		}
+		#ratioContainer{
+			position: fixed;
+			bottom: 30px;
+			left: 50%;
+			transform: translateX(-50%);
+			background: linear-gradient(135deg, rgba(0, 20, 40, 0.95), rgba(0, 40, 80, 0.95));
+			border: 2px solid #00ffff;
+			border-radius: 15px;
+			padding: 20px 40px;
+			display: none;
+			box-shadow: 0 0 30px rgba(0, 255, 255, 0.3), inset 0 0 20px rgba(0, 255, 255, 0.1);
+			backdrop-filter: blur(10px);
+			min-width: 600px;
+			max-width: 80vw;
+		}
+		.ratio-item {
+			margin: 10px 0;
+		}
+		.time-slider-container {
+			margin: 15px 0;
+			position: relative;
+		}
+		.time-slider {
+			width: 100%;
+			height: 8px;
+			border-radius: 4px;
+			background: linear-gradient(90deg, #001122, #003366, #0066cc);
+			outline: none;
+			-webkit-appearance: none;
+			appearance: none;
+			box-shadow: 0 0 15px rgba(0, 102, 204, 0.5), inset 0 0 10px rgba(0, 255, 255, 0.2);
+			border: 1px solid #00ffff;
+			transition: all 0.3s ease;
+		}
+		.time-slider:hover {
+			box-shadow: 0 0 25px rgba(0, 255, 255, 0.8), inset 0 0 15px rgba(0, 255, 255, 0.3);
+		}
+		.time-slider::-webkit-slider-thumb {
+			-webkit-appearance: none;
+			appearance: none;
+			width: 24px;
+			height: 24px;
+			border-radius: 50%;
+			background: radial-gradient(circle, #00ffff, #0099cc);
+			cursor: pointer;
+			border: 3px solid #ffffff;
+			box-shadow: 0 0 20px rgba(0, 255, 255, 0.8), 0 0 40px rgba(0, 255, 255, 0.4);
+			transition: all 0.3s ease;
+			position: relative;
+		}
+		.time-slider::-webkit-slider-thumb:hover {
+			transform: scale(1.2);
+			box-shadow: 0 0 30px rgba(0, 255, 255, 1), 0 0 60px rgba(0, 255, 255, 0.6);
+		}
+		.time-slider::-moz-range-thumb {
+			width: 24px;
+			height: 24px;
+			border-radius: 50%;
+			background: radial-gradient(circle, #00ffff, #0099cc);
+			cursor: pointer;
+			border: 3px solid #ffffff;
+			box-shadow: 0 0 20px rgba(0, 255, 255, 0.8), 0 0 40px rgba(0, 255, 255, 0.4);
+			transition: all 0.3s ease;
+		}
+		.time-display {
+			text-align: center;
+			margin: 15px 0 10px 0;
+			font-weight: bold;
+			color: #00ffff;
+			font-size: 16px;
+			text-shadow: 0 0 10px rgba(0, 255, 255, 0.8);
+			letter-spacing: 1px;
+		}
+		.time-labels {
+			display: flex;
+			justify-content: space-between;
+			font-size: 10px;
+			color: #66ccff;
+			margin-top: 8px;
+			font-weight: 500;
+			text-shadow: 0 0 5px rgba(102, 204, 255, 0.6);
+			position: relative;
+		}
+
+		.time-labels span {
+			position: relative;
+			padding: 2px 4px;
+			border-radius: 3px;
+			background: rgba(0, 150, 200, 0.3);
+			border: 1px solid rgba(0, 200, 255, 0.8);
+			transition: all 0.3s ease;
+			white-space: nowrap;
+			color: #ffffff;
+			font-weight: 600;
+		}
+
+		.time-labels span:hover {
+			background: rgba(0, 180, 255, 0.5);
+			border-color: #00ccff;
+			box-shadow: 0 0 12px rgba(0, 200, 255, 0.8);
+			transform: translateY(-2px);
+		}
+
+		.time-labels span::before {
+			content: '';
+			position: absolute;
+			top: -12px;
+			left: 50%;
+			transform: translateX(-50%);
+			width: 3px;
+			height: 10px;
+			background: linear-gradient(to bottom, #00ccff, rgba(0, 200, 255, 0.3));
+			border-radius: 1px;
+			box-shadow: 0 0 5px rgba(0, 200, 255, 0.6);
+		}
+
+		/* 科技感动画效果 */
+		@keyframes pulse {
+			0% { box-shadow: 0 0 15px rgba(0, 102, 204, 0.5), inset 0 0 10px rgba(0, 255, 255, 0.2); }
+			50% { box-shadow: 0 0 25px rgba(0, 255, 255, 0.8), inset 0 0 15px rgba(0, 255, 255, 0.3); }
+			100% { box-shadow: 0 0 15px rgba(0, 102, 204, 0.5), inset 0 0 10px rgba(0, 255, 255, 0.2); }
+		}
+
+		@keyframes glow {
+			0% { border-color: #00ffff; }
+			50% { border-color: #66ccff; }
+			100% { border-color: #00ffff; }
+		}
+
+		#ratioContainer {
+			animation: pulse 3s ease-in-out infinite;
+		}
+
+		#ratioContainer::before {
+			content: '';
+			position: absolute;
+			top: -2px;
+			left: -2px;
+			right: -2px;
+			bottom: -2px;
+			background: linear-gradient(45deg, #00ffff, #0099cc, #66ccff, #00ffff);
+			border-radius: 17px;
+			z-index: -1;
+			animation: glow 2s linear infinite;
+			background-size: 400% 400%;
+		}
+
+		.time-slider-container::after {
+			content: '';
+			position: absolute;
+			top: 50%;
+			left: 0;
+			right: 0;
+			height: 1px;
+			background: linear-gradient(90deg, transparent, #00ffff, transparent);
+			transform: translateY(-50%);
+			pointer-events: none;
+			opacity: 0.3;
+		}
+
+		.auto-play-button {
+			position: absolute;
+			top: -45px;
+			right: 0;
+			padding: 8px 16px;
+			background: linear-gradient(135deg, rgba(0, 100, 150, 0.8), rgba(0, 150, 200, 0.8));
+			border: 2px solid #00ccff;
+			border-radius: 8px;
+			color: #ffffff;
+			font-size: 12px;
+			font-weight: 600;
+			cursor: pointer;
+			transition: all 0.3s ease;
+			box-shadow: 0 0 10px rgba(0, 200, 255, 0.4);
+			text-shadow: 0 0 5px rgba(0, 200, 255, 0.8);
+			user-select: none;
+		}
+
+		.auto-play-button:hover {
+			background: linear-gradient(135deg, rgba(0, 150, 200, 0.9), rgba(0, 200, 255, 0.9));
+			box-shadow: 0 0 20px rgba(0, 200, 255, 0.8);
+			transform: translateY(-1px);
+		}
+
+		.auto-play-button.playing {
+			background: linear-gradient(135deg, rgba(255, 100, 0, 0.8), rgba(255, 150, 0, 0.8));
+			border-color: #ff6600;
+			box-shadow: 0 0 15px rgba(255, 150, 0, 0.6);
+		}
+
+		.auto-play-button.playing:hover {
+			background: linear-gradient(135deg, rgba(255, 150, 0, 0.9), rgba(255, 200, 0, 0.9));
+			box-shadow: 0 0 25px rgba(255, 150, 0, 0.8);
+		}
+		#loading{
+			position:absolute;
+			width: 100%;
+			height: 100%;
+			top:0;
+			left: 0;
+			text-align: center;
+			z-index: 99999;
+			background-color: rgba(77,78,83,0.5);
+			font-size: 50px;
+			display: none;
+		}
+	</style>
+</head>
+<body>
+<div id="map"></div>
+<div class="toolContainer" id="ratioContainer">
+	<div style="margin-bottom: 20px;text-align: center;font-size: 16px;color: blue;">淹没分析时间轴</div>
+	<div id="ratioList"></div>
+</div>
+<div class="toolContainer" id="legend" style="position: absolute;z-index: 99;right:20px;bottom: 20px;display: none">
+	<div id="legend-title" style="font-size: 12px;margin-bottom: 10px;color: white">水深图例(单位：米)</div>
+	<canvas id="colorCanvas" width="50" height="100" ></canvas>
+</div>
+<script>
+	/**
+	 * 全局参数设置
+	 */
+	window.minemap = minemap;
+	minemap.domainUrl = 'https://minemap.minedata.cn';
+	minemap.dataDomainUrl = 'https://minemap.minedata.cn';
+	minemap.serverDomainUrl = 'https://sd-data.minedata.cn';
+	minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+	minemap.serviceUrl = 'https://service.minedata.cn/service';
+	window.minemapCDN = "https://minedata.cn/minemapapi/minemap-CDN"; // minemapCDN 配置
+
+	minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+	minemap.solution = 11001;
+
+	// 定义空底图样式
+	var style = {
+		"glyphs": "minemap://fonts/{fontstack}/{range}",
+		"sprite": "minemap://sprite/sprite",
+		"sources": {},
+		"layers": [],
+		"version": 8
+	};
+
+	/**
+	 * 初始化地图实例
+	 */
+	var map = new minemap.Map({
+		container: 'map',
+		style /*底图样式*/,
+		center: [108.94733550459136, 34.30940496948484], /*地图中心点*/
+		zoom: 14, /*地图默认缩放等级*/
+		pitch: 20, /*地图俯仰角度*/
+		maxZoom: 22, /*地图最大缩放等级*/
+		minZoom: 0,  /*地图最小缩放等级*/
+		projection: 'MERCATOR',
+		logDepth: true
+	});
+
+	map.repaint = true
+
+	map.on('load', function() {
+		/*添加栅格图*/
+		map.addSource("IMAGERY_SOURCE", {
+			"type": "raster",//数据源类型：栅格数据源
+			"tiles": ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+			"tileSize": 512,//瓦片尺寸
+		});
+
+		map.addLayer({
+			"id": "IMAGERY",
+			"type": "raster", //图层类型为"raster"
+			"source": "IMAGERY_SOURCE",
+			"minzoom": 0,
+			"maxzoom": 23,
+		});
+
+		//设置地形数据
+		map.setTerrain({
+			tiles: ["https://staticdata-b.minedata.cn:14434/dem/{z}/{r}/{c}/{z}_{x}_{y}.terrain"], //瓦片服务地址
+			tileSize: 512, //瓦片大小
+			maxzoom: 14 //dem最高切分zoom，30米一般是14级；12.5米一般是16级
+		});
+
+		const tileset = map.addSceneComponent({
+			id: "serve",
+			type: "3d-tiles",
+			show: true,
+			translation: new minemap.Math.Vector3(0, 0, 0), //在enu坐标系下的位置移动距离，顺序为[east, north, height]，单位为m，并且只用于3dtiles图层
+			url: "https://staticdata-b.minedata.cn:14434/oblique/tileset.json",
+			skipLevelOfDetail: false, //跨层调度
+			maximumScreenSpaceError: 8,
+			allowPick: true,
+			lightingModel: minemap.LightingModelType.NONE
+		});
+
+		initializeGUI();
+	})
+
+	let floodAnalysis;
+	let gui;
+
+	const commonParams = {
+		"绘制区域": function () {
+			drawPolygon()
+		},
+		"开始分析": function () {
+			doAnalysis();
+		},
+		"水面透明度": 0.5,
+		"水面颜色": "#3dabc7",
+		"最低高度（米）": 0,
+		"最高高度（米）": 100,
+		"淹没速度（米/秒）": 10,
+	}
+	// 初始化UI
+	function initializeGUI() {
+		gui = new lil.GUI({ width: 300 });
+		const common = gui.addFolder("常规");
+		common
+			.add(commonParams, "水面透明度", 0, 1 )
+			.onChange((value) => {
+			});
+		common
+			.addColor(commonParams, "水面颜色")
+			.onChange((value) => {
+			});
+		common.add(commonParams, "最低高度（米）").onChange((value) => {
+
+		});
+		common.add(commonParams, "最高高度（米）").onChange((value) => {
+
+		});
+		common.add(commonParams, "淹没速度（米/秒）").onChange((value) => {
+
+		});
+		common.add(commonParams, "绘制区域");
+		common.add(commonParams, "开始分析");
+	}
+
+	let geometry,
+		primitive,
+		startDraw = false, //开始绘制
+		positions = [],
+		region = [],
+		region2 = [],
+		tempPoint = [], // polygon点
+		isPlaying = false, // 自动播放状态
+		playInterval = null; // 自动播放定时器
+	function drawPolygon() {
+		// 清空上一次的状态
+		if(floodAnalysis){
+			map.analysis.floodAnalysisOfflineCollection.remove(floodAnalysis);
+			document.getElementById("legend").style.display = "none";
+			document.getElementById("ratioContainer").style.display = "none";
+			floodAnalysis = null;
+		}
+		if(primitive){
+			map.removePrimitive(primitive);
+			primitive = null;
+		}
+		// 清空时间轴内容
+		document.getElementById('ratioList').innerHTML = '';
+		// 停止自动播放
+		if(isPlaying && playInterval){
+			clearInterval(playInterval);
+			isPlaying = false;
+			playInterval = null;
+		}
+
+		positions = [];
+		region = [];
+		region2 = [];
+		tempPoint = [];
+		startDraw = true;
+		geometry = new minemap.Geometries.PolygonGeometry({
+			polygonHierarchy: {
+				positions: () => {
+					const results = positions.concat(tempPoint);
+					// 判断是否自相交，如果自相交则该点不进入数组内
+					if (
+						results.length > 3 &&
+						minemap.Geometries.PolygonGeometry.isSelfIntersection(results, true)
+					) {
+						return positions;
+					} else {
+						return results;
+					}
+				}
+			},
+			perPositionHeight: true
+		});
+		const material = minemap.StandardMaterial.fromType("Color", {
+			color: "#09306a",
+			doubleSided: true,
+			opacity: 0.5,
+		});
+		primitive = new minemap.Primitive({
+			geometry: geometry,
+			material: material,
+			adaptTerrain: true
+		});
+		map.addPrimitive(primitive);
+	}
+
+	// leftClick
+	map.on("click", function (e) {
+		if (startDraw) {
+			const point = map.painter.getPositionByGPUPick(e.point);
+			positions.push(minemap.Math.Vector3.fromDegrees(point.x, point.y, point.z));
+			region.push([point.x, point.y, point.z]);
+			region2.push(point.x, point.y)
+		}
+	});
+
+	// mouseMove
+	map.on("mousemove", function (e) {
+		if (startDraw) {
+			tempPoint = [];
+			const point = map.painter.getPositionByGPUPick(e.point);
+			if (point) {
+				tempPoint.push(minemap.Math.Vector3.fromDegrees(point.x, point.y, point.z));
+			}
+		}
+	});
+
+	// rightClick
+	map.on("contextmenu", function (e) {
+		if (startDraw) {
+			startDraw = false;
+			tempPoint = [];
+			if (positions.length > 2) {
+				region.push(region[0]);
+			}
+		}
+	});
+
+	// 开始分析
+	function doAnalysis(){
+		// 清空上一次的状态
+		if(primitive){
+			map.removePrimitive(primitive);
+			primitive = null;
+		}
+		if(floodAnalysis){
+			map.analysis.floodAnalysisOfflineCollection.remove(floodAnalysis);
+			document.getElementById("legend").style.display = "none";
+			document.getElementById("ratioContainer").style.display = "none";
+			floodAnalysis = null;
+		}
+		// 清空时间轴内容
+		document.getElementById('ratioList').innerHTML = '';
+		if(region.length < 1){
+			alert("需要绘制区域！")
+			return;
+		}
+		floodAnalysis = new minemap.FloodAnalysisOffline({
+			positions: region2, // 淹没分析区域位置，[lon, lat, lon, lat, ...]
+			height: commonParams['最低高度（米）'], // 淹没水平面的高度
+			opacity: commonParams['水面透明度'], // 淹没水平面的透明度
+			color: commonParams['水面颜色']
+		});
+		window.aaa = floodAnalysis;
+		map.analysis.floodAnalysisOfflineCollection.add(floodAnalysis);
+		createRatios();
+	}
+
+	// 创建时间轴
+	function createRatios(){
+		let times = [];
+		const totalTime = (commonParams['最高高度（米）'] - commonParams['最低高度（米）']) / commonParams['淹没速度（米/秒）'];
+		//
+		// const segTime = commonParams['最高高度（米）'] - commonParams['最低高度（米）'];
+
+		const minHeight = commonParams['最低高度（米）'];
+		const maxHeight = commonParams['最高高度（米）'];
+		for (let i = minHeight; i <= maxHeight; i++) {
+			times.push(i);
+		}
+
+		// for(let i = 1;i < 11;i++){
+		// 	const time = segTime * i;
+		// 	if(Math.floor(time / 3600)){
+		// 		times.push((time / 3600).toFixed(2) + ' h');
+		// 	} else {
+		// 		if(Math.floor(time / 60)){
+		// 			times.push((time / 60).toFixed(2) + ' min');
+		// 		}else{
+		// 			times.push(time.toFixed(2) + ' s');
+		// 		}
+		// 	}
+		// }
+		document.getElementById('ratioContainer').style.display = "block";
+		const container = document.getElementById('ratioList');
+
+		// 创建滑动条容器
+		const sliderContainer = document.createElement('div');
+		sliderContainer.className = 'time-slider-container';
+
+		// 创建当前时间显示
+		const timeDisplay = document.createElement('div');
+		timeDisplay.className = 'time-display';
+		timeDisplay.id = 'currentTimeDisplay';
+		timeDisplay.textContent = '当前高度: ' + times[0];
+
+		// 创建滑动条
+		const slider = document.createElement('input');
+		slider.type = 'range';
+		slider.className = 'time-slider';
+		slider.min = 0;
+		slider.max = times.length - 1;
+		slider.value = 0; // 默认选择第一个时间点
+		slider.step = 1;
+
+		// 创建时间标签
+		const timeLabels = document.createElement('div');
+		timeLabels.className = 'time-labels';
+
+		// 生成更多刻度标记
+		let labelHTML = '';
+		const tickCount = Math.min(times.length, 8); // 最多显示8个刻度
+		for(let i = 0; i < tickCount; i++) {
+			const index = Math.floor((i / (tickCount - 1)) * (times.length - 1));
+			labelHTML += `<span>${times[index]}</span>`;
+		}
+		timeLabels.innerHTML = labelHTML;
+
+		// 创建自动播放按钮
+		const autoPlayButton = document.createElement('button');
+		autoPlayButton.className = 'auto-play-button';
+		autoPlayButton.textContent = '▶ 自动播放';
+		autoPlayButton.id = 'autoPlayButton';
+
+		// 自动播放相关变量
+		let currentIndex = 0;
+
+		// 滑动条事件处理
+		slider.addEventListener('input', function() {
+			const index = parseInt(this.value);
+			currentIndex = index;
+			floodAnalysis.height = Number(times[index]);
+			timeDisplay.textContent = '当前高度: ' + times[index];
+		});
+
+		// 自动播放按钮事件处理
+		autoPlayButton.addEventListener('click', function() {
+			if (isPlaying) {
+				// 停止播放
+				clearInterval(playInterval);
+				isPlaying = false;
+				autoPlayButton.textContent = '▶ 自动播放';
+				autoPlayButton.classList.remove('playing');
+			} else {
+				// 开始播放
+				isPlaying = true;
+				autoPlayButton.textContent = '⏸ 暂停';
+				autoPlayButton.classList.add('playing');
+
+				const intervalTime = totalTime * 1000 / times.length;
+
+				playInterval = setInterval(() => {
+					currentIndex++;
+					if (currentIndex >= times.length) {
+						currentIndex = 0; // 循环播放
+					}
+
+					slider.value = currentIndex;
+					floodAnalysis.height = Number(times[currentIndex]);
+					timeDisplay.textContent = '当前高度: ' + times[currentIndex];
+				}, intervalTime);
+			}
+		});
+
+		// 组装元素
+		sliderContainer.appendChild(autoPlayButton);
+		sliderContainer.appendChild(timeDisplay);
+		sliderContainer.appendChild(slider);
+		sliderContainer.appendChild(timeLabels);
+		container.appendChild(sliderContainer);
+	}
+
+</script>
+</body>

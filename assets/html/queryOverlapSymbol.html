@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+    <title>symbol支持重叠查询</title>
+    <link rel="stylesheet" href="https://minedata.cn/nce-static/support/demo/js-3d-ultra/zh/css/demo.css">
+    <!-- 引入MineMap API插件 -->
+    <link rel="stylesheet" href="../../dist/minemap.css">
+    <script src="../../dist/minemap-dev.js"></script>
+    <style>
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="card-panel card-panel-top-right">
+        <div class="card-item">
+            <p>点击点或线获取属性信息</p>
+        </div>
+    </div>
+    <div id="map"></div>
+    <script>
+        /**
+         * 全局参数设置
+         */
+        minemap.domainUrl = 'https://minedata.cn';
+        minemap.dataDomainUrl = 'https://minedata.cn';
+        minemap.serverDomainUrl = 'https://ol-data.minedata.cn';
+        minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+        minemap.serviceUrl = 'https://service.minedata.cn/service';
+
+        minemap.key = '<您的 key>';
+        minemap.solution = 11001;
+
+        var style = {
+            "glyphs": "minemap://fonts/{fontstack}/{range}",
+            "sprite": "minemap://sprite/sprite",
+            "sources": {},
+            "layers": [],
+            "version": 8
+        };
+
+        var map = new minemap.Map({
+            container: 'map',
+            style: style,
+            //style: 'https://service.minedata.cn/map/solu/style/11001',
+            center: [116.46, 39.92],
+            zoom: 14,
+            pitch: 0,
+            maxZoom: 17,
+            minZoom: 3,
+            projection: 'MERCATOR'
+        });
+
+        /**
+         * 创建地图对象后，开始加载地图资源，地图资源加载完成后触发load事件
+         */
+        map.on('load', function () {
+            /*添加栅格图*/
+            map.addSource("IMAGERY_SOURCE", {
+                "type": "raster",
+                "tiles": ["https://ol-data.minedata.cn/service/data/satellite?x={x}&y={y}&z={z}"], //瓦片服务地址
+                "tileSize": 256,//瓦片尺寸
+            });
+
+            map.addLayer({
+                "id": "IMAGERY",
+                "type": "raster",
+                "source": "IMAGERY_SOURCE",
+                "minzoom": 1,
+                "maxzoom": 23,
+            })
+            // 增加自定义数据源、自定义图层
+            addSources();
+            addLayers();
+        });
+
+        var popup = new minemap.Popup({
+            closeButton: false,
+            closeOnClick: false
+        });
+
+        map.on('mousemove', onMouseMove);
+        map.on('click', onMouseClick);
+
+        function addSources() {
+            var center = map.getCenter();
+
+            var jsonData = {
+                "type": "FeatureCollection",
+                "features": [
+                    {
+                        "type": "Feature",
+                        "geometry": {
+                            "type": "Point",
+                            "coordinates": [center.lng - 0.005, center.lat - 0.006]
+                        },
+                        "properties": {
+                            "title": "大学1",
+                            "kind": "school"
+                        },
+                    }, {
+                        "type": "Feature",
+                        "geometry": {
+                            "type": "Point",
+                            "coordinates": [center.lng - 0.005, center.lat - 0.006]
+                        },
+                        "properties": {
+                            "title": "大学2",
+                            "kind": "school"
+                        },
+                    }, {
+                        "type": "Feature",
+                        "geometry": {
+                            "type": "Point",
+                            "coordinates": [center.lng - 0.005, center.lat - 0.006]
+                        },
+                        "properties": {
+                            "title": "大学3",
+                            "kind": "school"
+                        },
+                    }, {
+                        "type": "Feature",
+                        "geometry": {
+                            "type": "Point",
+                            "coordinates": [center.lng - 0.005, center.lat - 0.006]
+                        },
+                        "properties": {
+                            "title": "大学4",
+                            "kind": "school"
+                        },
+                    }, {
+                        "type": "Feature",
+                        "geometry": {
+                            "type": "Point",
+                            "coordinates": [center.lng - 0.005, center.lat - 0.006]
+                        },
+                        "properties": {
+                            "title": "大学5",
+                            "kind": "school"
+                        },
+                    }, {
+                        "type": "Feature",
+                        "geometry": {
+                            "type": "Point",
+                            "coordinates": [center.lng + 0.002, center.lat - 0.002]
+                        },
+                        "properties": {
+                            "title": "公园1",
+                            "kind": "park"
+                        },
+                    }, {
+                        "type": "Feature",
+                        "geometry": {
+                            "type": "Point",
+                            "coordinates": [center.lng + 0.002, center.lat - 0.002]
+                        },
+                        "properties": {
+                            "title": "公园2",
+                            "kind": "park"
+                        },
+                    }, {
+                        "type": "Feature",
+                        "geometry": {
+                            "type": "Point",
+                            "coordinates": [center.lng + 0.002, center.lat - 0.002]
+                        },
+                        "properties": {
+                            "title": "公园3",
+                            "kind": "park"
+                        },
+                    }, {
+                        "type": "Feature",
+                        "geometry": {
+                            "type": "Point",
+                            "coordinates": [center.lng + 0.002, center.lat - 0.002]
+                        },
+                        "properties": {
+                            "title": "公园4",
+                            "kind": "park"
+                        },
+                    }, {
+                        "type": "Feature",
+                        "geometry": {
+                            "type": "Point",
+                            "coordinates": [center.lng + 0.002, center.lat - 0.002]
+                        },
+                        "properties": {
+                            "title": "公园5",
+                            "kind": "park"
+                        },
+                    },
+                    {
+                        "type": "Feature",
+                        "geometry": {
+                            "type": "LineString",
+                            "coordinates": [[center.lng - 0.005, center.lat + 0.005], [center.lng - 0.005, center.lat - 0.005]]
+                        },
+                        "properties": {
+                            "title": "路线一",
+                            "kind": 1
+                        },
+                    }, {
+                        "type": "Feature",
+                        "geometry": {
+                            "type": "LineString",
+                            "coordinates": [[center.lng - 0.004, center.lat], [center.lng, center.lat], [center.lng + 0.008, center.lat]]
+                        },
+                        "properties": {
+                            "title": "路线二",
+                            "kind": 2
+                        },
+                    }
+                ]
+            };
+            map.addSource("customSource", {
+                "type": "geojson",
+                "data": jsonData
+            });
+        }
+
+        function addLayers() {
+            map.addLayer({
+                "id": "lineLayer",
+                "type": "line",
+                "source": "customSource",
+                "layout": {
+                    "line-join": "round",
+                    "line-cap": "round"
+                },
+                "paint": {
+                    "line-width": 6,
+                    "line-color": {
+                        "type": "categorical",
+                        "property": "kind",
+                        "stops": [[1, "#ff0000"], [2, "#00ff00"]],
+                        "default": "#ff0000"
+                    }
+                },
+                "minzoom": 7,
+                "maxzoom": 17.5
+            });
+
+            map.addLayer({
+                "id": "pointLayer",
+                "type": "symbol",
+                "source": "customSource",
+                "layout": {
+                    "visibility": "visible",
+                    "icon-image": "marker-15-6",
+                    "text-field": "{title}",
+                    "text-offset": [0, 0.6],
+                    "text-anchor": "top",
+                    "text-size": 14,
+                    "icon-allow-overlap": true,  //图标允许压盖
+                    "text-allow-overlap": true,   //图标覆盖文字允许压盖
+                },
+                "paint": {
+                    "icon-color": {
+                        "type": "categorical",
+                        "property": "kind",
+                        "stops": [["school", "#ff0000"], ["park", "#00ff00"]],
+                        "default": "#ff0000"
+                    },
+                    "text-color": {
+                        "type": "categorical",
+                        "property": "kind",
+                        "stops": [["school", "#ff0000"], ["park", "#00ff00"]],
+                        "default": "#ff0000"
+                    },
+                    "text-halo-color": "#000000",
+                    "text-halo-width": 0.5,
+                },
+                "minzoom": 7,
+                "maxzoom": 17.5,
+                "filter": ['in', '$type', 'Point']
+            });
+        }
+
+        /* queryRenderedFeatures方法，根据图层获取地图上可视范围内的feature信息 */
+
+        function onMouseMove(e) {
+            var features = map.queryRenderedFeatures(e.point, { layers: ['pointLayer', 'lineLayer'] });
+            map.getCanvas().style.cursor = (features.length) ? 'pointer' : '';
+        }
+
+        function onMouseClick(e) {
+            var features = map.queryRenderedFeatures(e.point, { layers: ['pointLayer', 'lineLayer'] });
+
+            console.log("features", features);
+
+            if (!features.length) {
+                popup.remove();
+                return;
+            }
+
+            alert(`查询出${features.length}个要素`);
+
+            var feature = features[0];
+
+            var coord = null;
+
+            if (feature.layer.id == "pointLayer") {
+                coord = feature.geometry.coordinates;
+            } else if (feature.layer.id == "lineLayer") {
+                coord = feature.geometry.coordinates[0];
+            }
+
+            if (coord) {
+                popup.setLngLat(coord)
+                    .setHTML(feature.properties.title + "经纬度为：" + coord[0].toFixed(6) + "," + coord[1].toFixed(6))
+                    .addTo(map);
+            }
+        }
+
+    </script>
+</body>

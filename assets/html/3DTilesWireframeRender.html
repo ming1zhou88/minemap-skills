@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+		<title>3D Tiles 线框模式（内置 + 引擎生成）</title>
+		<link rel="stylesheet" href="../../dist/minemap.css" />
+		<link rel="stylesheet" href="../style/demo.css" />
+		<script src="../../dist/minemap-dev.js"></script>
+		<script src="../js/lil-gui.umd.min.js"></script>
+		<style>
+			html,
+			body,
+			#map {
+				margin: 0;
+				padding: 0;
+				width: 100%;
+				height: 100%;
+			}
+
+			.help-panel {
+				max-width: 420px;
+			}
+
+			.help-panel .title {
+				font-weight: 600;
+				margin-bottom: 8px;
+			}
+
+			.help-panel p {
+				margin: 0 0 8px 0;
+				line-height: 1.5;
+			}
+		</style>
+	</head>
+
+	<body>
+		<div id="map"></div>
+		<div class="card-panel card-panel-top-left help-panel">
+			<div class="title">3D Tiles 线框使用说明</div>
+			<p>1. <b>显示内置线框</b>：控制节点名以 <code>_wireframe</code> 结尾的对象显隐。</p>
+			<p>2. <b>显示生成线框</b>：控制引擎生成的折痕线框显隐。</p>
+			<p>3. <b>启用引擎生成线框</b> 与 <b>折痕阈值</b>：建议点击“重载 Tileset”后验证，确保全量瓦片按新参数重新生成。</p>
+		</div>
+
+		<script>
+			minemap.domainUrl = "https://minedata.cn";
+			minemap.dataDomainUrl = "https://minedata.cn";
+			minemap.serverDomainUrl = "https://minedata.cn";
+			minemap.spriteUrl = "https://minedata.cn/minemapapi/sprite/latest/sprite";
+			minemap.serviceUrl = "https://minedata.cn/service/";
+			minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+			minemap.solution = 11001;
+			window.minemapCDN = "https://minedata.cn/minemapapi/minemap-CDN";
+
+			const style = {
+				glyphs: "minemap://fonts/{fontstack}/{range}",
+				sprite: "minemap://sprite/sprite",
+				sources: {},
+				layers: [],
+				version: 8
+			};
+
+			const map = new minemap.Map({
+				container: "map",
+				style,
+				bearing: -87.18744098264303,
+				center: [108.94733550459136, 34.30940496948484],
+				pitch: 61.603551292866726,
+				zoom: 15.7,
+				maxZoom: 22,
+				minZoom: 1
+			});
+
+			map.repaint = true;
+			map.enableLight();
+
+			const TILESET_ID = "tileset_wireframe_demo";
+			const TILESET_URL = "../data/天河科技园/tileset.json";
+			const DEFAULT_CREASE = 0.05235988;
+
+			let tileset = null;
+
+			const state = {
+				showTileset: true,
+				showEmbeddedWireframe: true,
+				generateWireframe: true,
+				showGeneratedWireframe: true,
+				wireframeCreaseThreshold: DEFAULT_CREASE,
+				reloadTileset: () => reloadTileset(),
+				flyToTileset: () => flyToTileset()
+			};
+
+			function ensureImagery() {
+				if (!map.getSource("IMAGERY_SOURCE")) {
+					map.addSource("IMAGERY_SOURCE", {
+						type: "raster",
+						tiles: ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"],
+						tileSize: 512,
+						maxzoom: 15
+					});
+				}
+
+				if (!map.getLayer("IMAGERY")) {
+					map.addLayer({
+						id: "IMAGERY",
+						type: "raster",
+						source: "IMAGERY_SOURCE",
+						minzoom: 1,
+						maxzoom: 23,
+						"depth-test": true
+					});
+				}
+			}
+
+			function createTileset() {
+				tileset = map.addSceneComponent({
+					id: TILESET_ID,
+					type: "3d-tiles",
+					show: state.showTileset,
+					url: TILESET_URL,
+					maximumScreenSpaceError: 8,
+					allowPick: true,
+					showEmbeddedWireframe: state.showEmbeddedWireframe,
+					generateWireframe: state.generateWireframe,
+					showGeneratedWireframe: state.showGeneratedWireframe,
+					wireframeCreaseThreshold: state.wireframeCreaseThreshold,
+					sourceLoaded: (readyTileset) => {
+						tileset = readyTileset;
+						map.flyTo({
+							target: tileset
+						})
+						applyRuntimeControls();
+					}
+				});
+			}
+
+			function removeTilesetIfExists() {
+				const existed = map.getSceneComponent(TILESET_ID);
+				if (existed) {
+					map.removeSceneComponent(TILESET_ID);
+				}
+				tileset = null;
+			}
+
+			function reloadTileset() {
+				removeTilesetIfExists();
+				createTileset();
+			}
+
+			function applyRuntimeControls() {
+				if (!tileset) {
+					return;
+				}
+
+				tileset.show = state.showTileset;
+				tileset.showEmbeddedWireframe = state.showEmbeddedWireframe;
+				tileset.showGeneratedWireframe = state.showGeneratedWireframe;
+				tileset.generateWireframe = state.generateWireframe;
+				tileset.wireframeCreaseThreshold = state.wireframeCreaseThreshold;
+			}
+
+			function flyToTileset() {
+				if (!tileset) {
+					return;
+				}
+				map.flyTo({
+					target: tileset,
+					bearing: 0,
+					pitch: 55,
+					duration: 1500,
+					range: 900
+				});
+			}
+
+			function buildGUI() {
+				const gui = new lil.GUI({ title: "3D Tiles 线框控制", width: 360 });
+
+				const basicFolder = gui.addFolder("基础控制");
+				basicFolder.add(state, "showTileset").name("显示 Tileset").onChange(applyRuntimeControls);
+				basicFolder.add(state, "flyToTileset").name("飞到 Tileset");
+
+				const wireframeFolder = gui.addFolder("线框控制");
+				wireframeFolder
+					.add(state, "showEmbeddedWireframe")
+					.name("显示内置线框(_wireframe)")
+					.onChange(applyRuntimeControls);
+				wireframeFolder
+					.add(state, "showGeneratedWireframe")
+					.name("显示生成线框")
+					.onChange(applyRuntimeControls);
+				wireframeFolder
+					.add(state, "generateWireframe")
+					.name("启用引擎生成线框")
+					.onChange(applyRuntimeControls);
+				wireframeFolder
+					.add(state, "wireframeCreaseThreshold", 0.0, 1.0, 0.000001)
+					.name("折痕阈值(弧度)")
+					.onFinishChange(applyRuntimeControls);
+				wireframeFolder.add(state, "reloadTileset").name("重载 Tileset 应用生成配置");
+
+				basicFolder.open();
+				wireframeFolder.open();
+			}
+
+			map.on("load", function () {
+				ensureImagery();
+				buildGUI();
+				createTileset();
+			});
+		</script>
+	</body>
+</html>

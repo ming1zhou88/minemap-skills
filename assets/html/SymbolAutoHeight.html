@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+	<title>Symbol自动赋高</title>
+	<link rel="stylesheet" href="https://minedata.cn/nce-static/support/demo/js-3d-ultra/zh/css/demo.css">
+	<link rel="stylesheet" href="../../dist/minemap.css">
+	<script src="../../dist/minemap-dev.js"></script>
+	<script src="../js/lil-gui.umd.min.js"></script>
+	<style>
+		#map {
+			width: 100%;
+			height: 100%;
+		}
+	</style>
+</head>
+
+<body>
+<div id="map"></div>
+<script>
+	/*全局参数设置*/
+	minemap.domainUrl = "https://minemap.minedata.cn";
+	minemap.dataDomainUrl = "https://minemap.minedata.cn";
+	minemap.serverDomainUrl = "https://sd-data.minedata.cn";
+	minemap.spriteUrl = "http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite";
+	minemap.serviceUrl = "https://service.minedata.cn/service";
+
+	minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+	minemap.solution = 11001;
+	window.minemapCDN = "https://minemap.minedata.cn/minemapapi/minemap-CDN"; // minemapCDN 配置
+
+	/*定义空底图样式*/
+	var style = {
+		"glyphs": "minemap://fonts/{fontstack}/{range}",
+		"sprite": "minemap://sprite/sprite",
+		"sources": {},
+		"layers": [],
+		"version": 8
+	};
+	/*初始化地图实例*/
+	var map = new minemap.Map({
+		"container": "map",
+		"style": style,
+		"center": [120.40679756635005, 36.105051127625856],
+		"bearing": 1.5576736792751236,
+		"zoom": 12.366603639215612, //地图默认缩放等级
+		"pitch": 48.23170530287875, //地图俯仰角度
+		"maxZoom": 22, //地图最大缩放等级
+		"minZoom": 1, //地图最小缩放等级
+		projection: "MERCATOR",
+		logDepth: true
+	});
+
+	map.on("load", function() {
+		/*添加栅格图*/
+		map.addSource("IMAGERY_SOURCE", {
+			"type": "raster",
+			"tiles": ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+			"tileSize": 256 //瓦片尺寸
+		});
+
+		map.addLayer({
+			"id": "IMAGERY",
+			"type": "raster",
+			"source": "IMAGERY_SOURCE",
+			"paint": {
+				"raster-opacity": 1
+			}
+		});
+
+		map.setTerrain({
+			"tiles": ["https://staticdata-b.minedata.cn:14434/dem/{z}/{r}/{c}/{z}_{x}_{y}.terrain"], //瓦片服务地址
+			"availabilities": ["https://staticdata-b.minedata.cn:14434/dem/layer.json"], //索引文件是可选项
+			"tileSize": 512,  //瓦片大小
+			"maxzoom": 14        //dem最高切分zoom，30米一般是14级；12.5米一般是16级
+		});
+
+		let flag3dtiles = true;
+		let flagDEM = true;
+
+		map.addSceneComponent({
+			id: "serve",
+			type: "3d-tiles",
+			url: "https://staticdata-b.minedata.cn:14434/oblique/tileset.json", // 要加载的数据
+			// translation: new minemap.Math.Vector3(0, 0, 0),
+			// show: true,
+			// skipLevelOfDetail: true, //跨层调度
+			// maximumScreenSpaceError: 8,
+			// opacity: 0.9, // 透明度 0-1
+			minzoom: 1,
+			maxzoom: 22,
+			sourceLoaded: (config) => {
+				console.log(config._geoCenters[0]);
+			}
+		});
+
+		Promise.all([
+			addImage("https://minedata.cn/nce-static/support/demo/js-3d-ultra/zh/images/symbol-hospital-icon.png", "hospital-icon"),
+			addImage("https://minedata.cn/nce-static/support/demo/js-3d-ultra/zh/images/symbol-park-icon.png", "park-icon"),
+			addImage("https://minedata.cn/nce-static/support/demo/js-3d-ultra/zh/images/symbol-university-icon.png", "university-icon")]
+		).then((res) => {
+			addSources();
+			addLayers();
+
+			// 使用 lil-gui 创建一个 GUI 面板
+			const gui = new lil.GUI({ title: "控制器" });
+			const guiController = {
+				toggleTerrain: function() {
+					if (flagDEM) {
+						removeDEM();
+					} else {
+						addDEM();
+					}
+					flagDEM = !flagDEM;
+				},
+				toggle3dtiles: function() {
+					if (flag3dtiles) {
+						remove3dtiles();
+					} else {
+						add3dtiles();
+					}
+					flag3dtiles = !flag3dtiles;
+				}
+			};
+
+			gui.add(guiController, "toggleTerrain").name("地形加载/移除");
+			gui.add(guiController, "toggle3dtiles").name("3dtiles加载/移除");
+		});
+
+	});
+
+	function addImage(url, name) {
+		return new Promise((resolve, reject) => {
+			map.loadImage(url, (err, images) => {
+				if (err) throw err;
+				// 添加自定义图标
+				map.addImage(name, images);
+				resolve(name);
+			});
+		});
+	}
+
+	function addSources() {
+		map.addSource("pointSource", {
+			"type": "vector",
+			"tiles": [
+				"https://map-api.minedata.cn/service/map/mvt-layer/1393/{z}/{x}/{y}?tileMatrixSet=MERCATOR&appKey=945aad8fb2684eb097788ceeec6f5706"
+			]
+		});
+	}
+
+	function addLayers() {
+		map.addLayer({
+			"id": "symbolLayer",
+			"type": "symbol",//图层类型为"symbol"
+			"source": "pointSource",
+			"source-layer": "1393",
+			"layout": {
+				//"icon-image": "traffic_light_18",
+				"icon-image": "park-icon",
+				// "text-field": "{title}",
+				"text-size": 14,
+				"visibility": "visible",
+				"icon-pitch-alignment": "viewport",
+				"text-pitch-alignment": "viewport",
+				"icon-anchor": "bottom",
+				"icon-size": 0.6
+			},
+			"paint": {
+				"icon-color": "#ff0000",
+				"text-color": "#fff"
+			},
+			hiddenType: minemap.SymbolHiddenType.SCENE, // 开启按场景遮挡
+			"auto-height": true, // 开启自动赋高
+			"auto-height-offset": 20, // 开启自动赋高后，在计算出的高度的基础上进行上下偏移的距离
+			classificationType: minemap.ClassificationType.FORCE_VECTOR_OVER_MODEL
+		});
+	}
+
+	function add3dtiles() {
+		map.addSceneComponent({
+			id: "serve",
+			type: "3d-tiles",
+			url: "https://staticdata-b.minedata.cn:14434/oblique/tileset.json", // 要加载的数据
+			// translation: new minemap.Math.Vector3(0, 0, 0),
+			// show: true,
+			// skipLevelOfDetail: true, //跨层调度
+			// maximumScreenSpaceError: 8,
+			// opacity: 0.9, // 透明度 0-1
+			minzoom: 1,
+			maxzoom: 22,
+			sourceLoaded: (config) => {
+				console.log(config._geoCenters[0]);
+			}
+		});
+	}
+
+	function remove3dtiles() {
+		map.removeSceneComponent("serve");
+	}
+
+	function addDEM() {
+		map.setTerrain({
+			"tiles": ["https://staticdata-b.minedata.cn:14434/dem/{z}/{r}/{c}/{z}_{x}_{y}.terrain"], //瓦片服务地址
+			"availabilities": ["https://staticdata-b.minedata.cn:14434/dem/layer.json"], //索引文件是可选项
+			"tileSize": 512,  //瓦片大小
+			"maxzoom": 14        //dem最高切分zoom，30米一般是14级；12.5米一般是16级
+		});
+	}
+
+	function removeDEM() {
+		map.setTerrain({
+			tiles: null, //清空
+			tileSize: 512
+		});
+	}
+
+</script>
+</body>
+
+</html>

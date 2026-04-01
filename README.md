@@ -10,6 +10,10 @@
 -   业务技能包：已完成源码校验与 demo 回填的主干版本
 -   当前文档策略：优先写“推荐做法、禁用做法、失败案例、demo 证据”
 
+补充文档：
+
+-   `SKILL-AUTHORING-TUTORIAL.md`：说明这套 skill 的生成逻辑、调研方法、拆分原则与编写经验
+
 ## Purpose
 
 与 `threejs-skills-main` 一样，这套技能库的目的不是泛泛介绍概念，而是补足编码助手在以下方面的上下文：
@@ -40,7 +44,10 @@
 | Skill                                       | 说明                                                                                |
 | ------------------------------------------- | ----------------------------------------------------------------------------------- |
 | `minemap-fundamentals`                      | Map 初始化、生命周期、控件与相机基础                                                |
+| `minemap-official-resources-and-onboarding` | 官网入口、账号开通、文档查找、示例查找与版本核对                                    |
+| `minemap-global-configuration`              | `key/solution`、域名配置、sprite/fonts、`minemapCDN` 与启动前配置顺序               |
 | `minemap-widget-and-controls`               | `IControl` 控件协议、内建 widget、调试/编辑控件与自定义控件组织                     |
+| `minemap-marker-and-popup`                  | `Marker` / `Popup` 的 DOM 覆盖物、高度、拖拽、内容与联动                            |
 | `minemap-style-and-data`                    | Style、Source、Layer、图像资源与数据更新                                            |
 | `minemap-layer-system`                      | 图层类型、增删改移、过滤、缩放范围、渲染顺序与图层交互组织                          |
 | `minemap-style-system`                      | style v8 结构、`setStyle()`、diff/keepUserInfo、sprite/glyphs 与样式工作流          |
@@ -103,7 +110,7 @@
 -   相机 / 视锥 / 包围体 / 数学工具族
 -   光照类型族（`AmbientLight`、`DirectionalLight`、`PointLight`、`SpotLight`、`SunLight`）
 -   `RenderState`、`WMTSCapabilities` 等低层或辅助对象
--   全局配置导出（`accessToken`、`domainUrl`、`dataDomainUrl`、`serverDomainUrl` 等）
+-   全局配置导出（以 `key`、`solution`、`domainUrl`、`dataDomainUrl`、`serverDomainUrl`、`spriteUrl`、`serviceUrl` 为主，`appKey` / `accessToken` 仅保留兼容说明）
 
 本轮已把这些缺口补到现有基础包里，而不是继续制造过多碎片技能包。
 
@@ -112,7 +119,10 @@
 可按请求主题加载对应技能包：
 
 -   初始化地图、控件、生命周期 → `minemap-fundamentals`
+-   官网入口、帮助中心、账号开通、文档/示例导航 → `minemap-official-resources-and-onboarding`
+-   全局配置、`key/solution`、域名与资源地址 → `minemap-global-configuration`
 -   控件体系、widget、自定义控件 → `minemap-widget-and-controls`
+-   `Marker` / `Popup` / DOM 覆盖物 / 三维高度信息牌 → `minemap-marker-and-popup`
 -   图层、数据源、样式更新 → `minemap-style-and-data`
 -   图层系统与图层顺序控制 → `minemap-layer-system`
 -   style 结构、切换与样式工作流 → `minemap-style-system`

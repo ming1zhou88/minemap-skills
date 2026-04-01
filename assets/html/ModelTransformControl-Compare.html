@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<title>模型变换对比还原</title>
+		<link rel="stylesheet" href="../style/demo.css" />
+		<link rel="stylesheet" href="../../dist/minemap.css" />
+		<script src="../../dist/minemap-dev.js"></script>
+		<script src="../js/lil-gui.umd.min.js"></script>
+		<style>
+			#map {
+				width: 100%;
+				height: 100%;
+			}
+		</style>
+	</head>
+	<body>
+		<div id="map"></div>
+		<script>
+			minemap.domainUrl = "https://minedata.cn";
+			minemap.dataDomainUrl = "https://minedata.cn";
+			minemap.serverDomainUrl = "https://minedata.cn";
+			minemap.spriteUrl = "http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite";
+			minemap.serviceUrl = "https://mineservice.minedata.cn/service/";
+			minemap.key = "16be596e00c44c86bb1569cb53424dc9";
+			minemap.solution = 11001;
+			window.minemapCDN = "https://minedata.cn/minemapapi/minemap-CDN";
+
+			const SNAPSHOT_KEY = "ModelTransformControl:lastSnapshots";
+			let snapshots = {};
+			let boxPrimitive = null;
+
+			const style = {
+				glyphs: "minemap://fonts/{fontstack}/{range}",
+				sprite: "minemap://sprite/sprite",
+				sources: {},
+				layers: [],
+				version: 8
+			};
+
+			const map = new minemap.Map({
+				container: "map",
+				style,
+				center: [116.3918209754059, 39.90984826212655],
+				bearing: 0,
+				zoom: 15,
+				pitch: 0,
+				maxZoom: 22,
+				minZoom: 1,
+				projection: "MERCATOR",
+				logDepth: true
+			});
+			map.repaint = true;
+			map.enableLight();
+
+			function drawBox() {
+				const matrix = minemap.Transforms.cartographicToFixedFrame(new minemap.Math.Vector3([116.39, 39.909, 0]));
+				const geometry = new minemap.Geometries.BoxGeometry({ width: 100, height: 100, depth: 100 });
+				boxPrimitive = map.addPrimitive(
+					new minemap.Primitive({
+						id: "boxPrimitive",
+						modelMatrix: matrix,
+						geometry,
+						material: minemap.StandardMaterial.fromType("Color", {
+							color: "green",
+							opacity: 0.5,
+							doubleSided: true
+						})
+					})
+				);
+			}
+
+			function addModels() {
+				map.addSceneComponent({
+					id: "trafficScene",
+					type: "3d-model",
+					data: "../data/swglb/SWTX_ALL.glb",
+					modelFolder: "../data/traffic/",
+					scale: [1, 1, 1],
+					rotation: [0, 0, 0],
+					position: [116.395, 39.909, 10],
+					allowPick: true
+				});
+
+				map.addSceneComponent({
+					id: "treeGltf",
+					type: "3d-model",
+					show: true,
+					data: "../data/shu-max-003/shu13_new.glb",
+					positions: [new minemap.Math.Vector3([116.3918, 39.9098, 10])],
+					rotations: [minemap.Math.HeadingPitchRoll.fromDegrees(0, 0, 90)],
+					scales: [new minemap.Math.Vector3([6, 8, 10])],
+					instanceNames: ["treeGltf1"]
+				});
+			}
+
+			function composeMatrixFromTRS(data) {
+				const cartesian = minemap.Transforms.cartographicToCartesian3(data.position);
+				const enu = minemap.Transforms.cartesianToFixedFrame(cartesian);
+				const hpr = minemap.Math.HeadingPitchRoll.fromDegrees(data.rotation[2], data.rotation[1], data.rotation[0]);
+				const quaternion = new minemap.Math.Quaternion().fromHeadingPitchRoll(hpr);
+				const local = minemap.Math.Matrix4.fromTranslationQuaternionRotationScale(
+					new minemap.Math.Vector3([0, 0, 0]),
+					quaternion,
+					new minemap.Math.Vector3(data.scale)
+				);
+				return enu.clone().multiplyRight(local);
+			}
+
+			function getTargetByKey(key) {
+				if (key.indexOf("::") > -1) {
+					const arr = key.split("::");
+					const sceneId = arr[0];
+					const instanceName = arr[1];
+					const scene = map.getSceneComponent(sceneId);
+					const instances = scene && scene.modelInstanceCollection && scene.modelInstanceCollection.instances;
+					if (!instances) return null;
+					for (const instance of instances.values()) {
+						if (instance.instanceName === instanceName) return instance;
+					}
+					return null;
+				}
+				return map.getPrimitiveById(key) || map.getSceneComponent(key);
+			}
+
+			function applyOne(key) {
+				const data = snapshots[key];
+				if (!data) return false;
+				const target = getTargetByKey(key);
+				if (!target) return false;
+				const matrix = composeMatrixFromTRS(data);
+				if (target.modelMatrix !== undefined) {
+					target.modelMatrix = matrix;
+					return true;
+				}
+				if (typeof target.setMatrix === "function") {
+					target.setMatrix(matrix);
+					if (typeof target.updateMatrixWorld === "function") target.updateMatrixWorld(true);
+					return true;
+				}
+				return false;
+			}
+
+			function applyAll() {
+				let okCount = 0;
+				Object.keys(snapshots).forEach((key) => {
+					if (applyOne(key)) okCount++;
+				});
+				console.log("applyAll finished:", okCount, "/", Object.keys(snapshots).length);
+			}
+
+			function loadSnapshotsFromStorage() {
+				try {
+					const raw = window.localStorage.getItem(SNAPSHOT_KEY);
+					snapshots = raw ? JSON.parse(raw) : {};
+					guiState.snapshotCount = Object.keys(snapshots).length;
+					guiState.snapshotJson = JSON.stringify(snapshots, null, 2);
+					console.log("snapshots loaded:", snapshots);
+				} catch (e) {
+					console.error("load snapshots failed", e);
+				}
+			}
+
+			function loadSnapshotsFromText() {
+				try {
+					snapshots = guiState.snapshotJson ? JSON.parse(guiState.snapshotJson) : {};
+					guiState.snapshotCount = Object.keys(snapshots).length;
+					console.log("snapshots parsed:", snapshots);
+				} catch (e) {
+					console.error("parse snapshots failed", e);
+				}
+			}
+
+			const guiState = {
+				snapshotCount: 0,
+				snapshotJson: "",
+				loadFromStorage: loadSnapshotsFromStorage,
+				loadFromText: loadSnapshotsFromText,
+				applyAll,
+				applyBox: function () {
+					applyOne("boxPrimitive");
+				},
+				applyTrafficScene: function () {
+					applyOne("trafficScene");
+				},
+				applyTreeInstance: function () {
+					applyOne("treeGltf::treeGltf1");
+				}
+			};
+
+			function initGUI() {
+				const gui = new lil.GUI({ width: 420, title: "对比还原控制" });
+				gui.add(guiState, "snapshotCount").name("快照数量").listen();
+				gui.add(guiState, "loadFromStorage").name("从localStorage读取");
+				gui.add(guiState, "loadFromText").name("从文本解析");
+				gui.add(guiState, "applyAll").name("应用全部还原");
+				gui.add(guiState, "applyBox").name("仅应用boxPrimitive");
+				gui.add(guiState, "applyTrafficScene").name("仅应用trafficScene");
+				gui.add(guiState, "applyTreeInstance").name("仅应用treeGltf::treeGltf1");
+				gui.add(guiState, "snapshotJson").name("快照JSON");
+			}
+
+			map.on("load", function () {
+				map.addSource("3D_SOURCE", {
+					type: "raster",
+					tiles: ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"],
+					tileSize: 512
+				});
+				map.addLayer({
+					type: "raster",
+					id: "3d-layer",
+					source: "3D_SOURCE",
+					minzoom: 1,
+					maxzoom: 20,
+					layout: {}
+				});
+				drawBox();
+				addModels();
+				initGUI();
+				loadSnapshotsFromStorage();
+			});
+		</script>
+	</body>
+</html>

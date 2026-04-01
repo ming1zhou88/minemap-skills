@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+    <title>三维模型浏览工具</title>
+    <!-- demo样式文件 -->
+    <link rel="stylesheet" href="../style/demo.css">
+    <!-- 引入MineMap API插件 -->
+    <link rel="stylesheet" href="https://minemap.minedata.cn/minemapapi/v4.0.0/minemap.css">
+
+	<script src="../../dist/minemap-dev.js"></script>
+	<script src="../js/lil-gui.umd.min.js"></script>
+
+	<link rel="stylesheet" href="../lib/jquery/ztree/css/demo.css">
+	<link rel="stylesheet" href="../lib/jquery/ztree/css/metroStyle/metroStyle.css" />
+
+	<script type="text/javascript" src="../lib/jquery/jquery-3.6.0.js"></script>
+	<script type="text/javascript" src="../lib/jquery/ztree/js/jquery.ztree.all.min.js"></script>
+
+    <style>
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+
+        .zTreeDemoBackground {
+            position: absolute;
+            left: 10px;
+            top: 60px;
+            z-index: 99999;
+            width: 300px !important;
+            height: calc(100% - 100px) !important;
+        }
+
+        .ztree {
+            width: 100% !important;
+            height: 100% !important;
+        }
+
+		.toolContainer {
+			position: absolute;
+			top: 0;
+			left: 0;
+			z-index: 999;
+			background-color: white;
+		}
+    </style>
+</head>
+
+<body>
+    <div class="zTreeDemoBackground">
+        <ul id="tree" class="ztree"></ul>
+    </div>
+
+    <div id="map"></div>
+
+    <script>
+        var data = [];
+
+        function onCheck(event, treeId, treeNode) {
+
+            modelTree[treeNode.id].show = treeNode.checked
+
+            modelTree[treeNode.id].visible = treeNode.checked
+
+            if (treeNode.checked) {
+                modelTree[treeNode.id].visibility = "visible";
+            }
+            else {
+                modelTree[treeNode.id].visibility = "none";
+            }
+        }
+
+		var lastPrimitive = null;
+
+		function onClick(event, treeId, treeNode) {
+
+			const primitive = modelTree[treeNode.id];
+
+			if (lastPrimitive != null && lastPrimitive["oldColor"] != null) {
+				lastPrimitive.color = lastPrimitive["oldColor"]
+			}
+
+			if (primitive instanceof minemap.Primitive) {
+				if (primitive._material && primitive._material.baseColor) {
+					primitive["oldColor"] = primitive._material.baseColor.clone();
+				}
+				else {
+					primitive["oldColor"] = primitive.color.clone();
+				}
+				primitive.color = [1.0, 0.0, 0.0, 0.7]; //选中部分，设置高亮颜色
+				lastPrimitive = primitive;
+
+				controller.setValue(primitive.properties.name);
+			}
+		}
+
+        var setting = {
+            view: {
+                selectedMulti: true
+            },
+            check: {
+                enable: true,
+            },
+            data: {
+                simpleData: {
+                    enable: true,//是否采用简单数据模式
+                    idKey: "id",//树节点ID名称
+                    pIdKey: "pid",//父节点ID名称
+                    // rootPId: -1,//根节点ID
+                }
+            },
+            callback: {
+                onCheck: onCheck,
+				onClick: onClick
+                // beforeCheck: beforeCheck
+            }
+        };
+
+        $.fn.zTree.init($("#tree"), setting, data);//初始化树节点时，添加同步获取的数据
+
+        /**
+         * 全局参数设置
+         */
+        minemap.domainUrl = 'https://minemap.minedata.cn';
+        minemap.dataDomainUrl = 'https://minemap.minedata.cn';
+        minemap.serverDomainUrl = 'https://sd-data.minedata.cn';
+        minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+        minemap.serviceUrl = 'https://service.minedata.cn/service';
+
+        minemap.key = '0c6ac62182404e5ebc7a789981f6db72';
+        minemap.solution = 11001;
+
+        // 定义空底图样式
+        var style = {
+            "glyphs": "minemap://fonts/{fontstack}/{range}",
+            "sprite": "minemap://sprite/sprite",
+            "sources": {},
+            "layers": [],
+            "version": 8
+        };
+        window.minemapCDN = 'https://minemap.minedata.cn/minemapapi/minemap-CDN'; // minemapCDN 配置
+
+        var center = [116.46323356550803, 39.919378786463];
+
+        /**
+         * 初始化地图实例
+         */
+        var map = new minemap.Map({
+            container: 'map',
+            style: style, /*球面矢量底图样式*/
+            center, /*地图中心点*/
+            bearing: 0,
+            zoom: 16, /*地图默认缩放等级*/
+            pitch: 60, /*地图俯仰角度*/
+            maxZoom: 22, /*地图最大缩放等级*/
+            minZoom: 1,  /*地图最小缩放等级*/
+            projection: 'MERCATOR',
+            MSAASamples: 4,
+        });
+
+        map.repaint = true;
+        map.enableLight();
+
+
+		const modelList = {
+			"navinfo": 0,
+			"LittlestTokyo": 1,
+			"Cesium_Air": 2,
+			"Cesium_Man": 3,
+			"bird": 4,
+			"nvzhujiao": 5,
+			"RobotExpressive": 6,
+			"CesiumDrone": 7,
+			"CesiumMilkTruck": 8,
+			"GroundVehicle": 9,
+			"trangles": 10,
+			"trangles_animation": 11,
+			"doubleTrangles": 12,
+			"sampleMaterialTrangle": 13,
+			"sampleTexture": 14,
+			"sampleMorphTarget": 15,
+			"sampleSkin": 16,
+			"AnimatedMorphSphere": 17,
+			"tunnel": 18,
+			"BrainStem": 19,
+			"BoxAnimated": 20,
+			"RiggedSimple": 21,
+			"RiggedFigure": 22,
+			"Fox": 23,
+			"VC": 24,
+			"AnimatedMorphCube": 25,
+			"InterpolationTest": 26,
+			"Bee": 27,
+			"IridescentDishWithOlives": 28,
+			"GlassVaseFlowers": 29,
+			"GlassBrokenWindow": 30,
+			"Parrot": 31
+		};
+		const modelOptions = [
+			{
+				key: "navinfo",
+				data: "http://192.168.152.123:11187/demo-data/bim/only-building.gltf",
+				modelFolder: "http://192.168.152.123:11187/demo-data/bim/",
+				scale: [1, 1, 1]
+			},
+			{
+				key: "LittlestTokyo",
+				data: "../data/test-gltf/LittlestTokyo.glb", // ✔ 普通动画、骨骼动画
+				scale: [0.1, 0.1, 0.1]
+			},
+			{
+				key: "Cesium_Air",
+				data: "../data/test-gltf/Cesium_Air.glb", // ✔ 普通动画
+			},
+			{
+				key: "Cesium_Man",
+				data: "../data/test-gltf/Cesium_Man.glb", // ✔ 骨骼动画
+				scale: [20, 20, 20]
+			},
+			{
+				key: "bird",
+				data: "../data/test-gltf/bird.glb", // ✔ 无动画
+				scale: [1, 1, 1]
+			},
+			{
+				key: "nvzhujiao",
+				data: "../data/test-gltf/nvzhujiao.glb", // ✔ 骨骼动画
+				scale: [20, 20, 20]
+			},
+			{
+				key: "RobotExpressive",
+				data: "../data/test-gltf/RobotExpressive.glb", // ✔ 骨骼动画
+			},
+			{
+				key: "CesiumDrone",
+				data: "../data/test-gltf/CesiumDrone.glb", // ✔ 普通动画
+			},
+			{
+				key: "CesiumMilkTruck",
+				data: "../data/test-gltf/CesiumMilkTruck.glb", // ✔ 普通动画
+			},
+			{
+				key: "GroundVehicle",
+				data: "../data/test-gltf/GroundVehicle.glb", // ✔ 普通动画
+			},
+			{
+				key: "trangles",
+				data: "../data/test-gltf/trangles.gltf", // ✔ 无动画
+			},
+			{
+				key: "trangles_animation",
+				data: "../data/test-gltf/trangles_animation.gltf", // ✔ 普通动画
+				scale: [20, 20, 20]
+			},
+			{
+				key: "doubleTrangles",
+				data: "../data/test-gltf/doubleTrangles.gltf", // ✔ 无动画
+				scale: [20, 20, 20]
+			},
+			{
+				key: "sampleMaterialTrangle",
+				data: "../data/test-gltf/sampleMaterialTrangle.gltf", // ✔ 无动画
+				scale: [20, 20, 20]
+			},
+			{
+				key: "sampleTexture",
+				data: "../data/test-gltf/sampleTexture.gltf", // ✔  无动画
+				scale: [20, 20, 20]
+			},
+			{
+				key: "sampleMorphTarget",
+				data: "../data/test-gltf/sampleMorphTarget.gltf", // ✔ 变形动画
+				scale: [20, 20, 20]
+			},
+			{
+				key: "sampleSkin",
+				data: "../data/test-gltf/sampleSkin.gltf", // ✔ 骨骼动画
+			},
+			{
+				key: "AnimatedMorphSphere",
+				data: "http://192.168.152.123:11187/demo-data/3d-ultra/assets/models/animation/morph/AnimatedMorphSphere.gltf", // ✔ 变形动画
+				modelFolder: "http://192.168.152.123:11187/demo-data/3d-ultra/assets/models/animation/morph",
+			},
+			{
+				key: "tunnel",
+				data: '../data/test-gltf/YINGCHENGZI/tunnel.gltf', // ✔ HAD动画
+				modelFolder: '../data/test-gltf/YINGCHENGZI/images',
+				scale: [0.1, 0.1, 0.1]
+			},
+			{
+				key: "BrainStem",
+				data: "http://192.168.152.123:11187/demo-data/3d-ultra/assets/models/animation/BrainStem.glb", // ✔ 骨骼动画
+				modelFolder: "http://192.168.152.123:11187/demo-data/3d-ultra/assets/models/animation",
+			},
+			{
+				key: "BoxAnimated",
+				data: "../data/test-gltf/BoxAnimated.glb", // ✔ 普通动画
+			},
+			{
+				key: "RiggedSimple",
+				data: "../data/test-gltf/RiggedSimple.glb", // ✔ 骨骼动画
+			},
+			{
+				key: "RiggedFigure",
+				data: "../data/test-gltf/RiggedFigure.glb", // ✔ 骨骼动画
+				scale: [20, 20, 20]
+			},
+			{
+				key: "Fox",
+				data: "../data/test-gltf/Fox.glb", // ✔ 骨骼动画
+				scale: [1, 1, 1]
+			},
+			{
+				key: "VC",
+				data: "../data/test-gltf/VC.glb", // ✔ 普通动画
+			},
+			{
+				key: "AnimatedMorphCube",
+				data: "../data/test-gltf/AnimatedMorphCube.glb", // ✔ 变形动画
+			},
+			{
+				key: "InterpolationTest",
+				data: "../data/test-gltf/InterpolationTest.glb", // ✔ 带三次样条插值的普通动画
+			},
+			{
+				key: "Bee",
+				data: "../data/test-gltf/Bee.glb", // ✔ 骨骼动画
+				scale: [1, 1, 1]
+			},
+			{
+				key: "IridescentDishWithOlives",
+				data: "../data/test-gltf/IridescentDishWithOlives.glb", // 普通动画, ❌不支持KHR_materials_ior、KHR_materials_iridescence、KHR_materials_transmission和KHR_materials_volume扩展
+			},
+			{
+				key: "GlassVaseFlowers",
+				data: "../data/test-gltf/GlassVaseFlowers.glb", // 透明混合，❌不支持KHR_materials_transmission和KHR_materials_volume扩展
+				scale: [200, 200, 200]
+			},
+			{
+				key: "GlassBrokenWindow",
+				data: "../data/test-gltf/GlassBrokenWindow.glb", // 透明混合, ❌不支持KHR_materials_transmission扩展
+				scale: [100, 100, 100]
+			},
+			{
+				key: "Parrot",
+				data: "../data/test-gltf/Parrot.glb", // ❌ 不支持weights长度超过两个的变形动画
+			},
+			{
+				key: "盒子正弦函数移动",
+				data: "../data/test-gltf/无标题.glb"
+			},
+		];
+		const defaultModel = "RobotExpressive";
+		let controller;
+		let currentIndex = modelList[defaultModel];
+		initializeGUI();
+
+        var dataJson = [];
+        var lngLat;
+
+        map.on('load', function () {
+            /*添加栅格图*/
+            map.addSource("IMAGERY_SOURCE", {
+                "type": "raster",
+                "tiles": ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+                "tileSize": 512,//瓦片尺寸
+            });
+
+            map.addLayer({
+                "id": "IMAGERY",
+                "type": "raster",
+                "source": "IMAGERY_SOURCE",
+                "minzoom": 1,
+                "maxzoom": 23,
+            });
+            lngLat = map.getCenter();
+
+			addModel(modelOptions[currentIndex]);
+        })
+
+        var modelTree = {};
+
+        function addModel(options) {
+            // 添加glb
+            const bimModel = map.addSceneComponent({
+				id: options.key,
+				type: "3d-model", // 数据类型为“3d-model”
+				data: options.data,
+				modelFolder: options.modelFolder,
+				scale: options.scale || [10, 10, 10], // 在xyz轴方向上的缩放比例
+				rotation: [90, 0, 0], // 绕xyz轴方向上的旋转，单位为度
+				position: [...center, 50], // 锚点（模型局部坐标原点）的经纬度位置
+				lightingModel: minemap.LightingModelType.PBR,
+				activeAnimation: true,
+				accurateBounding: true,
+				loaded: loaded
+            });
+
+            function loaded() {
+
+				map.flyTo({
+					target: bimModel,
+					bearing: 0,
+					pitch: 0,
+					duration: 2000,
+					range: 100
+				});
+
+                dataJson.push({
+                    pid: -1,
+                    id: 0,
+                    name: options.key,
+                    open: true
+                })
+
+                modelTree[0] = bimModel
+
+                for (var j = 0; j < bimModel._gltfJson.scene.nodes.length; j++) {
+                    // 模型部件层次化加载
+                    var nodeP = bimModel._gltfJson.scene.nodes[j]
+
+                    var nodeIdP = dataJson.length
+
+                    dataJson.push({
+                        pid: 0,
+                        id: nodeIdP,
+                        name: nodeP.properties.name,
+                        open: true,
+                        checked: true,
+						nocheck: !!nodeP.isJoint
+                    })
+                    modelTree[nodeIdP] = nodeP
+
+					getNodeChildren(nodeP, nodeIdP, dataJson);
+                }
+
+                $.fn.zTree.init($("#tree"), setting, dataJson);
+
+            };
+        }
+
+        function getNodeChildren(node, pid, dataJson) {
+
+            for (var i = 0; i < node.children.length; i++) {
+                var nodeChild = node.children[i]
+                var nodeId = dataJson.length
+
+                dataJson.push({
+                    pid: pid,
+                    id: nodeId,
+                    name: nodeChild.properties.name,
+                    // open: true,
+                    checked: true,
+					nocheck: !!nodeChild.isJoint
+                })
+
+                modelTree[nodeId] = nodeChild
+                if (nodeChild.children.length > 0) {
+                    getNodeChildren(nodeChild, nodeId, dataJson)
+                }
+            }
+        }
+
+        var instance;
+        var rotationX = 0;
+        map.on("click", function (e) {
+            const instance = map.getFeatureByGPUPick(e.point);
+
+			if (lastPrimitive != null && lastPrimitive["oldColor"] != null) {
+				lastPrimitive.color = lastPrimitive["oldColor"]
+				lastPrimitive = null;
+			}
+
+			if (instance instanceof minemap.Primitive) {
+                const primitive = instance
+
+                if (primitive) {
+					if (primitive._material && primitive._material.baseColor) {
+						primitive["oldColor"] = primitive._material.baseColor.clone();
+					}
+					else {
+						primitive["oldColor"] = primitive.color.clone();
+					}
+                    primitive.color = [1.0, 0.0, 0.0, 0.7]; //选中部分，设置高亮颜色
+                    lastPrimitive = primitive;
+
+					controller.setValue(primitive.properties.name);
+                }
+            }
+        });
+
+		function initializeGUI() {
+			const gui = new lil.GUI({ width: 300 });
+			const props = {
+				"数据列表": defaultModel,
+				"部件名称": ''
+			};
+
+			gui.add(props, "数据列表", modelList).onChange(function (event) {
+				removeModel(modelOptions[currentIndex].key);
+				currentIndex = event;
+				addModel(modelOptions[currentIndex]);
+			});
+			controller = gui.add(props, "部件名称");
+		}
+
+		function removeModel(key) {
+			if (map.getSceneComponent(key)) {
+				map.removeSceneComponent(key);
+			}
+			dataJson = [];
+			lastPrimitive = null;
+		}
+
+    </script>
+</body>
+
+</html>

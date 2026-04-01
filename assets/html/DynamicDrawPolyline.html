@@ -1,0 +1,205 @@
+<!--
+ * @Author: liwei
+ * @Date: 2022-09-07 23:54:16
+ * @LastEditTime: 2022-11-25 11:25:30
+ * @LastEditors: liwei
+ * @Description:
+ * @FilePath: \MineMap3DEngine\demo\html\DynamicDrawPolyline.html
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8"/>
+	<title>Polyline动态绘制</title>
+	<meta http-equiv="Access-Control-Allow-Origin" content="*"/>
+	<meta charset="utf-8"/>
+	<link rel="stylesheet" href="../../dist/minemap.css"/>
+	<script src="../../dist/minemap-dev.js"></script>
+	<script src="../js/lil-gui.umd.min.js"></script>
+	<style>
+		html,
+		#map,
+		body {
+			margin: 0;
+			padding: 0;
+			width: 100%;
+			height: 100%;
+		}
+
+		.toolContainer {
+			position: absolute;
+			top: 0;
+			left: 0;
+			z-index: 999;
+		}
+	</style>
+</head>
+<body>
+<div id="map"></div>
+<script>
+	minemap.domainUrl = "https://minedata.cn";
+	minemap.dataDomainUrl = "https://minedata.cn";
+	minemap.serverDomainUrl = "https://minedata.cn";
+	minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+	minemap.serviceUrl = "https://minedata.cn/service/";
+
+	minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+	minemap.solution = 11001;
+	window.minemapCDN = "https://minedata.cn/minemapapi/minemap-CDN";
+	// 定义空底图样式
+	var style = {
+		glyphs: "minemap://fonts/{fontstack}/{range}",
+		sprite: "minemap://sprite/sprite",
+		sources: {},
+		layers: [],
+		version: 8
+	};
+
+	/**
+	 * 初始化地图实例
+	 */
+	var map = new minemap.Map({
+		container: "map",
+		style: style,
+		/*球面矢量底图样式*/
+		center: [116.39842671572592, 39.935657935565295],
+		// center: [102.38653416841908, 38.83632088061965],
+		/*地图中心点*/
+		bearing: 0,
+		zoom: 17,
+		/*地图默认缩放等级*/
+		pitch: 0,
+		/*地图俯仰角度*/
+		maxZoom: 22,
+		/*地图最大缩放等级*/
+		minZoom: 1,
+		/*地图最小缩放等级*/
+		projection: "MERCATOR",
+		//logDepth: true
+	});
+	map.repaint = true;
+	window.map = map;
+
+	let startDraw = false;
+	let positions = [];
+	let tempPoint = [];
+	let polylinePrimitive;
+	let polylineGeometry;
+	const test = [1.0, 1.0, 1.0];
+
+	function addPolyline() {
+		test.length = 0;
+		startDraw = true;
+		positions = [];
+		if (polylinePrimitive !== undefined) {
+			map.removePrimitive(polylinePrimitive);
+		}
+
+		polylineGeometry = new minemap.Geometries.PolylineGeometry({
+			positions: [],
+			width: 5,
+			arcType: minemap.ARCTYPE.GEODESIC
+		});
+
+		// alpha暂不支持设置
+		const material = new minemap.PolylineMaterial({
+			color: "red"
+		});
+
+		polylinePrimitive = new minemap.Primitive({
+			geometry: polylineGeometry,
+			material: material,
+			name: "polyline"
+		});
+
+		map.addPrimitive(polylinePrimitive);
+	}
+
+	function incrementalAddPoint() {
+
+		if (!polylineGeometry) {
+			return;
+		}
+
+		const extraPoint = map.getCenter();
+
+		for (let i = 0; i < 1000; i++) {
+
+			const pos = minemap.Math.Vector3.fromDegrees(extraPoint.lng + (Math.random() - 0.5) * 0.1, extraPoint.lat + (Math.random() - 0.5) * 0.1, 1)
+
+			positions.push(pos);
+
+		}
+
+		polylineGeometry.setData({
+			incrementalUpdate: true,     // 增量更新数据的形式，效率最高，但是只能数据不断增长的场景，减少了追加数据的三角网生成。
+			positions: positions
+		})
+
+	}
+
+	// leftClick
+	map.on("click", function (e) {
+		if (startDraw) {
+			const point = map.painter.getPositionByGPUPick(e.point);
+			positions.push(minemap.Math.Vector3.fromDegrees(point.x, point.y, 1));
+
+			if (positions.length >= 2) {
+				polylineGeometry.setData({positions});
+			}
+
+		}
+	});
+
+	// mouseMove
+	map.on("mousemove", function (e) {
+		if (startDraw) {
+			tempPoint = [];
+			const point = map.painter.getPositionByGPUPick(e.point);
+			tempPoint.push(minemap.Math.Vector3.fromDegrees(point.x, point.y, 1));
+
+			if (positions.length >= 1) {
+				polylineGeometry.setData({positions: positions.concat(tempPoint)});
+			}
+		}
+	});
+
+	// rightClick
+	map.on("contextmenu", function (e) {
+		if (startDraw) {
+			startDraw = false;
+			tempPoint = [];
+		}
+	});
+
+	map.on("load", function () {
+		/*添加栅格图*/
+		map.addSource("IMAGERY_SOURCE", {
+			type: "raster", //数据源类型：栅格数据源
+			tiles: ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+			tileSize: 512 //瓦片尺寸
+		});
+
+		map.addLayer({
+			id: "IMAGERY",
+			type: "raster", //图层类型为"raster"
+			source: "IMAGERY_SOURCE",
+			minzoom: 1,
+			maxzoom: 23,
+			paint: {
+				"raster-opacity": 1
+			},
+			"depth-test": true
+		});
+
+		let eventObj = {
+			addPolyline:addPolyline,
+			incrementalAddPoint:incrementalAddPoint
+		}
+		const gui = new lil.GUI({title: "参数调节面板"});
+		gui.add(eventObj,"addPolyline").name("绘制线")
+		gui.add(eventObj,"incrementalAddPoint").name("增量更新1000个随机点")
+	});
+</script>
+</body>
+</html>

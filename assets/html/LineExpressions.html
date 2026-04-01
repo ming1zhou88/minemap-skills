@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+    <title>线图层-表达式</title>
+    <link rel="stylesheet" href="../style/demo.css" />
+    <link rel="stylesheet" href="https://minemap.minedata.cn/minemapapi/v4.0.0/minemap.css" />
+    <script src="../../dist/minemap-dev.js"></script>
+
+    <style>
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="map"></div>
+    <script>
+        /**
+         * 全局参数设置
+         */
+        minemap.domainUrl = 'https://minemap.minedata.cn';
+        minemap.dataDomainUrl = 'https://minemap.minedata.cn';
+        minemap.serverDomainUrl = 'https://sd-data.minedata.cn';
+        minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+        minemap.serviceUrl = 'https://service.minedata.cn/service';
+
+        minemap.key = '0c6ac62182404e5ebc7a789981f6db72';
+        minemap.solution = 11001;
+
+        // 定义空底图样式
+        var style = {
+            glyphs: "minemap://fonts/{fontstack}/{range}",
+            sprite: "minemap://sprite/sprite",
+            sources: {},
+            layers: [{
+                "id": "background",
+                "type": "background",
+                "source": "",
+                "paint": {
+                    "background-color": "green",
+                    "background-opacity": 0.1
+                }
+            }],
+            version: 8
+        };
+
+        var map = new minemap.Map({
+            container: 'map',
+            style: 'https://service.minedata.cn/map/solu/style/11001',
+            center: [116.46, 39.92],
+            zoom: 14,
+            pitch: 0,
+            maxZoom: 17,
+            minZoom: 3,
+            projection: 'MERCATOR'
+        });
+
+        /**
+         * 创建地图对象后，开始加载地图资源，地图资源加载完成后触发load事件
+         */
+        map.on('load', function () {
+            // 增加自定义数据源、自定义图层
+            addSources();
+            addLayers();
+        });
+
+        function addSources() {
+            var center = map.getCenter();
+            var jsonData = {
+                "type": "FeatureCollection",
+                "features": [
+                    {
+                        "type": "Feature",
+                        "geometry": {
+                            "type": "LineString",
+                            "coordinates": [[center.lng - 0.005, center.lat + 0.005], [center.lng - 0.005, center.lat - 0.005]]
+                        },
+                        "properties": {
+                            "title": "路线一",
+                            "kind": 1
+                        },
+                    }, {
+                        "type": "Feature",
+                        "geometry": {
+                            "type": "LineString",
+                            "coordinates": [[center.lng - 0.004, center.lat], [center.lng, center.lat], [center.lng + 0.008, center.lat]]
+                        },
+                        "properties": {
+                            "title": "路线二",
+                            "kind": 2
+                        },
+                    }
+                ]
+            };
+            map.addSource("lineSource", {
+                "type": "geojson",
+                "data": jsonData
+            });
+        }
+
+        map.atmosphere = false;
+
+        function addLayers() {
+            map.addLayer({
+                id: "lineLayer",
+                type: "line", //图层类型为"line"
+                source: "lineSource",
+                layout: {
+                    "line-join": "round",
+                    "line-cap": "round-butt",
+                    "border-visibility": "none",
+                    "line-miter-limit": 2,
+                    "line-round-limit": 1.05,
+                    visibility: "visible"
+                },
+                paint: {
+                    "line-width": 20,
+                    "line-width": [
+                        'case',
+                        ['==', ['get', 'kind'], 1], 15,
+                        ['==', ['get', 'kind'], 2], 20,
+                        20 // 默认值
+                    ],
+                    // "line-color": "#ff0000",
+                    "line-opacity": [
+                        'case',
+                        ['==', ['get', 'kind'], 1], 1.0,
+                        ['==', ['get', 'kind'], 2], 0.5,
+                        1.0 // 默认值
+                    ],
+                    // "line-offset": 0,
+                    // "line-blur": 0,
+                    // "line-dasharray": '',
+                    "line-pattern": [
+                        'case',
+                        ['==', ['get', 'kind'], 1], 'pattern_1',
+                        ['==', ['get', 'kind'], 2], 'pattern_3',
+                        'pattern_1' // 默认值
+                    ],
+                    "line-translate": [0, 0],
+                    "line-translate-anchor": "map",
+                    // "line-pattern": "pattern_1",
+                    "line-border-color": "#f9bd09ff",
+                    "line-border-width": 10,
+                    "line-border-opacity": 1
+                },
+                minzoom: 1,
+                maxzoom: 24
+            });
+
+            map.addLayer({
+                "id": "symbolLayer",
+                "type": "symbol",
+                "source": "lineSource",
+                "layout": {
+                    "text-field": "{title}",
+                    "text-size": 10,
+                    "symbol-placement": "line"
+                },
+                "paint": {
+                    "text-color": "#000000",
+                    "text-halo-color": "#ffffff",
+                    "text-halo-width": 0.8,
+                },
+                "minzoom": 7,
+                "maxzoom": 17.5
+            });
+        }
+
+    </script>
+</body>

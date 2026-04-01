@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+	<title>经纬度投影下的文字Y轴渲染矫正</title>
+	<link rel="stylesheet" href="../style/demo.css">
+	<!-- 引入MineMap API插件 -->
+	<link rel="stylesheet" href="../../dist/minemap.css">
+	<script src="../../dist/minemap-dev.js"></script>
+	<script src="https://minedata.cn/mine-support/assets/web/support-data/js/lil-gui.umd.min.js"></script>
+	<style>
+		#map {
+			width: 100%;
+			height: 100%;
+		}
+	</style>
+</head>
+
+<body>
+	<!-- <div class="card-panel card-panel-top-right toolContainer">
+		<p style="font-size: 14px;line-height: 2;">当前zoom级别：<span id="zoomSpan">5.5</span></p>
+	</div> -->
+	<div id="map"></div>
+	<script>
+		window.minemapCDN = 'https://minedata.cn/minemapapi/minemap-CDN';
+		minemap.domainUrl = 'https://minemap.minedata.cn';
+		minemap.serverDomainUrl = 'https://sd-data.minedata.cn';
+		minemap.key = '<您的 key>';
+
+		const map = new minemap.Map({
+			container: 'map',
+			style: '../data/11002.json',
+			center: [116.46, 39.92],
+			zoom: 14,
+			pitch: 0,
+			maxZoom: 17,
+			minZoom: 3,
+			projection: 'LATLON'
+		});
+
+		/**
+		 * 地图加载完成
+		 * 创建地图对象后，开始加载地图资源，地图资源加载完成后触发load事件
+		 */
+		let gui;
+		let controller;
+		//事件是否注册的标志位
+		let isEventRegistered = false;
+		initializeGUI();
+		map.on('load', function () {
+			// 地图资源加载完成后触发
+			// 增加自定义数据源、自定义图层
+
+			gui.title('地图加载完成');
+			showMapZoomInfo();
+
+			eventOn();
+		});
+
+		function showMapZoomInfo() {
+			const zoom = map.getZoom();
+			controller.setValue(zoom.toFixed(2));
+		}
+
+		function onMapZoomStart() {
+			gui.title('地图缩放开始');
+			showMapZoomInfo();
+		}
+
+		function onMapZoom() {
+			gui.title('地图正在缩放');
+			showMapZoomInfo();
+		}
+
+		function onMapZoomEnd() {
+			gui.title('地图缩放结束');
+			showMapZoomInfo();
+		}
+
+		function eventOn() {
+			if (isEventRegistered) {
+				return;
+			}
+			map.on('zoomstart', onMapZoomStart);
+			map.on('zoom', onMapZoom);
+			map.on('zoomend', onMapZoomEnd);
+			isEventRegistered = true;
+		}
+
+		function eventOff() {
+			map.off('zoomstart', onMapZoomStart);
+			map.off('zoom', onMapZoom);
+			map.off('zoomend', onMapZoomEnd);
+			isEventRegistered = false;
+		}
+
+		function initializeGUI() {
+			gui = new lil.GUI({ width: 300 });
+			gui.title('地图加载中...');
+			const obj = {
+				当前缩放层级: 8,
+				解绑地图缩放事件: function () {
+					eventOff();
+				},
+				绑定地图缩放事件: function () {
+					eventOn();
+				}
+			};
+
+			controller = gui.add(obj, '当前缩放层级');
+			gui.add(obj, '解绑地图缩放事件');
+			gui.add(obj, '绑定地图缩放事件');
+		}
+	</script>
+</body>

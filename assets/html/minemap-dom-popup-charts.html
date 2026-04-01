@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no"/>
+    <title>区域数据分析 - MineMap + ECharts Popup 集成示例</title>
+    <link rel="stylesheet" href="../style/demo.css">
+    <!-- 引入MineMap API插件 -->
+    <link rel="stylesheet" href="../../dist/minemap.css">
+    <script src="../../dist/minemap-dev.js"></script>
+    <!-- 引入ECharts -->
+    <script src="../js/echarts.min.js"></script>
+    <style>
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+        
+        .info-panel {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            font-family: 'Arial', sans-serif;
+            z-index: 1000;
+            max-width: 320px;
+        }
+        
+        .info-panel h3 {
+            margin: 0 0 10px 0;
+            color: #333;
+            font-size: 16px;
+        }
+        
+        .info-panel p {
+            margin: 5px 0;
+            color: #666;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+        
+        /* 自定义popup样式 */
+        .custom-popup {
+            font-family: 'Arial', sans-serif;
+        }
+        
+        .popup-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px 16px;
+            margin: -10px -10px 15px -10px;
+            border-radius: 8px 8px 0 0;
+            font-weight: bold;
+            font-size: 16px;
+            text-align: center;
+        }
+        
+        .popup-content {
+            padding: 0 5px;
+        }
+        
+        .chart-container {
+            width: 400px;
+            height: 300px;
+            margin: 10px 0;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            background: #fafafa;
+        }
+        
+        .data-summary {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin: 15px 0;
+        }
+        
+        .data-item {
+            background: #f8f9fa;
+            padding: 8px 12px;
+            border-radius: 6px;
+            border-left: 4px solid #4CAF50;
+        }
+        
+        .data-item .label {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 2px;
+        }
+        
+        .data-item .value {
+            font-size: 16px;
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .chart-tabs {
+            display: flex;
+            margin-bottom: 10px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        
+        .chart-tab {
+            padding: 8px 16px;
+            margin: 0 4px;
+            background: #f5f5f5;
+            border: none;
+            cursor: pointer;
+            font-size: 12px;
+            transition: background 0.3s ease, color 0.3s ease;
+        }
+        
+        .chart-tab.active {
+            background: #4CAF50;
+            color: white;
+        }
+        
+        .chart-tab:hover {
+            background: #e0e0e0;
+        }
+        
+        .chart-tab.active:hover {
+            background: #45a049;
+        }
+        
+        .region-marker {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            border: 3px solid white;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+            cursor: pointer;
+            transition: background 0.3s ease, box-shadow 0.3s ease, width 0.3s ease, height 0.3s ease;
+        }
+        
+        .region-marker:hover {
+            transform: scale(1.2);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+        }
+        
+        .control-panel {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+        }
+        
+        .control-panel button {
+            display: block;
+            width: 100%;
+            margin: 5px 0;
+            padding: 8px 12px;
+            background: #2196F3;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.3s ease;
+        }
+        
+        .control-panel button:hover {
+            background: #1976D2;
+        }
+        
+        /* 自定义popup样式覆盖 */
+        .minemap-popup-content {
+            padding: 10px !important;
+            max-width: none !important;
+            border-radius: 8px !important;
+        }
+        
+        .minemap-popup-close-button {
+            font-size: 18px !important;
+            padding: 4px 8px !important;
+        }
+    </style>
+</head>
+<body>
+<div id="map"></div>
+
+<div class="info-panel">
+    <h3>📊 区域数据分析</h3>
+    <p><strong>功能特色：</strong></p>
+    <p>• ECharts图表嵌入Popup弹窗</p>
+    <p>• 多维度数据可视化</p>
+    <p>• 交互式图表切换</p>
+    <p>• 实时数据对比分析</p>
+    <p><strong>操作说明：</strong></p>
+    <p>• 点击地图上的区域标记</p>
+    <p>• 在弹窗中切换不同图表类型</p>
+    <p>• 查看详细数据统计信息</p>
+</div>
+
+<div class="control-panel">
+    <button id="showAllRegions">显示所有区域</button>
+    <button id="hideAllPopups">关闭所有弹窗</button>
+    <button id="randomData">随机数据</button>
+</div>
+
+<script>
+    /**
+     * 全局参数设置
+     */
+    minemap.domainUrl = 'https://minemap.minedata.cn';
+    minemap.dataDomainUrl = 'https://minemap.minedata.cn';
+    minemap.serverDomainUrl = 'https://sd-data.minedata.cn';
+    minemap.spriteUrl = 'https://minemap.minedata.cn/minemapapi/v3.4.0/sprite/sprite';
+    minemap.serviceUrl = 'https://service.minedata.cn/service';
+    minemap.key = '0c6ac62182404e5ebc7a789981f6db72';
+    minemap.solution = 11001;
+
+    // 区域数据
+    const regionData = [
+        {
+            name: '中关村科技园',
+            coordinates: [116.3117, 39.9525],
+            color: '#FF6B6B',
+            data: {
+                companies: 2847,
+                revenue: 1250,
+                employees: 156000,
+                patents: 3420,
+                investment: 890,
+                growth: 15.6,
+                industries: {
+                    'AI/机器学习': 35,
+                    '生物医药': 25,
+                    '新能源': 20,
+                    '金融科技': 15,
+                    '其他': 5
+                },
+                monthlyTrend: [120, 135, 148, 162, 175, 188, 195, 210, 225, 240, 255, 268]
+            }
+        },
+        {
+            name: '陆家嘴金融区',
+            coordinates: [121.5057, 31.2352],
+            color: '#4ECDC4',
+            data: {
+                companies: 1856,
+                revenue: 2100,
+                employees: 98000,
+                patents: 1240,
+                investment: 1560,
+                growth: 12.3,
+                industries: {
+                    '银行保险': 40,
+                    '证券基金': 30,
+                    '金融科技': 15,
+                    '资产管理': 10,
+                    '其他': 5
+                },
+                monthlyTrend: [180, 185, 192, 198, 205, 212, 218, 225, 232, 238, 245, 252]
+            }
+        },
+        {
+            name: '深圳湾科技生态园',
+            coordinates: [113.9485, 22.5189],
+            color: '#45B7D1',
+            data: {
+                companies: 1654,
+                revenue: 980,
+                employees: 87000,
+                patents: 2890,
+                investment: 720,
+                growth: 18.9,
+                industries: {
+                    '互联网': 45,
+                    '人工智能': 25,
+                    '新材料': 15,
+                    '生物技术': 10,
+                    '其他': 5
+                },
+                monthlyTrend: [95, 108, 125, 142, 158, 175, 192, 208, 225, 242, 258, 275]
+            }
+        },
+        {
+            name: '张江高科技园区',
+            coordinates: [121.6056, 31.2056],
+            color: '#96CEB4',
+            data: {
+                companies: 2156,
+                revenue: 1450,
+                employees: 125000,
+                patents: 4120,
+                investment: 1100,
+                growth: 14.2,
+                industries: {
+                    '集成电路': 35,
+                    '生物医药': 30,
+                    '软件信息': 20,
+                    '新能源': 10,
+                    '其他': 5
+                },
+                monthlyTrend: [135, 142, 155, 168, 182, 195, 208, 222, 235, 248, 262, 275]
+            }
+        },
+        {
+            name: '广州天河CBD',
+            coordinates: [113.3308, 23.1367],
+            color: '#FFEAA7',
+            data: {
+                companies: 1432,
+                revenue: 1680,
+                employees: 76000,
+                patents: 1680,
+                investment: 950,
+                growth: 11.8,
+                industries: {
+                    '金融服务': 35,
+                    '商贸物流': 25,
+                    '专业服务': 20,
+                    '文化创意': 15,
+                    '其他': 5
+                },
+                monthlyTrend: [145, 152, 158, 165, 172, 178, 185, 192, 198, 205, 212, 218]
+            }
+        }
+    ];
+
+    // 初始化地图
+    const map = new minemap.Map({
+        container: 'map',
+        style: 'https://service.minedata.cn/map/solu/style/11001',
+        center: [116.4074, 39.9042],
+        zoom: 5,
+        pitch: 0,
+        maxZoom: 17,
+        minZoom: 3,
+        projection: 'MERCATOR'
+    });
+
+    let markers = [];
+    let popups = [];
+
+    // 地图加载完成后初始化
+    map.on('load', function() {
+        createRegionMarkers();
+        setupControls();
+    });
+
+    /**
+     * 创建区域标记
+     */
+    function createRegionMarkers() {
+        regionData.forEach(region => {
+            // 创建marker元素
+            const markerElement = document.createElement('div');
+            markerElement.className = 'region-marker';
+            markerElement.style.backgroundColor = region.color;
+            
+            // 创建marker
+            const marker = new minemap.Marker({
+                element: markerElement
+            })
+            .setLngLat(region.coordinates)
+            .addTo(map);
+            
+            // 添加点击事件
+            markerElement.addEventListener('click', () => {
+                showRegionPopup(region, marker);
+            });
+            
+            markers.push(marker);
+        });
+    }
+
+    /**
+     * 显示区域弹窗
+     */
+    function showRegionPopup(region, marker) {
+        // 关闭其他弹窗
+        popups.forEach(popup => popup.remove());
+        popups = [];
+        
+        // 创建弹窗内容
+        const popupContent = createPopupContent(region);
+        
+        // 创建弹窗
+        const popup = new minemap.Popup({
+            closeOnClick: false,
+            closeButton: true,
+            anchor: 'bottom',
+            offset: [0, -25],
+            maxWidth: 'none'
+        })
+        .setHTML(popupContent)
+        .setLngLat(region.coordinates)
+        .addTo(map);
+        
+        popups.push(popup);
+        
+        // 弹窗显示后初始化图表
+        setTimeout(() => {
+            initializePopupCharts(region);
+        }, 100);
+    }
+
+    /**
+     * 创建弹窗内容
+     */
+    function createPopupContent(region) {
+        const data = region.data;
+        
+        return `
+            <div class="custom-popup">
+                <div class="popup-header">
+                    📍 ${region.name}
+                </div>
+                <div class="popup-content">
+                    <div class="data-summary">
+                        <div class="data-item">
+                            <div class="label">企业数量</div>
+                            <div class="value">${data.companies}</div>
+                        </div>
+                        <div class="data-item">
+                            <div class="label">营收(亿元)</div>
+                            <div class="value">${data.revenue}</div>
+                        </div>
+                        <div class="data-item">
+                            <div class="label">从业人员</div>
+                            <div class="value">${(data.employees/1000).toFixed(1)}K</div>
+                        </div>
+                        <div class="data-item">
+                            <div class="label">增长率</div>
+                            <div class="value">${data.growth}%</div>
+                        </div>
+                    </div>
+                    
+                    <div class="chart-tabs">
+                        <button class="chart-tab active" data-chart="industry">产业分布</button>
+                        <button class="chart-tab" data-chart="trend">发展趋势</button>
+                        <button class="chart-tab" data-chart="comparison">对比分析</button>
+                    </div>
+                    
+                    <div class="chart-container" id="chart-${region.name}"></div>
+                </div>
+            </div>
+        `;
+    }
+
+    /**
+     * 初始化弹窗中的图表
+     */
+    function initializePopupCharts(region) {
+        const chartContainer = document.getElementById(`chart-${region.name}`);
+        if (!chartContainer) return;
+        
+        const chart = echarts.init(chartContainer);
+        
+        // 显示产业分布图表
+        showIndustryChart(chart, region);
+        
+        // 设置标签页切换事件
+        const tabs = chartContainer.parentElement.querySelectorAll('.chart-tab');
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                // 更新活跃标签
+                tabs.forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                
+                // 切换图表
+                const chartType = tab.dataset.chart;
+                switch(chartType) {
+                    case 'industry':
+                        showIndustryChart(chart, region);
+                        break;
+                    case 'trend':
+                        showTrendChart(chart, region);
+                        break;
+                    case 'comparison':
+                        showComparisonChart(chart, region);
+                        break;
+                }
+            });
+        });
+        
+        // 存储chart实例
+        chartContainer._chart = chart;
+    }
+
+    /**
+     * 显示产业分布图表
+     */
+    function showIndustryChart(chart, region) {
+        const industries = region.data.industries;
+        const data = Object.entries(industries).map(([name, value]) => ({name, value}));
+        
+        const option = {
+            title: {
+                text: '产业分布',
+                left: 'center',
+                textStyle: {
+                    fontSize: 14,
+                    fontWeight: 'bold'
+                }
+            },
+            tooltip: {
+                trigger: 'item',
+                formatter: '{a} <br/>{b}: {c}% ({d}%)'
+            },
+            legend: {
+                orient: 'horizontal',
+                bottom: '5%',
+                textStyle: {
+                    fontSize: 10
+                }
+            },
+            series: [{
+                name: '产业占比',
+                type: 'pie',
+                radius: ['40%', '70%'],
+                center: ['50%', '45%'],
+                avoidLabelOverlap: false,
+                label: {
+                    show: false,
+                    position: 'center'
+                },
+                emphasis: {
+                    label: {
+                        show: true,
+                        fontSize: '12',
+                        fontWeight: 'bold'
+                    }
+                },
+                labelLine: {
+                    show: false
+                },
+                data: data
+            }],
+            color: ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7']
+        };
+        
+        chart.setOption(option, true);
+    }
+
+    /**
+     * 显示发展趋势图表
+     */
+    function showTrendChart(chart, region) {
+        const monthlyData = region.data.monthlyTrend;
+        const months = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
+        
+        const option = {
+            title: {
+                text: '年度发展趋势',
+                left: 'center',
+                textStyle: {
+                    fontSize: 14,
+                    fontWeight: 'bold'
+                }
+            },
+            tooltip: {
+                trigger: 'axis'
+            },
+            grid: {
+                left: '8%',
+                right: '8%',
+                bottom: '15%',
+                top: '20%'
+            },
+            xAxis: {
+                type: 'category',
+                data: months,
+                axisLabel: {
+                    fontSize: 10
+                }
+            },
+            yAxis: {
+                type: 'value',
+                axisLabel: {
+                    fontSize: 10
+                }
+            },
+            series: [{
+                name: '营收指数',
+                type: 'line',
+                data: monthlyData,
+                smooth: true,
+                symbol: 'circle',
+                symbolSize: 6,
+                lineStyle: {
+                    color: region.color,
+                    width: 3
+                },
+                areaStyle: {
+                    color: {
+                        type: 'linear',
+                        x: 0,
+                        y: 0,
+                        x2: 0,
+                        y2: 1,
+                        colorStops: [{
+                            offset: 0, color: region.color + '80'
+                        }, {
+                            offset: 1, color: region.color + '20'
+                        }]
+                    }
+                }
+            }]
+        };
+        
+        chart.setOption(option, true);
+    }
+
+    /**
+     * 显示对比分析图表
+     */
+    function showComparisonChart(chart, region) {
+        const categories = ['企业数量', '营收规模', '人员规模', '专利数量', '投资额度'];
+        const currentData = [
+            region.data.companies / 30,
+            region.data.revenue / 25,
+            region.data.employees / 2000,
+            region.data.patents / 50,
+            region.data.investment / 20
+        ];
+        
+        // 计算平均水平（模拟数据）
+        const averageData = [60, 65, 55, 70, 58];
+        
+        const option = {
+            title: {
+                text: '综合对比分析',
+                left: 'center',
+                textStyle: {
+                    fontSize: 14,
+                    fontWeight: 'bold'
+                }
+            },
+            tooltip: {
+                trigger: 'axis'
+            },
+            legend: {
+                data: [region.name, '行业平均'],
+                bottom: '5%',
+                textStyle: {
+                    fontSize: 10
+                }
+            },
+            radar: {
+                center: ['50%', '45%'],
+                radius: '60%',
+                indicator: categories.map(name => ({name, max: 100}))
+            },
+            series: [{
+                name: '对比分析',
+                type: 'radar',
+                data: [
+                    {
+                        value: currentData,
+                        name: region.name,
+                        areaStyle: {
+                            color: region.color + '40'
+                        },
+                        lineStyle: {
+                            color: region.color
+                        }
+                    },
+                    {
+                        value: averageData,
+                        name: '行业平均',
+                        areaStyle: {
+                            color: '#cccccc40'
+                        },
+                        lineStyle: {
+                            color: '#999999'
+                        }
+                    }
+                ]
+            }]
+        };
+        
+        chart.setOption(option, true);
+    }
+
+    /**
+     * 设置控制面板
+     */
+    function setupControls() {
+        document.getElementById('showAllRegions').addEventListener('click', () => {
+            // 飞行到显示所有区域
+            const bounds = new minemap.LngLatBounds();
+            regionData.forEach(region => {
+                bounds.extend(region.coordinates);
+            });
+            map.fitBounds(bounds, {padding: 50});
+        });
+        
+        document.getElementById('hideAllPopups').addEventListener('click', () => {
+            popups.forEach(popup => popup.remove());
+            popups = [];
+        });
+        
+        document.getElementById('randomData').addEventListener('click', () => {
+            // 随机更新数据
+            regionData.forEach(region => {
+                region.data.growth = Math.random() * 20 + 5;
+                region.data.companies = Math.floor(Math.random() * 1000 + 1000);
+                region.data.revenue = Math.floor(Math.random() * 1000 + 500);
+            });
+            
+            // 如果有打开的弹窗，刷新图表
+            popups.forEach(popup => {
+                const chartContainers = popup.getElement().querySelectorAll('[id^="chart-"]');
+                chartContainers.forEach(container => {
+                    if (container._chart) {
+                        const regionName = container.id.replace('chart-', '');
+                        const region = regionData.find(r => r.name === regionName);
+                        if (region) {
+                            showIndustryChart(container._chart, region);
+                        }
+                    }
+                });
+            });
+        });
+    }
+
+    // 窗口大小改变时重新调整图表
+    window.addEventListener('resize', () => {
+        popups.forEach(popup => {
+            const chartContainers = popup.getElement().querySelectorAll('[id^="chart-"]');
+            chartContainers.forEach(container => {
+                if (container._chart) {
+                    container._chart.resize();
+                }
+            });
+        });
+    });
+</script>
+</body>
+</html>

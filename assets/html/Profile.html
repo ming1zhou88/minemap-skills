@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>剖面分析</title>
+		<meta http-equiv="Access-Control-Allow-Origin" content="*" />
+		<meta charset="utf-8" />
+		<link rel="stylesheet" href="../../dist/minemap.css" />
+		<script type="text/javascript" src="../../dist/minemap-dev.js"></script>
+		<script type="text/javascript" src="../js/lil-gui.umd.min.js"></script>
+		<script type="text/javascript" src="../js/echarts.min.js"></script>
+		<style>
+			html,
+			body,
+			#map {
+				margin: 0;
+				padding: 0;
+				width: 100%;
+				height: 100%;
+			}
+
+			.toolContainer {
+				display: none;
+				width: calc(100% - 100px);
+				height: 400px;
+				top: auto;
+				left: 50px;
+				bottom: 30px;
+				position: absolute;
+				background: rgba(0, 0, 0, 0.4);
+				z-index: 999999;
+			}
+		</style>
+	</head>
+	<body>
+		<div id="map"></div>
+		<div class="toolContainer" id="echartsView"></div>
+		<script>
+			minemap.domainUrl = "http://192.168.152.123";
+			minemap.dataDomainUrl = "https://minedata.cn";
+			minemap.serverDomainUrl = "https://minedata.cn";
+			minemap.spriteUrl = "https://minedata.cn/minemapapi/sprite/latest/sprite";
+			minemap.serviceUrl = "https://minedata.cn/service/";
+			minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+			minemap.solution = 11001;
+			window.minemapCDN = "http://192.168.152.123//minemapapi/minemap-CDN";
+			const style = {
+				glyphs: "minemap://fonts/{fontstack}/{range}",
+				sprite: "minemap://sprite/sprite",
+				sources: {},
+				layers: [],
+				version: 8
+			};
+
+			const map = new minemap.Map({
+				container: "map",
+				style: style,
+				bearing: -91.59557349395243,
+				position: [120.38834729147106, 36.08528351256248, 325.1304643906525],
+				pitch: 47.29874676425137,
+				zoom: 17,
+				logDepth: true,
+				maxZoom: 22 /*地图最大缩放等级*/,
+				minZoom: 1 /*地图最小缩放等级*/
+			});
+			map.repaint = true;
+			window.map = map;
+			/**
+			 * 添加基本球体图层，包括球体表面、天空盒、大气层
+			 */
+			map.on("load", function () {
+				map.addSource("raster1", {
+					type: "raster", //数据源类型：栅格数据源
+					tiles: ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"],
+					maxzoom: 16,
+					tileSize: 512 //瓦片尺寸
+				});
+				map.addLayer({
+					id: "raster1",
+					type: "raster", //图层类型为"raster"
+					source: "raster1",
+					minzoom: 1,
+					maxzoom: 23,
+					"depth-test": true
+				});
+
+				map.setTerrain({
+					"tiles": ["https://staticdata-b.minedata.cn:14434/dem/{z}/{r}/{c}/{z}_{x}_{y}.terrain"], //瓦片服务地址
+					"availabilities": ["https://staticdata-b.minedata.cn:14434/dem/layer.json"], //索引文件是可选项
+					"tileSize": 512,  //瓦片大小
+					"maxzoom": 14        //dem最高切分zoom，30米一般是14级；12.5米一般是16级
+				});
+
+				window.tileset = map.addSceneComponent({
+					id: "serve2",
+					type: "3d-tiles",
+					show: true,
+					translation: new minemap.Math.Vector3(0, 0, 0),
+					url: "https://minemap.minedata.cn/earth_data/oblique/QD/tileset.json",
+					skipLevelOfDetail: false, //跨层调度
+					maximumScreenSpaceError: 8,
+					sourceLoaded: () => {
+						setTimeout(() => {
+							createDefaultProfile(
+								new minemap.Math.Vector3(120.3846332970482, 36.083316855566295, 31.586370590993727),
+								new minemap.Math.Vector3(120.38457001494423, 36.08719230815085, 43.36851306909095)
+							);
+						}, 5000);
+					}
+				});
+
+				initializeGUI();
+			});
+
+			let hintPolylinePrimitive, anslysisPolylinePrimitive, profileAnalysis, positions, tempPoint, startPosition;
+			let profileType = minemap.AnalysisType.AUTONOMOUS_COMPUTING;
+			let addProfile = false;
+			function initializeGUI() {
+				const gui = new lil.GUI({
+					title: "剖面分析",
+					width: 300
+				});
+				gui.open();
+
+				const params = {
+					分析类型: "引擎计算",
+					开始分析: createProfile
+				};
+
+				gui.add(params, "分析类型")
+					.options(["引擎计算", "服务端计算"])
+					.onChange(function (value) {
+						if (value === "引擎计算") {
+							profileType = minemap.AnalysisType.AUTONOMOUS_COMPUTING; // 可省略，默认引擎计算
+						} else {
+							profileType = minemap.AnalysisType.ACCEPT_COMPUTING; //服务端计算(只支持地形与3Dtiles), 默认引擎计算
+						}
+					});
+
+				gui.add(params, "开始分析");
+			}
+
+			function createDefaultProfile(startPosition, targetPosition) {
+				profileAnalysis = new minemap.Profile(map, {
+					startPosition: startPosition,
+					endPosition: targetPosition,
+					profileType: profileType, // 默认引擎计算(可省略)；服务端计算(只支持地形与3Dtiles), 默认引擎计算
+					terrainServer: new minemap.AnalysisServerParameters(
+						"http://192.168.152.123:18801/service/terrain/altitude/getTerrainHeight",
+						["https://dem-data.minedata.cn/dem"]
+					),
+					modelServer: new minemap.AnalysisServerParameters("http://192.168.152.123:18801/service/terrain/altitude/get3DTileHeight", [
+						"https://minemap.minedata.cn/earth_data/oblique/QD/tileset.json"
+					])
+				});
+
+				profileAnalysis.analysis().then((result) => {
+					const data = result.data;
+					// 添加线
+					const polyline = new minemap.Geometries.PolylineGeometry({
+						positions: result.data,
+						width: 10,
+						arcType: minemap.ARCTYPE.GEODESIC
+					});
+
+					const material = minemap.PolylineMaterial.fromType("Color", {
+						color: "yellow"
+					});
+
+					anslysisPolylinePrimitive = map.addPrimitive(
+						new minemap.Primitive({
+							geometry: polyline,
+							material: material,
+							name: "polyline"
+						})
+					);
+
+					showEcharts(result);
+				});
+
+				if (hintPolylinePrimitive !== undefined) {
+					map.removePrimitive(hintPolylinePrimitive);
+				}
+
+				addProfile = false;
+			}
+
+			function createProfile() {
+				clearAll();
+
+				addProfile = true;
+				if (anslysisPolylinePrimitive !== undefined) {
+					map.removePrimitive(anslysisPolylinePrimitive);
+					anslysisPolylinePrimitive = undefined;
+				}
+
+				hintPolylinePrimitive = new minemap.Primitive({
+					geometry: new minemap.Geometries.PolylineGeometry({
+						positions: function () {
+							return positions.concat(tempPoint);
+						},
+						width: 2,
+						arcType: minemap.ARCTYPE.GEODESIC
+					}),
+					material: new minemap.PolylineMaterial({
+						color: "red"
+					}),
+					name: "polyline"
+				});
+
+				map.addPrimitive(hintPolylinePrimitive);
+			}
+
+			//leftClick
+			map.on("click", function (e) {
+				if (addProfile) {
+					const targetPosition = map.painter.getPositionByGPUPick(e.point);
+					if (startPosition === undefined) {
+						startPosition = targetPosition;
+						positions.push(
+							minemap.Math.Vector3.fromDegrees(targetPosition.x, targetPosition.y, targetPosition.z)
+						);
+					} else {
+						createDefaultProfile(startPosition, targetPosition);
+						startPosition = undefined;
+					}
+				}
+			});
+
+			// mouseMove
+			map.on("mousemove", function (e) {
+				if (addProfile) {
+					tempPoint = [];
+					const point = map.painter.getPositionByGPUPick(e.point);
+					tempPoint.push(minemap.Math.Vector3.fromDegrees(point.x, point.y, point.z));
+					tempPoint = positions.concat(tempPoint);
+				}
+			});
+
+			function vector3ToLatLng(vector) {
+				cartographic = minemap.Math.Cartographic.fromVector3(vector);
+				longitude = minemap.Math.toDegrees(cartographic.longitude);
+				latitude = minemap.Math.toDegrees(cartographic.latitude);
+				return new minemap.Math.Vector3(longitude, latitude, cartographic.height);
+			}
+
+			const echartsDom = document.getElementById("echartsView");
+			let myChart;
+			function showEcharts(result) {
+				echartsDom.style.display = "block";
+
+				myChart = echarts.init(echartsDom, "dark", {
+					renderer: "canvas",
+					useDirtyRect: true
+				});
+
+				const heightData = [];
+				const data = result.data;
+				const sampleArray = [];
+				for (let i = 0; i < data.length; i++) {
+					data[i] = vector3ToLatLng(data[i]);
+					heightData.push(data[i].z);
+					sampleArray.push(i + 1);
+				}
+
+				const option = {
+					backgroundColor: "rgba(0, 0, 0, 0)",
+					title: {
+						text: "剖面分析",
+						left: "center",
+						textStyle: {
+							fontSize: 30
+						}
+					},
+					xAxis: {
+						name: "采样点",
+						nameTextStyle: {
+							fontWeight: "bolder",
+							fontSize: 15
+						},
+						type: "category",
+						axisLine: {
+							show: true
+						},
+						splitLine: {
+							show: true,
+							lineStyle: {
+								color: "rgba(255,255,255,0.5)",
+								type: "dashed"
+							}
+						},
+						axisLabel: {
+							show: true,
+							formatter: "第 {value} 个"
+						},
+						data: sampleArray
+					},
+					yAxis: {
+						name: "高程值",
+						nameTextStyle: {
+							fontWeight: "bolder",
+							fontSize: 15
+						},
+						type: "value",
+						axisLabel: {
+							show: true,
+							formatter: "{value} 米"
+						},
+						splitLine: {
+							show: true,
+							lineStyle: {
+								color: "rgba(255,255,255,0.5)",
+								type: "dashed"
+							}
+						},
+						min: Math.floor(result.minHeight),
+						axisLine: {
+							show: true
+						}
+					},
+					tooltip: {
+						axisPointer: { type: "none" },
+						trigger: "axis",
+						formatter: function (params) {
+							const point = data[params[0].dataIndex]; //所在经纬度
+							const inhtml = `当前位置<br />
+							                         经度：${point.x}<br />
+							                         纬度：${point.y}<br />
+							                         高度：${point.z}`;
+							return inhtml;
+						}
+					},
+					series: [
+						{
+							name: "高程值",
+							type: "line",
+							smooth: true,
+							symbol: "none",
+							sampling: "average",
+							itemStyle: {
+								normal: {
+									color: "rgb(59, 89, 171)"
+								}
+							},
+							areaStyle: {
+								normal: {
+									color: new echarts.graphic.LinearGradient(0, 0, 0, 0.5, [
+										{
+											offset: 1,
+											color: "rgb(59, 89, 171)"
+										},
+										{
+											offset: 1,
+											color: "rgb(59, 89, 171)"
+										}
+									])
+								}
+							},
+							data: heightData
+						}
+					],
+					toolbox: {
+						itemSize: 30,
+						feature: {
+							myTool1: {
+								show: true,
+								icon: "path://M50,0 A50 50 360 1 1 49.99 0 M22 22 L22,32 L40 50 L22 68 L22 78 L32 78 L50 60 L68 78 L78 78 L78 68 L60 50 L78 32 L78 22 L68 22 L50 40 L32 22",
+								iconStyle: {
+									color: "rgba(255, 0, 0, 0.8)"
+								},
+								onclick: clearAll
+							}
+						},
+						tooltip: {
+							show: true,
+							formatter: function () {
+								return "<div>关闭</div>";
+							},
+							backgroundColor: "#222",
+							textStyle: {
+								fontSize: 15,
+								color: "rgba(255, 255, 255, 1)"
+							},
+							extraCssText: "box-shadow: 0 0 3px rgba(0, 0, 0, 0.3);"
+						}
+					}
+				};
+
+				myChart.setOption(option);
+				window.addEventListener("resize", myChart.resize);
+			}
+
+			function clearAll() {
+				positions = [];
+				tempPoint = [];
+
+				if (myChart !== undefined) {
+					myChart.clear();
+				}
+
+				echartsDom.style.display = "none";
+
+				if (profileAnalysis !== undefined) {
+					profileAnalysis.destroy();
+					profileAnalysis = undefined;
+				}
+
+				if (anslysisPolylinePrimitive !== undefined) {
+					map.removePrimitive(anslysisPolylinePrimitive);
+					anslysisPolylinePrimitive = undefined;
+				}
+			}
+		</script>
+	</body>
+</html>

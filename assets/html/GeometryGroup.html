@@ -1,0 +1,361 @@
+<!--
+ * @Author: liwei
+ * @Date: 2022-09-07 23:54:16
+ * @LastEditTime: 2023-06-06 15:42:50
+ * @LastEditors: liwei
+ * @Description:
+ * @FilePath: \MineMap3DEngine\demo\html\PolylineGeometry.html
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8" />
+	<title>几何合并-地图游览</title>
+	<link rel="stylesheet" href="https://minemap.minedata.cn/minemapapi/v4.0.0/minemap.css" />
+	<script src="../../dist/minemap-dev.js"></script>
+	<script src="../js/turf.min.js"></script>
+	<script src="../js/PathGenerator.js"></script>
+	<script src="../js/Game.js"></script>
+	<script src="../js/CoinGenerator.js"></script>
+	<script src="../js/UiController.js"></script>
+	<style>
+		html,
+		#map,
+		body {
+			margin: 0;
+			padding: 0;
+			width: 100%;
+			height: 100%;
+			overflow: hidden;
+		}
+
+		#ui {
+			z-index: 999;
+			position: absolute;
+			padding: 10px;
+			width: 100%;
+			height: 100%;
+			pointer-events: none;
+		}
+
+		#play {
+			position: absolute;
+			background-image: url("../image/geometryGroup/play.png");
+			background-size: cover;
+			background-repeat: no-repeat;
+			width: 100px;
+			height: 35px;
+			left: 50%;
+			top: 50%;
+			transform: translate(-50%, -50%);
+			pointer-events: all;
+			cursor: pointer;
+		}
+
+		#play:hover {
+			transition: all 0.3s ease;
+			transform: translate(-50%, -50%) scale(0.9); /* 鼠标移入时缩小div，这里缩放比例为0.9 */
+		}
+
+		#setting {
+			background-image: url("../image/geometryGroup/setting.png");
+			background-size: cover;
+			background-repeat: no-repeat;
+			position: absolute;
+			top: 10px;
+			left: 10px;
+			width: 44px;
+			height: 44px;
+			pointer-events: all;
+			cursor: pointer;
+		}
+
+		#setting:hover {
+			transition: all 0.3s ease;
+			transform: scale(0.9); /* 鼠标移入时缩小div，这里缩放比例为0.9 */
+		}
+
+		#info {
+			position: fixed;
+			padding: 50px;
+			background-image: url("../image/geometryGroup/info.png");
+			background-size: 100% 100%;
+			background-repeat: no-repeat;
+			width: 210px;
+			height: 220px;
+			font-family: "Lucida Grande", "Lucida Sans Unicode", arial, sans-serif;
+			color: #721c24;
+			left: 10px;
+			top: 90px;
+			pointer-events: all;
+			box-sizing: border-box;
+			cursor: pointer;
+		}
+
+		#score {
+			position: fixed;
+			right: 10px;
+			top: 10px;
+			background-image: url("../image/geometryGroup/score.png");
+			background-size: cover;
+			background-repeat: no-repeat;
+			width: 80px;
+			height: 80px;
+			color: brown;
+			font-size: 16px;
+			font-weight: bold;
+			text-align: center;
+			padding: 20px;
+			font-family: "Helvetica Neue", Helvetica, Tahoma, Arial, "Microsoft Yahei", "Hiragino Sans GB", "WenQuanYi Micro Hei", sans-serif;
+			box-sizing: border-box;
+		}
+
+		#number {
+			font-size: 30px;
+			color: #720e9e;
+		}
+
+		#win {
+			position: absolute;
+			background-image: url("../image/geometryGroup/finish.png");
+			background-size: 100% 100%;
+			background-repeat: no-repeat;
+			width: 130px;
+			height: 120px;
+			font-size: 18px;
+			left: 50%;
+			top: 50%;
+			transform: translate(-50%, -50%);
+			box-sizing: content-box;
+			color: #720e9e;
+			padding: 34px;
+			font-family: "Helvetica Neue", Helvetica, Tahoma, Arial, "Microsoft Yahei", "Hiragino Sans GB", "WenQuanYi Micro Hei", sans-serif;
+			pointer-events: all;
+		}
+	</style>
+</head>
+
+<body>
+
+<div id="map">
+	<div id="ui">
+		<div id="play"></div>
+		<div id="score">
+			<div>分数</div>
+			<div id="number">0</div>
+		</div>
+		<div id="setting"></div>
+		<div id="info" style="visibility: hidden;">
+			WASD分别为上下左右移动<br />
+			Q左转<br />
+			E右转<br />
+			Space是跳跃
+		</div>
+		<div id="win" style="visibility: hidden;">
+			<div>实例化几何合并地图浏览结束！</div>
+		</div>
+	</div>
+</div>
+<script type="module">
+	minemap.domainUrl = "https://minedata.cn";
+	minemap.dataDomainUrl = "https://minedata.cn";
+	minemap.serverDomainUrl = "https://minedata.cn";
+	minemap.spriteUrl = "http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite";
+	minemap.serviceUrl = "https://minedata.cn/service/";
+
+			minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+			minemap.solution = 11001;
+			window.minemapCDN = "https://minedata.cn/minemapapi/minemap-CDN";
+			// 定义空底图样式
+			var style = {
+				glyphs: "minemap://fonts/{fontstack}/{range}",
+				sprite: "minemap://sprite/sprite",
+				sources: {},
+				layers: [],
+				version: 8
+			};
+
+	/**
+	 * 初始化地图实例
+	 */
+	var map = new minemap.Map({
+		container: "map",
+		style: "../data/11001.json", /*底图样式*/
+		/*球面矢量底图样式*/
+		position: [116.3992361969821, 39.93486624804309, 9.446620230291934],
+		pitch: 75.25969821427184,
+		bearing: 176.30524972089984,
+		/*地图最小缩放等级*/
+		projection: "MERCATOR"
+	});
+	map.repaint = true;
+	map.enableShadow();
+	map.enableLight();
+	map.keyboard.disable();
+	//阴影设短，避免杂乱问题
+	map.getLights().sunLight.shadow.shadowMaxFar = 1000;
+	//创建游戏对象
+	const game = new Game(map);
+	const coinGenerator = new CoinGenerator(map);
+	const ui = new UIController(map, game);
+
+	const pathPoints = [
+		[116.3990833253342, 39.93465387561437]
+		, [116.39928032610534, 39.933440570940505]
+		, [116.40038850213406, 39.93337104509266]
+		, [116.40088100613139, 39.932505283554875]
+		, [116.4014391901699, 39.93214506064144]
+		, [116.40259663981313, 39.932372514401976]
+		, [116.40318768048058, 39.93229033195141]
+		, [116.40303997699009, 39.9334847121602]
+		, [116.40322061641045, 39.934122963045255]
+		, [116.40135717210269, 39.93427468710995]
+		, [116.40107809851473, 39.9350393309846]
+		, [116.40104528663767, 39.93560807241067]
+		, [116.39956766296966, 39.93563968531655]
+		, [116.39698183346026, 39.93563967963893]
+		, [116.39607883686638, 39.93565230623278]
+		, [116.3963169741419, 39.93359221079679]
+		, [116.39637444944351, 39.93309298494717]
+		, [116.39641550767693, 39.93248000767361]];
+
+	game.setDestination(pathPoints[pathPoints.length - 1]);
+	const pathGenTool = new PathGenerator();
+	const primitives = pathGenTool.setPath(pathPoints, [4, 4, 4], map);
+
+	//几何合并，用于优化渲染性能，注意销毁时需要所有的图元一并销毁
+	const geometries = primitives.map(primitive => {
+		return primitive.geometry;
+	});
+
+	//执行几何对象合并
+	const mergeUtil = new minemap.GeometryMergeUtil();
+	mergeUtil.process({
+		mergeType: minemap.GeometryMergeUtil.MERGE_TYPE.BUFFER,
+		geometries: geometries,
+		map: map
+	});
+
+	primitives.forEach(primitive => {
+		map.addPrimitive(primitive);
+	});
+
+	/**
+	 * 生成金币
+	 */
+	const coinInstanceData = [];
+
+	for (let i = 0; i < pathGenTool.grid.length; i++) {
+		for (let j = 0; j < pathGenTool.grid[i].length; j++) {
+			const item = pathGenTool.grid[i][j];
+			if (item && item.type === PathGenerator.DataType.FLOOR) {
+				if ((i + j) % 3 === 0) {
+					coinInstanceData.push({
+						lngLat: item.lngLat, scale: 1, height: 4
+					});
+				}
+			}
+		}
+	}
+	coinGenerator.createInstance(coinInstanceData);
+	coinGenerator.addToMap();
+	//绑定硬币生成工具，为了获取coin实例
+	game.coinGenTool = coinGenerator;
+
+	// 添加虚线
+
+	map.on("load", function() {
+		addModel();
+	});
+
+	const modelPosition = new minemap.Math.Vector3(116.39923806538118, 39.934634664379274, 1.9585907287205477);
+
+	let model;
+
+	function addModel() {
+		model = map.addSceneComponent({
+			id: "robot",
+			type: "3d-model", // 数据类型为“3d-model”
+			data: "../data/test-gltf/RobotExpressive.glb", // ✔ 骨骼动画
+			scale: [1, 1, 1], // 在xyz轴方向上的缩放比例
+			rotation: [90, 0, 0], // 绕xyz轴方向上的旋转，单位为度
+			position: modelPosition,
+			activeAnimation: true,
+			loaded: function(sceneModel) {
+				model.currentAnimations = ["Idle"];
+			}
+		});
+
+		game.modelOriginMatrix = model.matrix.clone();
+		game.model = model;
+	}
+
+	const path = [];
+	map.on("click", function(e) {
+		console.log(map.getPositionByGPUPick(e.point));
+	});
+
+	let timeout;
+
+	/**
+	 * 在没有任何操作1000ms的情况下，小人自动进入idle阶段
+	 */
+	function setPersonToIdle() {
+		model.currentAnimations = ["Idle"];
+	}
+
+	//键盘事件
+	document.addEventListener("keypress", function(e) {
+		//清除过期逻辑
+		clearTimeout(timeout);
+		timeout = setTimeout(setPersonToIdle, 1000);
+
+		switch (e.keyCode) {
+			case 81:
+			case 113:
+				// q 113 左转
+				model.currentAnimations = ["Walking"];
+				game.moveActor(Game.DIRECTION.ROTATE_LEFT);
+				break;
+			case 69:
+			case 101:
+				// e 101 右转
+				model.currentAnimations = ["Walking"];
+				game.moveActor(Game.DIRECTION.ROTATE_RIGHT);
+				break;
+			case 87:
+			case 119:
+				model.currentAnimations = ["Running"];
+				game.moveActor(Game.DIRECTION.FRONT);
+				//w 119 前进
+				break;
+			case 65:
+			case 97:
+				model.currentAnimations = ["Running"];
+				game.moveActor(Game.DIRECTION.LEFT);
+				//a 97 左行
+				break;
+			case 83:
+			case 115:
+				model.currentAnimations = ["Running"];
+				game.moveActor(Game.DIRECTION.BACK);
+				//s 115 右行
+				break;
+			case 68:
+			case 100:
+				model.currentAnimations = ["Running"];
+				game.moveActor(Game.DIRECTION.RIGHT);
+				//d 100 后退
+				break;
+			case 32:
+				model.currentAnimations = ["Jump"];
+				game.moveActor(Game.DIRECTION.JUMP);
+				//空格，跳跃
+				break;
+		}
+	});
+
+
+</script>
+</body>
+</html>

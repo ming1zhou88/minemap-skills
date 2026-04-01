@@ -1,0 +1,220 @@
+<!--
+ * @Author: lsw
+ * @Date: 2022-04-20 15:50:33
+ * @LastEditTime: 2024-10-28 16:42:26
+ * @LastEditors: liwei
+ * @Description:
+ * @FilePath: \MineMap3DEngine\demo\html\RegionGeometry.html
+-->
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<title>连续六面体网格几何对象</title>
+		<!-- demo样式文件 -->
+		<link rel="stylesheet" href="../style/demo.css" />
+		<!-- 引入MineMap API插件 -->
+		<link rel="stylesheet" href="../../dist/minemap.css" />
+		<script src="../../dist/minemap-dev.js"></script>
+		<style>
+			#map {
+				width: 100%;
+				height: 100%;
+			}
+		</style>
+	</head>
+
+	<body>
+		<div id="map"></div>
+		<script>
+			/**
+			 * 全局参数设置
+			 */
+			minemap.domainUrl = "https://minedata.cn";
+			minemap.dataDomainUrl = "https://minedata.cn";
+			minemap.serverDomainUrl = "https://minedata.cn";
+			minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+			minemap.serviceUrl = "https://minedata.cn/service/";
+
+			minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+			minemap.solution = 11001;
+			window.minemapCDN = "https://minedata.cn/minemapapi/minemap-CDN";
+
+			// 定义空底图样式
+			var style = {
+				glyphs: "minemap://fonts/{fontstack}/{range}",
+				sprite: "minemap://sprite/sprite",
+				sources: {},
+				layers: [],
+				version: 8
+			};
+
+			/**
+			 * 初始化地图实例
+			 */
+			var map = new minemap.Map({
+				container: "map",
+				style: style,
+				/*球面矢量底图样式*/
+				position: [116.23322334854252, 39.8071250680348, 31862.123594999626],
+				pitch: 44.529970075474424,
+				bearing: -0.40445529184913054,
+
+				/*地图俯仰角度*/
+				maxZoom: 22,
+				/*地图最大缩放等级*/
+				minZoom: 1,
+				/*地图最小缩放等级*/
+				projection: "MERCATOR"
+			});
+			map.repaint = true;
+
+			map.on("load", function () {
+				/*添加栅格图*/
+				map.addSource("IMAGERY_SOURCE", {
+					type: "raster", //数据源类型：栅格数据源
+					tiles: ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+					tileSize: 256 //瓦片尺寸
+				});
+
+				map.addLayer({
+					id: "IMAGERY",
+					type: "raster", //图层类型为"raster"
+					source: "IMAGERY_SOURCE",
+					minzoom: 1,
+					maxzoom: 23,
+					// "depth-test": true,
+					paint: {
+						"raster-opacity": 1
+					}
+				});
+
+				const outProperties = generateData([116.242, 40.066], 100, 6);
+
+				const regionGeometry = new minemap.Geometries.RegionGeometry({
+					data: outProperties.data,
+					properties: outProperties.properties
+				});
+
+				const identityMatrix = new minemap.Math.Matrix4();
+
+				const regionOutlineGeometry = new minemap.Geometries.RegionOutlineGeometry({
+					data: outProperties.data,
+					properties: outProperties.properties1
+				});
+
+				//添加区域几何面对象
+				map.addPrimitive(
+					new minemap.Primitive({
+						modelMatrix: identityMatrix,
+						geometry: regionGeometry,
+						material: minemap.StandardMaterial.fromType("Color", {
+							color: "white",
+							doubleSided: false,
+							vertexColor: true
+						})
+					})
+				);
+				//添加区域几何线框对象
+				map.addPrimitive(
+					new minemap.Primitive({
+						modelMatrix: identityMatrix,
+						geometry: regionOutlineGeometry,
+						material: minemap.StandardMaterial.fromType("Color", {
+							color: "white",
+							doubleSided: false,
+							vertexColor: true
+						})
+					})
+				);
+
+				setTimeout(() => {
+					const outProperties = generateData([116.242, 40.066], 2, 2);
+
+					console.log(JSON.stringify(outProperties));
+
+					regionGeometry.setData({
+						data: outProperties.data,
+						properties: outProperties.properties
+					});
+					regionOutlineGeometry.setData({
+						data: outProperties.data,
+						properties: outProperties.properties1
+					});
+				}, 3000);
+			});
+
+			/**
+			 *
+			 * @param {Array<number,2>}   center    网格中心点
+			 * @param {number}            xCount    行数
+			 * @param {number}            yCount    列数
+			 */
+			function generateData(center, xCount, yCount) {
+				const centerx = center[0];
+				const centery = center[1];
+
+				const properties = { color: [] };
+				const properties1 = { color: [] };
+				const list = [];
+
+				const halfX = Math.round(xCount / 2);
+				const halfY = Math.round(yCount / 2);
+
+				for (let j = -halfY; j < halfY; j++) {
+					for (let i = -halfX; i < halfX; i++) {
+						const offsetL = 0.01 * i;
+						const offsetR = 0.01 * (i + 1);
+						const offsetT = 0.01 * j;
+						const offsetB = 0.01 * (j - 1);
+						list.push(
+							centerx + offsetL,
+							centery + offsetT,
+							1000,
+							centerx + offsetR,
+							centery + offsetT,
+							1000,
+							centerx + offsetR,
+							centery + offsetB,
+							1000,
+							centerx + offsetL,
+							centery + offsetB,
+							1000,
+
+							centerx + offsetL,
+							centery + offsetT,
+							0,
+							centerx + offsetR,
+							centery + offsetT,
+							0,
+							centerx + offsetR,
+							centery + offsetB,
+							0,
+							centerx + offsetL,
+							centery + offsetB,
+							0
+						);
+						if (i % 15 == 0) {
+							properties.color.push([
+								Math.random(),
+								Math.random(),
+								Math.random(),
+								Math.random() / 2 + 0.5
+							]);
+						} else {
+							properties.color.push([0.7, 0.37, 0.16, 0.8]);
+						}
+
+						properties1.color.push([0.0, 0.0, 0.0, 1.0]);
+					}
+				}
+
+				return {
+					properties,
+					properties1,
+					data: minemap.Math.Vector3.fromDegreesArrayHeights(list)
+				};
+			}
+		</script>
+	</body>
+</html>

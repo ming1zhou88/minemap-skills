@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+	<title>基于碰撞检测的人物漫游</title>
+	<!-- demo样式文件 -->
+	<link rel="stylesheet" href="https://minedata.cn/nce-static/support/demo/js-3d-ultra/zh/css/demo.css">
+	<!-- 引入MineMap API插件 -->
+	<link rel="stylesheet" href="../../dist/minemap.css" />
+	<script src="../../dist/minemap-dev.js"></script>
+	<script src="../js/lil-gui.umd.min.js"></script>
+	<style>
+		#map {
+			width: 100%;
+			height: 100%;
+		}
+		#loading{
+			position:absolute;
+			width: 100%;
+			height: 100%;
+			top:0;
+			left: 0;
+			text-align: center;
+			z-index: 99999;
+			background-color: rgba(77,78,83,0.5);
+			font-size: 50px;
+			display: block;
+		}
+
+		#ui {
+			z-index: 999;
+			position: absolute;
+			padding: 10px;
+			width: 100%;
+			height: 100%;
+			pointer-events: none;
+		}
+
+		#setting {
+			background-image: url("../image/geometryGroup/setting.png");
+			background-size: cover;
+			background-repeat: no-repeat;
+			position: absolute;
+			top: 10px;
+			left: 10px;
+			width: 44px;
+			height: 44px;
+			pointer-events: all;
+			cursor: pointer;
+		}
+
+		#setting:hover {
+			transition: all 0.3s ease;
+			transform: scale(0.9); /* 鼠标移入时缩小div，这里缩放比例为0.9 */
+		}
+
+		#info {
+			position: fixed;
+			padding: 50px;
+			background-image: url("../image/geometryGroup/info.png");
+			background-size: 100% 100%;
+			background-repeat: no-repeat;
+			width: 290px;
+			height: 320px;
+			font-family: "Lucida Grande", "Lucida Sans Unicode", arial, sans-serif;
+			color: #721c24;
+			left: 10px;
+			top: 90px;
+			pointer-events: all;
+			box-sizing: border-box;
+			cursor: pointer;
+			visibility: hidden;
+		}
+	</style>
+</head>
+<body>
+<div id="map">
+	<div id="ui">
+		<div id="setting"></div>
+		<div id="info">
+			WASD分别为上下左右移动<br />
+			Q左转<br />
+			E右转<br />
+			Space是跳跃<br />
+			<br />
+			移动速度是水平方向的速度<br />
+			起跳速度是向上跳跃的初速度<br />
+			重力加速度是垂直向下的加速度<br />
+			角色包围框是用来计算碰撞的基准<br />
+		</div>
+	</div>
+</div>
+<div id="loading">正在加载模型中，请稍后……</div>
+<script>
+	/**
+	 * 全局参数设置
+	 */
+	window.minemap = minemap;
+	minemap.domainUrl = 'https://minemap.minedata.cn';
+	minemap.dataDomainUrl = 'https://minemap.minedata.cn';
+	minemap.serverDomainUrl = 'https://sd-data.minedata.cn';
+	minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+	minemap.serviceUrl = 'https://service.minedata.cn/service';
+
+	minemap.key = "a37fd2711bb241acb683250f0ceb827f";
+	minemap.solution = 11001;
+
+	// 定义空底图样式
+	var style = {
+		"glyphs": "minemap://fonts/{fontstack}/{range}",
+		"sprite": "minemap://sprite/sprite",
+		"sources": {},
+		"layers": [],
+		"version": 8
+	};
+
+	/**
+	 * 初始化地图实例
+	 */
+	var map = new minemap.Map({
+		container: 'map',
+		style /*底图样式*/,
+		center: [116.38541749669584, 39.98673104510323], /*地图中心点*/
+		zoom: 16.26213839, /*地图默认缩放等级*/
+		pitch: 63.5079693, /*地图俯仰角度*/
+		bearing: -64.858432988031, /*地图偏航角度*/
+		maxZoom: 22, /*地图最大缩放等级*/
+		minZoom: 0,  /*地图最小缩放等级*/
+		projection: 'MERCATOR'
+	});
+	map.keyboard.disable();
+	map.repaint = true;
+
+	let count = 0;
+	const modelList = [];
+	let controlModel, player, originModelMatrix;
+
+	const collisionParams = {
+		resetPos: () => { /*重置位置*/
+			controlModel.setMatrix(originModelMatrix.clone());
+			controlModel.updateMatrixWorld(true);
+			player._updateBounding();
+		},
+		enableCollisionDistance: true, /*是否开启碰撞检测*/
+		collisionDistance: 1.6, /*碰撞距离*/
+		enableGravity: true, /*是否开启重力*/
+		enableFirstPerson: true, /*是否开启第一人称视角*/
+		cameraBehindModelDistance: 10, /*相机距离模型的距离*/
+		speed: 5, /*移动速度*/
+		jumpSpeed: 2, /*跳跃速度*/
+		gravity: 1.5, /*重力加速度*/
+		showBvhBoundingBox: false, /*是否显示BVH包围盒*/
+		showBounding: false /*是否显示模型包围盒*/
+	}
+
+	map.on('load', function() {
+		/*添加栅格图*/
+		map.addSource("IMAGERY_SOURCE", {
+			"type": "raster",//数据源类型：栅格数据源
+			"tiles": ["https://services.minedata.cn/service/data/satellite?x={x}&y={y}&z={z}"], //瓦片服务地址
+			"tileSize": 512,//瓦片尺寸
+		});
+
+		map.addLayer({
+			"id": "IMAGERY",
+			"type": "raster", //图层类型为"raster"
+			"source": "IMAGERY_SOURCE",
+			"minzoom": 0,
+			"maxzoom": 23,
+		});
+
+		map.addSceneComponent({
+			id: "walking_man",
+			type: "3d-model", // 数据类型为“3d-model”
+			data: "../data/test-gltf/walking_man.glb",
+			scale: [1, 1, 1], // 在xyz轴方向上的缩放比例
+			rotation: [90, 0, 0], // 绕xyz轴方向上的旋转，单位为度
+			position: [116.3875, 39.9851, 50], // 锚点（模型局部坐标原点）的经纬度位置
+			lightingModel: minemap.LightingModelType.PBR,
+			loaded: (model) => {
+				controlModel = model;
+				originModelMatrix = controlModel.matrix.clone();
+				const l1 = map.addSceneComponent({
+					id: "glbModel1",
+					type: "3d-model", // 数据类型为“3d-model”
+					"data": "http://192.168.152.123/minemap-engine/EngineCanaryDemo/data/olympic-model/奥体中心_室外看台1层球场楼梯/奥体中心_室外看台1层球场楼梯.glb",// 要加载的gltf格式数据
+					"modelFolder": "http://192.168.152.123/minemap-engine/EngineCanaryDemo/data/olympic-model/奥体中心_室外看台1层球场楼梯/",// 该数据引用图片等资源的文件夹路径
+					scale: [2, 2, 2], // 在xyz轴方向上的缩放比例
+					rotation: [90, 0, 0], // 绕xyz轴方向上的旋转，单位为度
+					position: [116.3875, 39.9847, 10], // 锚点（模型局部坐标原点）的经纬度位置
+					loaded: (model) => {
+						modelList.push(model);
+						if(modelList.length === 8) {
+							startCollision();
+						}
+					}
+				});
+
+				const l2 = map.addSceneComponent({
+					id: "glbModel2",
+					type: "3d-model", // 数据类型为“3d-model”
+					"data": "http://192.168.152.123/minemap-engine/EngineCanaryDemo/data/olympic-model/奥体中心_室内1层/奥体中心_室内1层.glb",// 要加载的gltf格式数据
+					"modelFolder": "http://192.168.152.123/minemap-engine/EngineCanaryDemo/data/olympic-model/奥体中心_室内1层/",// 该数据引用图片等资源的文件夹路径
+					scale: [2, 2, 2], // 在xyz轴方向上的缩放比例
+					rotation: [90, 0, 0], // 绕xyz轴方向上的旋转，单位为度
+					position: [116.3875, 39.9847, 10], // 锚点（模型局部坐标原点）的经纬度位置
+					loaded: (model) => {
+						modelList.push(model);
+						if(modelList.length === 8) {
+							startCollision();
+						}
+					}
+				});
+				const l3 = map.addSceneComponent({
+					id: "glbModel3",
+					type: "3d-model", // 数据类型为“3d-model”
+					"data": "http://192.168.152.123/minemap-engine/EngineCanaryDemo/data/olympic-model/奥体中心_室内2层/奥体中心_室内2层.glb",// 要加载的gltf格式数据
+					"modelFolder": "http://192.168.152.123/minemap-engine/EngineCanaryDemo/data/olympic-model/奥体中心_室内2层/",// 该数据引用图片等资源的文件夹路径
+					scale: [2, 2, 2], // 在xyz轴方向上的缩放比例
+					rotation: [90, 0, 0], // 绕xyz轴方向上的旋转，单位为度
+					position: [116.3875, 39.9847, 10], // 锚点（模型局部坐标原点）的经纬度位置
+					loaded: (model) => {
+						modelList.push(model);
+						if(modelList.length === 8) {
+							startCollision();
+						}
+					}
+				});
+				const l4 = map.addSceneComponent({
+					id: "glbModel4",
+					type: "3d-model", // 数据类型为“3d-model”
+					"data": "http://192.168.152.123/minemap-engine/EngineCanaryDemo/data/olympic-model/奥体中心_室内3层/奥体中心_室内3层.glb",// 要加载的gltf格式数据
+					"modelFolder": "http://192.168.152.123/minemap-engine/EngineCanaryDemo/data/olympic-model/奥体中心_室内3层/",// 该数据引用图片等资源的文件夹路径
+					scale: [2, 2, 2], // 在xyz轴方向上的缩放比例
+					rotation: [90, 0, 0], // 绕xyz轴方向上的旋转，单位为度
+					position: [116.3875, 39.9847, 10], // 锚点（模型局部坐标原点）的经纬度位置
+					loaded: (model) => {
+						modelList.push(model);
+						if(modelList.length === 8) {
+							startCollision();
+						}
+					}
+				});
+				const l41 = map.addSceneComponent({
+					id: "glbModel5",
+					type: "3d-model", // 数据类型为“3d-model”
+					"data": "http://192.168.152.123/minemap-engine/EngineCanaryDemo/data/olympic-model/奥体中心_室外看台3层/奥体中心_室外看台3层.glb",// 要加载的gltf格式数据
+					"modelFolder": "http://192.168.152.123/minemap-engine/EngineCanaryDemo/data/olympic-model/奥体中心_室外看台3层/",// 该数据引用图片等资源的文件夹路径
+					scale: [2, 2, 2], // 在xyz轴方向上的缩放比例
+					rotation: [90, 0, 0], // 绕xyz轴方向上的旋转，单位为度
+					position: [116.3875, 39.9847, 10], // 锚点（模型局部坐标原点）的经纬度位置
+					loaded: (model) => {
+						modelList.push(model);
+						if(modelList.length === 8) {
+							startCollision();
+						}
+					}
+				});
+				const l5 = map.addSceneComponent({
+					id: "glbModel6",
+					type: "3d-model", // 数据类型为“3d-model”
+					"data": "http://192.168.152.123/minemap-engine/EngineCanaryDemo/data/olympic-model/奥体中心_室内4层/奥体中心_室内4层.glb",// 要加载的gltf格式数据
+					"modelFolder": "http://192.168.152.123/minemap-engine/EngineCanaryDemo/data/olympic-model/奥体中心_室内4层/",// 该数据引用图片等资源的文件夹路径
+					scale: [2, 2, 2], // 在xyz轴方向上的缩放比例
+					rotation: [90, 0, 0], // 绕xyz轴方向上的旋转，单位为度
+					position: [116.3875, 39.9847, 10], // 锚点（模型局部坐标原点）的经纬度位置
+					loaded: (model) => {
+						modelList.push(model);
+						if(modelList.length === 8) {
+							startCollision();
+						}
+					}
+				});
+
+				// 添加glb
+				const l7 = map.addSceneComponent({
+					id: "glbModel8",
+					type: "3d-model", // 数据类型为“3d-model”
+					"data": "http://192.168.152.123/minemap-engine/EngineCanaryDemo/data/olympic-model/奥体中心_屋顶盖子_烘焙后/奥体中心_屋顶盖子_烘焙后.glb",// 要加载的gltf格式数据
+					"modelFolder": "http://192.168.152.123/minemap-engine/EngineCanaryDemo/data/olympic-model/奥体中心_屋顶盖子_烘焙后/",// 该数据引用图片等资源的文件夹路径
+					scale: [2, 2, 2], // 在xyz轴方向上的缩放比例
+					rotation: [90, 0, 0], // 绕xyz轴方向上的旋转，单位为度
+					position: [116.3875, 39.9847, 10], // 锚点（模型局部坐标原点）的经纬度位置
+					loaded: (model) => {
+						modelList.push(model);
+						if(modelList.length === 8) {
+							startCollision();
+						}
+					}
+				});
+			}
+		});
+
+		addPlanePrimitive();
+
+		initializeGUI();
+	})
+
+	// 添加平面
+	function addPlanePrimitive() {
+		const yellowPlaneGeometry =
+			new minemap.Geometries.PlaneGeometry({
+				position: minemap.Math.Vector3.fromDegrees(
+					116.3875,
+					39.9857,
+					8.0
+				),
+				normal: minemap.Math.Vector3.UNIT_Z,
+				distance: 0,
+				dimensions: new minemap.Math.Vector2(800.0, 800.0)
+			});
+		const texDefault = minemap.TextureLoader.load({ map, texUrl: "../image/Vegetation_Grass_Artificial.jpg" });
+
+		const yellowPlanePrimitive = new minemap.Primitive({
+			geometry: yellowPlaneGeometry,
+			material: minemap.StandardMaterial.fromType("Texture", {
+				baseColorMap: texDefault,
+				opacity: 1.0,
+				doubleSided: true
+			})
+		});
+		map.addPrimitive(yellowPlanePrimitive);
+		modelList.push(yellowPlanePrimitive);
+	}
+
+	// 初始化GUI
+	function initializeGUI() {
+		const gui = new lil.GUI({ width: 300 });
+		const common = gui.addFolder("参数设置");
+
+		common.add(collisionParams, 'resetPos').name('位置重置'); // Button
+		common.add(collisionParams, 'collisionDistance').name('碰撞距离(0为采用包围球半径)').min(0).onChange( value => {
+			player.collisionDistance = value;
+		} );
+		common.add(collisionParams, 'enableGravity').name('开启重力').onChange( value => {
+			player.enableGravity = value;
+		} );
+		common.add(collisionParams, 'enableFirstPerson').name('开启第一人称').onChange( value => {
+			player.enableFirstPerson = value;
+			map.cameraController.enableInputs = !value;
+		} );
+		common.add(collisionParams, 'speed', 0, 20).name('移动速度').onChange( value => {
+			player.speed = value;
+		} );
+		common.add(collisionParams,'jumpSpeed', 0, 20).name('起跳速度').onChange( value => {
+			player.jumpSpeed = value;
+		})
+		common.add(collisionParams, 'gravity', -20, 20).name('重力加速度').onChange( value => {
+			player.gravity = value;
+		} );
+		common.add(collisionParams, 'cameraBehindModelDistance', 0, 20).name('相机距模型距离').onChange( value => {
+			player.cameraBehindModelDistance = value;
+		} );
+		common.add(collisionParams, 'showBvhBoundingBox').name('开启bvh包围盒框线').onChange( value => {
+			map.collisionDetection.showBvhBoundingBox = value;
+		} );
+		common.add(collisionParams, 'showBounding').name('开启角色包围框').onChange( value => {
+			player.showBounding = value;
+		} );
+	}
+
+	function startCollision(){
+		document.getElementById('loading').style.display = "none";
+		player = new minemap.Player({
+			model: controlModel,
+			enableGravity: collisionParams.enableGravity,
+			enableFirstPerson: collisionParams.enableFirstPerson,
+			gravity: collisionParams.gravity,
+			speed: collisionParams.speed,
+			jumpSpeed: collisionParams.jumpSpeed,
+			cameraBehindModelDistance: collisionParams.cameraBehindModelDistance,
+			collisionDistance: collisionParams.collisionDistance,
+			showBounding: collisionParams.showBounding,
+			map,
+		})
+		map.cameraController.enableInputs = !collisionParams.enableFirstPerson;
+		// 设置碰撞
+		map.setCollisionDetection({
+			source: player,
+			targets: map.collisionDetection._colliderGeometry ? "keep" : modelList, // 如果是“keep”，则会保留之前的碰撞体
+			showBvhBoundingBox: collisionParams.showBvhBoundingBox,
+		})
+	}
+
+	document.getElementById("setting").addEventListener("click", () => {
+		if(document.getElementById("info").style.visibility === "visible") {
+			document.getElementById("info").style.visibility = "hidden";
+			return;
+		}
+		document.getElementById("info").style.visibility = "visible";
+	});
+
+</script>
+</body>

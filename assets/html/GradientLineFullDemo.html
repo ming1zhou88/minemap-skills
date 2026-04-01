@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+	<title>渐变线</title>
+	<!-- demo样式文件 -->
+	<!-- 引入MineMap API插件 -->
+	<link rel="stylesheet" href="../style/demo.css">
+	<!-- 引入MineMap API插件 -->
+	<link rel="stylesheet" href="../../dist/minemap.css">
+	<script src="../../dist/minemap-dev.js"></script>
+	<script type="text/javascript" src="../js/lil-gui.umd.min.js"></script>
+	<script src="../data/coords.js"></script>
+	<style>
+		html, body { height: 100%; margin: 0; }
+		#map { width: 100%; height: 100%; position: relative; }
+		.panel { position: absolute; right: 12px; background: rgba(255,255,255,.95); box-shadow: 0 2px 12px rgba(0,0,0,.15); border-radius: 8px; border: 1px solid #ddd; padding: 8px 10px; z-index: 1000; max-width: 360px; }
+		#controls { top: 12px; right: 10px; }
+		#controls label { display: inline-block; padding: 6px; }
+		#table-panel { bottom: 12px; left: 12px; right: auto; max-height: 40vh; overflow: auto; }
+		#legend-panel { bottom: 12px; }
+		.legend-bar { width: 280px; height: 12px; border-radius: 6px; border: 1px solid #ccc; }
+		.legend-scale { display: flex; justify-content: space-between; align-items: center; margin-top: 6px; font-size: 12px; color: #333; }
+		.legend-scale .ticks { flex: 1; display: flex; justify-content: space-between; margin: 0 8px; }
+		table { width: 100%; border-collapse: collapse; font: 13px/1.4 system-ui; }
+		thead th { position: sticky; top: 0; background: #f7f7f7; }
+		th, td { padding: 6px 8px; border-bottom: 1px solid #eee; text-align: right; }
+		td:first-child, th:first-child { text-align: center; }
+		tbody tr:hover { background: #f3f7ff; cursor: pointer; }
+		tbody tr.selected { background: #ffe8b3; }
+	</style>
+</head>
+
+<body>
+	<div id="map">
+		<div id="controls" class="panel">
+			<label><input type="checkbox" id="toggleHotline" checked> 显示热力线</label>
+			<label style="margin-left:8px"><input type="checkbox" id="togglePoints" checked> 显示数据点</label>
+			<br>
+			<label>Weight - 1 <input id="weight" type="range" min="1" max="16" value="8"> 16</label>
+			<div style="margin-top:6px;font-size:12px;color:#333">
+				<div>经度：<span id="info-lng">-</span></div>
+				<div>纬度：<span id="info-lat">-</span></div>
+				<div>数值：<span id="info-val">-</span></div>
+			</div>
+		</div>
+		<div id="table-panel" class="panel">
+			<table>
+				<thead>
+					<tr>
+						<th>#</th>
+						<th>经度</th>
+						<th>纬度</th>
+						<th>数值</th>
+					</tr>
+				</thead>
+				<tbody id="data-body"></tbody>
+			</table>
+		</div>
+		<div id="legend-panel" class="panel">
+			<div style="font-size:12px;color:#333;margin-bottom:6px">图例</div>
+			<div id="legend-bar" class="legend-bar"></div>
+			<div class="legend-scale">
+				<span id="legend-min">0</span>
+				<div id="legend-ticks" class="ticks"></div>
+				<span id="legend-max">0</span>
+			</div>
+		</div>
+	</div>
+	<script>
+		/**
+		 * 全局参数设置
+		 */
+		minemap.domainUrl = 'https://minemap.minedata.cn';
+		minemap.dataDomainUrl = 'https://minemap.minedata.cn';
+		minemap.serverDomainUrl = 'https://sd-data.minedata.cn';
+		minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+		minemap.serviceUrl = 'https://service.minedata.cn/service';
+
+		minemap.key = '0c6ac62182404e5ebc7a789981f6db72';
+		minemap.solution = 11001;
+
+		// 定义空底图样式
+		const style = {
+			"glyphs": "minemap://fonts/{fontstack}/{range}",
+			"sprite": "minemap://sprite/sprite",
+			"sources": {},
+			"layers": [],
+			"version": 8
+		};
+
+		/**
+		 * 初始化地图实例
+		 */
+		const map = new minemap.Map({
+			container: 'map',
+			style: style, /*球面矢量底图样式*/
+			center: [116.398426, 39.935657],
+			zoom: 15.8, /*地图默认缩放等级*/
+			pitch: 0, /*地图俯仰角度*/
+			maxZoom: 22, /*地图最大缩放等级*/
+			minZoom: 1,  /*地图最小缩放等级*/
+			projection: 'MERCATOR'
+		});
+		map.on('load', function () {
+			map.addSource("IMAGERY_SOURCE", {
+				"type": "raster",
+				"tiles": ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"],
+				"tileSize": 512,
+			});
+
+			map.addLayer({
+				"id": "IMAGERY",
+				"type": "raster",
+				"source": "IMAGERY_SOURCE",
+				"minzoom": 0,
+				"maxzoom": 23,
+			});
+
+			map.repaint = true;
+
+			const HOTLINE_ID = "hotline-gradient-line";
+			const POINTS_SOURCE = "hotline_points_source";
+			const POINTS_LAYER = "hotline_points_layer";
+			const POINTS_LABEL_LAYER = "hotline_points_label_layer";
+			const SELECTED_SOURCE = "hotline_selected_source";
+			const SELECTED_LAYER = "hotline_selected_layer";
+
+			const palette = { 0: "#008800", 0.5: "#ffff00", 1: "#ff0000" };
+
+			function h2r(h) { h = h.replace('#', ''); return { r: parseInt(h.slice(0, 2), 16), g: parseInt(h.slice(2, 4), 16), b: parseInt(h.slice(4, 6), 16) }; }
+			function r2h(r, g, b) { return '#' + [r, g, b].map(v => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0')).join(''); }
+			function mix(c1, c2, t) { const a = h2r(c1), b = h2r(c2); return r2h(a.r + (b.r - a.r) * t, a.g + (b.g - a.g) * t, a.b + (b.b - a.b) * t); }
+			function colorAt(v, min, max) {
+				let t = (v - min) / (max - min);
+				if (!Number.isFinite(t)) t = 0;
+				t = Math.max(0, Math.min(1, t));
+				const stops = Object.keys(palette).map(parseFloat).sort((a, b) => a - b);
+				if (t <= stops[0]) return palette[stops[0]];
+				if (t >= stops[stops.length - 1]) return palette[stops[stops.length - 1]];
+				for (let i = 0; i < stops.length - 1; i++) {
+					if (t >= stops[i] && t <= stops[i + 1]) {
+						const tt = (t - stops[i]) / (stops[i + 1] - stops[i]);
+						return mix(palette[stops[i]], palette[stops[i + 1]], tt);
+					}
+				}
+				return palette[stops[0]];
+			}
+
+			const raw = (typeof coords !== 'undefined' && Array.isArray(coords)) ? coords : [];
+			if (!raw.length) return;
+
+			const values = raw.map(p => p[2]);
+			const minVal = Math.min.apply(null, values);
+			const maxVal = Math.max.apply(null, values);
+			const midVal = (minVal + maxVal) / 2;
+
+			let minLng = Infinity, minLat = Infinity, maxLng = -Infinity, maxLat = -Infinity;
+			for (let i = 0; i < raw.length; i++) {
+				const lat = raw[i][0];
+				const lng = raw[i][1];
+				minLng = Math.min(minLng, lng);
+				minLat = Math.min(minLat, lat);
+				maxLng = Math.max(maxLng, lng);
+				maxLat = Math.max(maxLat, lat);
+			}
+
+			const lineData = {
+				"type": "FeatureCollection",
+				"features": [
+					{
+						"type": "Feature",
+						"id": "line-001",
+						"properties": { "values": values },
+						"geometry": {
+							"type": "LineString",
+							"coordinates": raw.map(p => [p[1], p[0], 5])
+						}
+					}
+				]
+			};
+
+			const pointsData = {
+				"type": "FeatureCollection",
+				"features": raw.map((p, i) => ({
+					"type": "Feature",
+					"id": i,
+					"properties": {
+						"idx": i,
+						"lng": p[1],
+						"lat": p[0],
+						"value": p[2],
+						"label": String(Math.round(p[2])),
+						"color": colorAt(p[2], minVal, maxVal)
+					},
+					"geometry": { "type": "Point", "coordinates": [p[1], p[0]] }
+				}))
+			};
+
+			map.fitBounds([minLng, minLat, maxLng, maxLat], { pitch: 0, duration: 0, padding: { top: 20, bottom: 20, left: 20, right: 20 } });
+
+			const legendBar = document.getElementById('legend-bar');
+			const legendMin = document.getElementById('legend-min');
+			const legendMax = document.getElementById('legend-max');
+			const legendTicks = document.getElementById('legend-ticks');
+			legendBar.style.background = 'linear-gradient(to right,' + palette[0] + ' 0%,' + palette[0.5] + ' 50%,' + palette[1] + ' 100%)';
+			legendMin.textContent = String(Math.round(minVal));
+			legendMax.textContent = String(Math.round(maxVal));
+			legendTicks.innerHTML = '';
+			[{ s: 0, v: minVal }, { s: 0.5, v: midVal }, { s: 1, v: maxVal }].forEach(t => {
+				const sp = document.createElement('span');
+				sp.textContent = String(Math.round(t.v));
+				sp.style.color = palette[t.s];
+				legendTicks.appendChild(sp);
+			});
+
+			const tbody = document.getElementById('data-body');
+			const rows = [];
+			tbody.innerHTML = '';
+			for (let i = 0; i < raw.length; i++) {
+				const lat = raw[i][0], lng = raw[i][1], val = raw[i][2];
+				const tr = document.createElement('tr');
+				tr.dataset.index = String(i);
+				tr.innerHTML = '<td>' + (i + 1) + '</td><td>' + lng.toFixed(6) + '</td><td>' + lat.toFixed(6) + '</td><td>' + val.toFixed(3) + '</td>';
+				tbody.appendChild(tr);
+				rows.push(tr);
+			}
+
+			if (!map.getSource(POINTS_SOURCE)) {
+				map.addSource(POINTS_SOURCE, { type: 'geojson', data: pointsData });
+			}
+			map.addLayer({
+				id: POINTS_LAYER,
+				type: 'circle',
+				source: POINTS_SOURCE,
+				paint: {
+					'circle-radius': 4,
+					'circle-color': ['get', 'color'],
+					'circle-opacity': 0.9,
+					'circle-stroke-color': '#000000',
+					'circle-stroke-width': 1
+				}
+			});
+			map.addLayer({
+				id: POINTS_LABEL_LAYER,
+				type: 'symbol',
+				source: POINTS_SOURCE,
+				layout: {
+					'text-field': ['get', 'label'],
+					'text-size': 11,
+					'text-offset': [0, 1.1],
+					'text-anchor': 'top'
+				},
+				paint: {
+					'text-color': '#111',
+					'text-halo-color': '#fff',
+					'text-halo-width': 1
+				}
+			});
+
+			map.addSource(SELECTED_SOURCE, { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+			map.addLayer({
+				id: SELECTED_LAYER,
+				type: 'circle',
+				source: SELECTED_SOURCE,
+				paint: {
+					'circle-radius': 7,
+					'circle-color': '#ffffff',
+					'circle-opacity': 0.9,
+					'circle-stroke-color': '#000000',
+					'circle-stroke-width': 3
+				}
+			});
+
+			const infoLng = document.getElementById('info-lng');
+			const infoLat = document.getElementById('info-lat');
+			const infoVal = document.getElementById('info-val');
+
+			let popup = null;
+			let popupLngLat = null;
+			function showPopup(lng, lat, val) {
+				popupLngLat = [lng, lat];
+				if (popup && typeof popup.remove === 'function') popup.remove();
+				if (typeof minemap !== 'undefined' && minemap.Popup) {
+					popup = new minemap.Popup({ closeButton: true, closeOnClick: false })
+						.setLngLat([lng, lat])
+						.setHTML('经度 ' + lng.toFixed(6) + '<br>纬度 ' + lat.toFixed(6) + '<br>数值 ' + val.toFixed(3))
+						.addTo(map);
+					return;
+				}
+			}
+
+			let selectedIndex = null;
+			function setSelected(i, showTip) {
+				selectedIndex = i;
+				for (let k = 0; k < rows.length; k++) rows[k].classList.toggle('selected', k === i);
+				const p = raw[i];
+				const lng = p[1];
+				const lat = p[0];
+				const val = p[2];
+				infoLng.textContent = lng.toFixed(6);
+				infoLat.textContent = lat.toFixed(6);
+				infoVal.textContent = val.toFixed(3);
+				map.getSource(SELECTED_SOURCE).setData({
+					type: 'FeatureCollection',
+					features: [{ type: 'Feature', properties: {}, geometry: { type: 'Point', coordinates: [lng, lat] } }]
+				});
+				if (showTip) showPopup(lng, lat, val);
+			}
+
+			function renderHotline(width) {
+				if (typeof map.removeSceneComponent === 'function') {
+					map.removeSceneComponent(HOTLINE_ID);
+				}
+				map.addSceneComponent(new minemap.GradientLine({
+					id: HOTLINE_ID,
+					data: lineData,
+					'gradient-line-width': width,
+					'gradient-line-color': [
+						[minVal, 'rgba(0,136,0,1)'],
+						[midVal, 'rgba(255,255,0,1)'],
+						[maxVal, 'rgba(255,0,0,1)']
+					],
+					'gradient-line-opacity': 1.0
+				}));
+			}
+
+			function setPointsVisible(visible) {
+				const v = visible ? 'visible' : 'none';
+				map.setLayoutProperty(POINTS_LAYER, 'visibility', v);
+				map.setLayoutProperty(POINTS_LABEL_LAYER, 'visibility', v);
+				map.setLayoutProperty(SELECTED_LAYER, 'visibility', v);
+			}
+
+			renderHotline(parseInt(document.getElementById('weight').value, 10));
+
+			for (let i = 0; i < rows.length; i++) {
+				rows[i].addEventListener('click', function () {
+					setSelected(i, true);
+					map.flyTo({ center: [raw[i][1], raw[i][0]], zoom: Math.max(map.getZoom(), 15), duration: 600 });
+				});
+			}
+
+			map.on('click', POINTS_LAYER, function (e) {
+				if (!e.features || !e.features.length) return;
+				const i = parseInt(e.features[0].properties.idx, 10);
+				setSelected(i, true);
+				rows[i].scrollIntoView({ block: 'nearest' });
+			});
+			map.on('mouseenter', POINTS_LAYER, function () { map.getCanvas().style.cursor = 'pointer'; });
+			map.on('mouseleave', POINTS_LAYER, function () { map.getCanvas().style.cursor = ''; });
+
+			document.getElementById('toggleHotline').addEventListener('change', function () {
+				if (this.checked) {
+					renderHotline(parseInt(document.getElementById('weight').value, 10));
+				} else {
+					if (typeof map.removeSceneComponent === 'function') {
+						map.removeSceneComponent(HOTLINE_ID);
+					}
+				}
+			});
+			document.getElementById('togglePoints').addEventListener('change', function () { setPointsVisible(this.checked); });
+			document.getElementById('weight').addEventListener('input', function () {
+				if (!document.getElementById('toggleHotline').checked) return;
+				renderHotline(parseInt(this.value, 10));
+			});
+		})
+	</script>
+</body>

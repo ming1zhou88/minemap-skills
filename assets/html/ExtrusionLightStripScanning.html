@@ -1,0 +1,108 @@
+<!--
+ * @Author: Lee_90125
+ * @Date: 2023-10-12 9:40:37
+ * @LastEditTime: 2023-10-16 15:39:17
+ * @LastEditors: Lee_90125
+ * @Description: Extrusion self-bloom effect
+ * @FilePath: \MineMap3DEngine\demo\html\ExtrusionBloom.html
+-->
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>建筑物光带扫描特效</title>
+    <!-- 引入MineMap API插件 -->
+    <link rel="stylesheet" href="../style/demo.css" />
+    <link rel="stylesheet" href="../../dist/minemap.css" />
+    <script src="../../dist/minemap-dev.js"></script>
+    <style>
+        body #map {
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="map"></div>
+    <script>
+        /**
+         * 全局参数设置
+         */
+
+        minemap.domainUrl = "https://minemap.minedata.cn";
+        minemap.dataDomainUrl = "https://minemap.minedata.cn";
+        minemap.serverDomainUrl = "https://sd-data.minedata.cn";
+        minemap.spriteUrl = "https://minemap.minedata.cn/minemapapi/v3.4.0/sprite/sprite";
+        minemap.serviceUrl = "https://service.minedata.cn/service";
+
+        minemap.appKey = '0c6ac62182404e5ebc7a789981f6db72';
+        minemap.solution = 11001;
+
+        // 定义空底图样式
+        var style = {
+            "glyphs": "minemap://fonts/{fontstack}/{range}",
+            "sprite": "minemap://sprite/sprite",
+            "sources": {},
+            "layers": [{
+                "id": "background",
+                "type": "background",
+                "source": "",
+                "paint": {
+                    "background-color": "#101010"
+                }
+            }],
+            "version": 8
+        };
+
+        var map = new minemap.Map({
+            container: 'map',
+            style: style,
+            center: [116.465, 39.915],
+            zoom: 15,
+            pitch: 50,
+            maxZoom: 21,
+            minZoom: 0
+        });
+        map.repaint = true;
+
+        map.on('load', function () {
+            // 增加自定义数据源、自定义图层
+            map.addSource("buildingSource", {
+                type: "vector",
+                tiles: ["cloudservice://mvt-layer/merge/{z}/{r}/{c}/{z}_{x}_{y}.pbf"],
+            });
+
+            map.addLayer({
+                "id": "buildingLayer",
+                "maxzoom": 22,
+                "layout": {
+                    "visibility": "visible"
+                },
+                "paint": {
+                    "extrusion-base": 0, /*基础高度*/
+                    "extrusion-color": "#FFEC5C", /*颜色*/
+                    "extrusion-height": { "property": "levels", "type": "identity" }, /*高度*/
+                    "extrusion-opacity": 1, /*不透明度(%)*/
+                    /* 建筑物发光参数 */
+                    "extrusion-self-bloom": true,//是否开启自发光
+                    "extrusion-bloom-height": 530, // 发光带最高的运行高度，单位：米
+                    // 'extrusion-glow-pure-color-height': 150,//控制建筑颜色从黑到亮
+                    'extrusion-glow-width': 0.015, //条带的宽度
+                    'extrusion-glow-speed': 100, //条带刷新的速度，单位m/s
+                },
+                "source": "buildingSource",
+                "source-layer": "building",
+                "type": "extrusion",
+                "minzoom": 8,
+            });
+        });
+
+        // 更新自发光
+        // setTimeout(() => {
+        //     map.setPaintProperty('buildingLayer', 'extrusion-glow-speed', 200);
+        // }, 5000);
+    </script>
+</body>

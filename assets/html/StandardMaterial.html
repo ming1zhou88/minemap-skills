@@ -1,0 +1,165 @@
+<!--
+ * @Author: zhoumingrui
+ * @Date: 2023-10-26 14:17:30
+ * @LastEditTime: 2024-01-03 14:52:54
+ * @LastEditors: lsw
+ * @Description:
+ * @FilePath: \MineMap3DEngine\demo\html\StandardMaterial.html
+*/
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+	<title>StandardMaterial材质</title>
+	<link rel="stylesheet" href="../style/demo.css" />
+	<!-- 引入MineMap API插件 -->
+	<link rel="stylesheet" href="https://minemap.minedata.cn/minemapapi/v2.1.1/minemap.css" />
+	<script src="../../dist/minemap-dev.js"></script>
+	<style>
+		#map {
+			width: 100%;
+			height: 100%;
+		}
+	</style>
+</head>
+
+<body>
+<div id="map"></div>
+<script>
+	/**
+	 * 全局参数设置
+	 */
+	minemap.domainUrl = "https://minemap.minedata.cn";
+	minemap.dataDomainUrl = "https://minemap.minedata.cn";
+	minemap.serverDomainUrl = "https://sd-data.minedata.cn";
+	minemap.spriteUrl = "http://192.168.152.123/minemap-engine/v4.0.0/sprite/sprite";
+	minemap.serviceUrl = "https://service.minedata.cn/service";
+
+	minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+	minemap.solution = 11001;
+
+	var style = {
+		// glyphs: "http://192.168.152.123/minemap-engine/v4.0.0/fonts/{fontstack}/{range}.pbf",
+		glyphs: "minemap://fonts/{fontstack}/{range}",
+		sprite: "minemap://sprite/sprite",
+		sources: {},
+		layers: [],
+		version: 8
+	};
+
+	var map = new minemap.Map({
+		container: "map",
+		// style: 'https://service.minedata.cn/map/solu/style/11001',
+		style: style,
+		center: [115.04629476705368, 39.74613407538165],
+		zoom: 10.655893584910205,
+		pitch: 66,
+		maxZoom: 17,
+		minZoom: 3,
+		projection: "MERCATOR",
+		logDepth: true
+		// localIdeographFontFamily: "PingFang SC,Microsoft YaHei,微软雅黑,Arial,sans-serif,黑体",
+	});
+	//设置地形数据
+	map.setTerrain({
+		type: "terrain", //DEM的数据类型为"raster"
+		tiles: ["https://staticdata-b.minedata.cn:14434/dem/{z}/{r}/{c}/{z}_{x}_{y}.terrain"], //瓦片服务地址
+		tileSize: 512, //瓦片大小
+		maxzoom: 14 //dem最高切分zoom，30米一般是14级；12.5米一般是16级
+	});
+
+	map.repaint = true;
+	/**
+	 * 创建地图对象后，开始加载地图资源，地图资源加载完成后触发load事件
+	 */
+	map.on("load", function() {
+		/*添加栅格图*/
+		map.addSource("IMAGERY_SOURCE", {
+			type: "raster", //数据源类型：栅格数据源
+			tiles: ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+			tileSize: 512 //瓦片尺寸
+		});
+
+		map.addLayer({
+			id: "IMAGERY",
+			type: "raster", //图层类型为"raster"
+			source: "IMAGERY_SOURCE",
+			minzoom: 1,
+			maxzoom: 23
+		});
+
+		map.on("click", function(e) {
+			console.log(map.getPositionByGPUPick(e.point));
+		});
+		const texDefault = minemap.TextureLoader.load({
+			map,
+			texUrl: "http://192.168.152.123/minemapapi/v4.0.0/assets/arrow1.png"
+		});
+		let adaptTerrainPrimitive;
+		adaptTerrainPrimitive = new minemap.Primitive({
+			geometry: new minemap.Geometries.PolygonGeometry({
+				polygonHierarchy: {
+					positions: minemap.Math.Vector3.fromDegreesArrayHeights([
+						114.74343385938629, 39.80233645383737, 1757.5639252003746, 114.81696103824106,
+						39.695571318954364, 1622.665381413346, 114.87760797454034, 39.69459752087785,
+						1698.9002910082681, 114.80897273535578, 39.829144752483316, 1203.4370772161199
+					])
+				},
+				perPositionHeight: true
+			}),
+			material: minemap.StandardMaterial.fromType("Texture", {
+				baseColorMap: texDefault
+			}),
+			adaptTerrain: true
+		});
+		map.addPrimitive(adaptTerrainPrimitive);
+
+		// 扫描
+		let radarScanPrimitive;
+		radarScanPrimitive = new minemap.Primitive({
+			geometry: new minemap.Geometries.PolygonGeometry({
+				polygonHierarchy: {
+					positions: minemap.Math.Vector3.fromDegreesArrayHeights([
+						114.89522337178694, 39.748513102378205, 1624.7187073066257, 114.91440484359941,
+						39.67250467060771, 1982.287032504432, 115.0115634554586, 39.68377119596301,
+						1363.0206306030416, 114.99370345176709, 39.76333893699503, 1598.4490062680359
+					])
+				},
+				perPositionHeight: true
+			}),
+			material: minemap.StandardMaterial.fromType("RadarScan", {
+				color: "red",
+				opacity: 1,
+				speed: 1
+			}),
+			adaptTerrain: true
+		});
+		map.addPrimitive(radarScanPrimitive);
+
+		// 扩散环
+		let diffusingRingPrimitive;
+		diffusingRingPrimitive = new minemap.Primitive({
+			geometry: new minemap.Geometries.PolygonGeometry({
+				polygonHierarchy: {
+					positions: minemap.Math.Vector3.fromDegreesArrayHeights([
+						115.13845265231812, 39.79311311887219, 1609.4722491583962, 115.11558409872703,
+						39.67499985231861, 898.0474398574097, 115.19982175674613, 39.689874584487654,
+						542.5933566360333, 115.25467475409701, 39.82387807598944, 673.8263368997204
+					])
+				},
+				perPositionHeight: true
+			}),
+			material: minemap.StandardMaterial.fromType("DiffusingRing", {
+				color: "red",
+				opacity: 1,
+				speed: 1
+			}),
+			adaptTerrain: true
+		});
+		map.addPrimitive(diffusingRingPrimitive);
+	});
+</script>
+</body>
+</html>

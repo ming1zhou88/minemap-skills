@@ -1,0 +1,305 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+	<title>PBR模型渲染和展示</title>
+	<link rel="stylesheet" href="../style/demo.css" />
+	<link rel="stylesheet" href="http://192.168.152.123/minemapapi/v4.0.0/minemap.css" />
+	<script src="../../dist/minemap-dev.js"></script>
+	<script type="text/javascript" src="../js/lil-gui.umd.min.js"></script>
+	<style>
+		#map {
+			width: 100%;
+			height: 100%;
+		}
+
+		.control-panel {
+			position: absolute;
+			top: 10px;
+			left: 10px;
+			z-index: 1000;
+			background: rgba(255, 255, 255, 0.9);
+			padding: 15px;
+			border-radius: 5px;
+			box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+		}
+
+		.model-control {
+			margin-bottom: 10px;
+			display: flex;
+			align-items: center;
+			gap: 10px;
+		}
+
+		.model-control label {
+			min-width: 100px;
+			font-weight: bold;
+		}
+
+		.control-buttons {
+			display: flex;
+			gap: 5px;
+		}
+
+		.control-buttons button {
+			padding: 5px 10px;
+			border: none;
+			border-radius: 3px;
+			cursor: pointer;
+			font-size: 12px;
+		}
+
+		.show-btn {
+			background-color: #4CAF50;
+			color: white;
+		}
+
+		.hide-btn {
+			background-color: #f44336;
+			color: white;
+		}
+
+		.fly-btn {
+			background-color: #2196F3;
+			color: white;
+		}
+
+		.show-btn:hover {
+			background-color: #45a049;
+		}
+
+		.hide-btn:hover {
+			background-color: #da190b;
+		}
+
+		.fly-btn:hover {
+			background-color: #0b7dda;
+		}
+	</style>
+</head>
+
+<body>
+	<div id="map"></div>
+	<div class="control-panel">
+		<h3>模型控制面板</h3>
+
+		<div class="model-control">
+			<label>LanternPbrGltf:</label>
+			<div class="control-buttons">
+				<button class="show-btn" onclick="showModelGLTF('LanternPbrGLTF')">显示</button>
+				<button class="hide-btn" onclick="hideModelGLTF('LanternPbrGLTF')">隐藏</button>
+				<button class="fly-btn" onclick="flyToModel('LanternPbrGLTF')">飞行</button>
+			</div>
+		</div>
+		<div class="model-control">
+			<label>LanternOldTile:</label>
+			<div class="control-buttons">
+				<button class="show-btn" onclick="showModel('LanternTile')">显示</button>
+				<button class="hide-btn" onclick="hideModel('LanternTile')">隐藏</button>
+				<button class="fly-btn" onclick="flyToModel('LanternTile')">飞行</button>
+			</div>
+		</div>
+		<div class="model-control">
+			<label>LanternPbrTile1:</label>
+			<div class="control-buttons">
+				<button class="show-btn" onclick="showModel('LanternPbrTile')">显示</button>
+				<button class="hide-btn" onclick="hideModel('LanternPbrTile')">隐藏</button>
+				<button class="fly-btn" onclick="flyToModel('LanternPbrTile')">飞行</button>
+			</div>
+		</div>
+
+		<div class="model-control">
+			<label>LanternPbrTile2:</label>
+			<div class="control-buttons">
+				<button class="show-btn" onclick="showModel('LanternPbrTile2')">显示</button>
+				<button class="hide-btn" onclick="hideModel('LanternPbrTile2')">隐藏</button>
+				<button class="fly-btn" onclick="flyToModel('LanternPbrTile2')">飞行</button>
+			</div>
+		</div>
+
+
+
+	</div>
+	<script>
+		/**
+		 * 全局参数设置
+		 */
+		minemap.domainUrl = 'https://minedata.cn';
+		minemap.serverDomainUrl = 'https://ol-data.minedata.cn';
+		window.minemapCDN = "http://192.168.152.123/minemap-engine/minemap-CDN/"; // minemapCDN 配置 http://192.168.152.123/
+
+		// 定义空底图样式
+		const style = {
+			glyphs: 'minemap://fonts/{fontstack}/{range}',
+			sprite: 'minemap://sprite/sprite',
+			sources: {},
+			layers: [],
+			version: 8
+		};
+
+		/**
+		 * 初始化地图实例
+		 */
+		const map = new minemap.Map({
+			container: 'map',
+			style: style /*球面矢量底图样式*/,
+			position: [
+				116.45979610683673, 39.89459547234605, 1760
+			] /*地图中心点*/,
+			bearing: 0,
+			zoom: 12 /*地图默认缩放等级*/,
+			pitch: 60 /*地图俯仰角度*/,
+			maxZoom: 22 /*地图最大缩放等级*/,
+			minZoom: 1 /*地图最小缩放等级*/,
+			projection: 'MERCATOR'
+		});
+
+		map.repaint = true;
+
+		// 模型位置配置
+		const modelPositions = {
+			LanternPbrGLTF: [116.46, 39.92, 100],
+			LanternPbrTile: [111.506978, 30.433652, 100],
+			LanternPbrTile2: [111.506978, 30.433652, 100],
+			LanternTile: [111.506978, 30.433652, 100]
+		};
+
+		map.on('load', function () {
+			/*添加栅格图*/
+			map.addSource('IMAGERY_SOURCE', {
+				type: 'raster',
+				tiles: ['https://ol-data.minedata.cn/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg'], //瓦片服务地址
+				tileSize: 512 //瓦片尺寸
+			});
+
+			map.addLayer({
+				id: 'IMAGERY',
+				type: 'raster',
+				source: 'IMAGERY_SOURCE',
+				minzoom: 1,
+				maxzoom: 23
+			});
+
+			addAllModels();
+
+		});
+
+
+		// 添加所有三个模型
+		function addAllModels() {
+			// 添加LanternPbr模型（PBR效果）
+			window.LanternPbrGLTF = map.addSceneComponent({
+				id: 'LanternPbrGLTF',
+				type: '3d-model',
+				data: 'http://192.168.152.123/minemap-engine/EngineCanaryDemo/data/Lantern/Lantern.gltf',
+				modelFolder: 'http://192.168.152.123/minemap-engine/EngineCanaryDemo/data/Lantern/',
+				scale: [10, 10, 10],
+				rotation: [90, 0, 0],
+				position: modelPositions.LanternPbrGLTF,
+				lightingModel: minemap.LightingModelType.PBR, // PBR效果
+				loaded: () => {
+					console.log('LanternPbr模型加载完成');
+				}
+			});
+
+			window.LanternPbrTile = map.addSceneComponent({
+				id: "LanternPbrTile",
+				type: "3d-tiles",
+				url: "http://192.168.152.123/minemap-engine/EngineCanaryDemo/data/Lantern-pbr/tileset.json",
+				translation: new minemap.Math.Vector3(0, 0, 0),
+				show: true,
+				useMipmap: true,
+				lightingModel: minemap.LightingModelType.PBR, // PBR效果
+				sourceLoaded: (config) => {
+					console.log(config);
+				},
+			});
+
+			window.LanternPbrTile2 = map.addSceneComponent({
+				id: "LanternPbrTile2",
+				type: "3d-tiles",
+				url: "http://192.168.152.123/minemap-engine/EngineCanaryDemo/data/Lantern-pbr-v1.0/tileset.json",
+				translation: new minemap.Math.Vector3(0, 100, 0),
+				show: true,
+				useMipmap: true,
+				lightingModel: minemap.LightingModelType.PBR, // PBR效果
+				sourceLoaded: (config) => {
+					console.log(config);
+				},
+			});
+
+			window.LanternTile = map.addSceneComponent({
+				id: "LanternTile",
+				type: "3d-tiles",
+				url: "http://192.168.152.123/minemap-engine/EngineCanaryDemo/data/Lantern-pbr-no/tileset.json",
+				translation: new minemap.Math.Vector3(100, 0, 0),
+				show: true,
+				lightingModel: minemap.LightingModelType.PBR, // PBR效果
+				useMipmap: true,
+				sourceLoaded: (config) => {
+					console.log(config);
+				},
+			});
+		}
+
+		// 显示模型
+		function showModel(modelName) {
+			const model = window[modelName];
+			if (model) {
+				model.show = true;
+				console.log(`${modelName} 模型已显示`);
+			}
+		}
+
+		// 隐藏模型
+		function hideModel(modelName) {
+			const model = window[modelName];
+			if (model) {
+				model.show = false;
+				console.log(`${modelName} 模型已隐藏`);
+			}
+		}
+
+		// 显示模型
+		function showModelGLTF(modelName) {
+			const model = window[modelName];
+			if (model) {
+				model.visibility = 'visible';
+				console.log(`${modelName} 模型已显示`);
+			}
+		}
+
+		// 隐藏模型
+		function hideModelGLTF(modelName) {
+			const model = window[modelName];
+			if (model) {
+				model.visibility = 'none';
+				console.log(`${modelName} 模型已隐藏`);
+			}
+		}
+
+		// 飞行到模型位置
+		function flyToModel(modelName) {
+			const position = modelPositions[modelName];
+			if (position) {
+				map.flyTo({
+					target: [
+						position[0], position[1],
+						1000
+					],
+					bearing: 0,
+					pitch: 0,
+					duration: 2000
+				});
+				console.log(`飞行到 ${modelName} 模型位置`);
+			}
+		}
+
+
+
+	</script>
+</body>
+
+</html>

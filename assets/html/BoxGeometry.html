@@ -1,0 +1,203 @@
+<!--
+ * @Author: lsw
+ * @Date: 2022-04-20 15:50:33
+ * @LastEditTime: 2024-10-28 16:33:15
+ * @LastEditors: liwei
+ * @Description:
+ * @FilePath: \MineMap3DEngine\demo\html\BoxGeometry.html
+-->
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<title>BoxGeometry</title>
+		<!-- demo样式文件 -->
+		<link rel="stylesheet" href="../style/demo.css" />
+		<!-- 引入MineMap API插件 -->
+		<script src="../js/lil-gui.umd.min.js"></script>
+		<link rel="stylesheet" href="../../dist/minemap.css" />
+		<script src="../../dist/minemap-dev.js"></script>
+		<style>
+			#map {
+				width: 100%;
+				height: 100%;
+			}
+		</style>
+	</head>
+
+	<body>
+		<div id="map"></div>
+		<script>
+			/**
+			 * 全局参数设置
+			 */
+			minemap.domainUrl = "https://minedata.cn";
+			minemap.dataDomainUrl = "https://minedata.cn";
+			minemap.serverDomainUrl = "https://minedata.cn";
+			minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+			minemap.serviceUrl = "https://minedata.cn/service/";
+
+			minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+			minemap.solution = 11001;
+			window.minemapCDN = "https://minedata.cn/minemapapi/minemap-CDN";
+
+			// 定义空底图样式
+			var style = {
+				glyphs: "minemap://fonts/{fontstack}/{range}",
+				sprite: "minemap://sprite/sprite",
+				sources: {},
+				layers: [
+					{
+						id: "background",
+						type: "background",
+						source: "",
+						paint: {
+							"background-color": "green"
+						}
+					}
+				],
+				version: 8
+			};
+
+			/**
+			 * 初始化地图实例
+			 */
+			var map = new minemap.Map({
+				container: "map",
+				style: style,
+				/*球面矢量底图样式*/
+				center: [116.242, 40.066],
+				/*地图中心点*/
+				bearing: 0,
+				zoom: 15,
+				/*地图默认缩放等级*/
+				pitch: 70,
+				/*地图俯仰角度*/
+				maxZoom: 22,
+				/*地图最大缩放等级*/
+				minZoom: 1,
+				/*地图最小缩放等级*/
+				projection: "MERCATOR"
+			});
+			map.repaint = true;
+
+			map.on("load", function () {
+				/*添加栅格图*/
+				map.addSource("IMAGERY_SOURCE", {
+					type: "raster", //数据源类型：栅格数据源
+					tiles: ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+					tileSize: 512 //瓦片尺寸
+				});
+
+				map.addLayer({
+					id: "IMAGERY",
+					type: "raster", //图层类型为"raster"
+					source: "IMAGERY_SOURCE",
+					minzoom: 1,
+					maxzoom: 23,
+					// "depth-test": true,
+					paint: {
+						"raster-opacity": 1
+					}
+				});
+
+				const cartographicForGreen = new minemap.Math.Vector3([116.244, 40.072, 100]);
+				const cartographicForRed = new minemap.Math.Vector3([116.241, 40.072, 100]);
+				const matrixForGreen = minemap.Transforms.cartographicToFixedFrame(cartographicForGreen);
+				const matrixForRed = minemap.Transforms.cartographicToFixedFrame(cartographicForRed);
+				const rotX = new minemap.Math.Matrix4().rotateX(Math.PI / 2);
+				matrixForGreen.multiplyRight(rotX);
+
+				const redBoxGeometry = new minemap.Geometries.BoxGeometry({
+					width: 100,
+					height: 100,
+					depth: 100
+				});
+
+				const greenBoxGeometry = new minemap.Geometries.BoxGeometry({
+					width: 100,
+					height: 100,
+					depth: 100
+				});
+				map.addPrimitive(
+					new minemap.Primitive({
+						modelMatrix: matrixForGreen,
+						geometry: greenBoxGeometry,
+						material: minemap.StandardMaterial.fromType("Color", {
+							color: "green",
+							opacity: 0.5,
+							doubleSided: false
+						})
+					})
+				);
+
+				let materialRed = minemap.StandardMaterial.fromType("Color", {
+					color: "red",
+					opacity: 1.0,
+					doubleSided: false
+				});
+
+				materialRed.isTranslucent = false;
+				map.addPrimitive(
+					new minemap.Primitive({
+						modelMatrix: matrixForRed,
+						geometry: redBoxGeometry,
+						material: materialRed
+					})
+				);
+
+				//更新几何属性
+				let i = 0;
+				setInterval(() => {
+					greenBoxGeometry.setData({
+						width: 100 + (i % 5) * 30,
+						height: 100 + (i % 5) * 30,
+						depth: 100 + (i % 5) * 30
+					});
+					redBoxGeometry.setData({
+						width: 100 + (i % 5) * 30,
+						height: 100 + (i % 5) * 30,
+						depth: 100 + (i % 5) * 30
+					});
+					i++;
+					if (i > 10) {
+						i = 0;
+					}
+				}, 1000);
+			});
+
+			initTimePane();
+
+			function initTimePane() {
+				var gui = new lil.GUI(); //外部UI
+				var light = gui.addFolder("Light Para");
+				var lightProps = {
+					lightMonth: 6.0,
+					lightDay: 1.0,
+					lightHour: 3.0
+				};
+
+				//现在来说，真正模拟时间hour
+				function updateLight(value) {
+					let datetime = {
+						year: 2000,
+						month: 6,
+						day: 6,
+						hour: 10,
+						minute: 0
+					};
+					datetime.month = lightProps.lightMonth;
+					datetime.day = lightProps.lightDay;
+					datetime.hour = lightProps.lightHour;
+
+					map.setSunLight(datetime);
+				}
+
+				light.add(lightProps, "lightMonth", 0, 12).onChange(updateLight);
+				light.add(lightProps, "lightDay", 0, 30).onChange(updateLight);
+				light.add(lightProps, "lightHour", 0, 24).onChange(updateLight);
+				updateLight();
+			}
+		</script>
+	</body>
+</html>

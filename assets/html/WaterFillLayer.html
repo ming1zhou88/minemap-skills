@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<title>Water Fill Layer</title>
+		<!-- 引入必要的依赖 -->
+		<script src="../js/lil-gui.umd.min.js"></script>
+		<link rel="stylesheet" href="../../dist/minemap.css" />
+		<script src="../../dist/minemap-dev.js"></script>
+		<style>
+			html,
+			body,
+			#map {
+				margin: 0;
+				padding: 0;
+				width: 100%;
+				height: 100%;
+				font-size: 12px;
+			}
+		</style>
+	</head>
+	<body>
+		<div id="map"></div>
+		<script>
+			// 地图初始化
+			minemap.domainUrl = "https://minemap.minedata.cn";
+			minemap.dataDomainUrl = "https://minemap.minedata.cn";
+			minemap.serverDomainUrl = "https://sd-data.minedata.cn";
+			minemap.spriteUrl = "http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite";
+			minemap.serviceUrl = "https://service.minedata.cn/service";
+			minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+			minemap.solution = 11001;
+			window.minemapCDN = "http://192.168.152.123/minemap-engine/minemap-CDN/";
+			const style = {
+				glyphs: "minemap://fonts/{fontstack}/{range}",
+				sprite: "minemap://sprite/sprite",
+				sources: {},
+				layers: [],
+				version: 8
+			};
+			const map = new minemap.Map({
+				container: "map",
+				style: style,
+				position:[119.7559048187384, 31.48833998389665, 205.62434667373537],
+				pitch:65.40436498768692,
+				bearing:86.73628037997302,
+				maxZoom: 22,
+				minZoom: 1,
+				logDepth: true,
+				waterRenderingMode: 'normal' // 添加水面渲染模式配置
+			});
+			map.repaint = true;
+			map.on("load", function () {
+				initializeGUI();
+				addRasterLayer();
+				addFillLayer();
+
+				addSources();
+				addLayers();
+			});
+
+			// 开启光照
+			map.enableLight();
+
+			function addRasterLayer() {
+				map.addSource("IMAGERY_SOURCE", {
+					type: "raster", //数据源类型：栅格数据源
+					tiles: ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+					tileSize: 256 //瓦片尺寸
+				});
+
+				map.addLayer({
+					id: "IMAGERY",
+					type: "raster", //图层类型为"raster"
+					source: "IMAGERY_SOURCE",
+					minzoom: 1,
+					maxzoom: 23,
+					'depth-test': true
+				});
+			}
+
+
+			function addFillLayer() {
+				map.addSource("fillSource", {
+					type: "geojson",
+					data: "../data/water_xuxi.geojson"
+				});
+
+				map.addLayer({
+					id: "fillLayer",
+					type: "fill",
+					source: "fillSource",
+					layout: {
+						visibility: "visible"
+					},
+					paint: {
+						"fill-color": "rgb(64, 164, 223)",
+						"fill-opacity": 1.0,
+						"fill-antialias": false,
+						"fill-outline-color": "rgba(6,17,43,0)",
+						"fill-water": "water",
+					},
+					minzoom: 7,
+					maxzoom: 20,
+					depth: 50,
+					reflectivity: 1,  //水面的所有配置
+					flowSpeed: 20,
+					flowScale: 2,
+					waterAbsorptionCoeff: [0.3, 0.075, 0.03], //水面颜色吸收系数，如果水表面发白可以调节这个数值
+					heightOffset: 3     //水面图层加高度
+				});
+			}
+
+
+			function addSources() {
+				var center = map.getCenter();
+				var jsonData = {
+					"type": "FeatureCollection",
+					"features": [
+						{
+							"type": "Feature",
+							"geometry": {
+								"type": "LineString",
+								"coordinates": [[center.lng - 0.05, center.lat + 0.05], [center.lng - 0.05, center.lat - 0.05]]
+							},
+							"properties": {
+								"title": "路线一",
+								"kind": 1
+							},
+						}, {
+							"type": "Feature",
+							"geometry": {
+								"type": "LineString",
+								"coordinates": [[center.lng - 0.04, center.lat], [center.lng + 0.04, center.lat], [center.lng + 0.08, center.lat]]
+							},
+							"properties": {
+								"title": "路线二",
+								"kind": 2
+							},
+						}
+					]
+				};
+				map.addSource("lineSource", {
+					"type": "geojson",
+					"data": jsonData
+				});
+			}
+
+			function addLayers() {
+				map.addLayer({
+					id: "lineLayer",
+					type: "line", //图层类型为"line"
+					source: "lineSource",
+					layout: {
+						"line-join": "round",
+						"line-cap": "round-butt",
+						"border-visibility": "none",
+						"line-miter-limit": 2,
+						"line-round-limit": 1.05,
+						visibility: "visible"
+					},
+					paint: {
+						"line-width": 20,
+						"line-opacity": [
+							'case',
+							['==', ['get', 'kind'], 1], 1.0,
+							['==', ['get', 'kind'], 2], 0.5,
+							1.0 // 默认值
+						],
+
+						"line-translate": [0, 0],
+						"line-translate-anchor": "map",
+						"line-border-color": "#f9bd09ff",
+						"line-border-width": 10,
+						"line-border-opacity": 1
+					},
+					minzoom: 1,
+					maxzoom: 24,
+					allowWaterRefract: false     //不被水面折射！！！！！
+				});
+
+				map.addLayer({
+					"id": "symbolLayer",
+					"type": "symbol",
+					"source": "lineSource",
+					"layout": {
+						"text-field": "{title}",
+						"text-size": 20,
+						"symbol-placement": "line"
+					},
+					"paint": {
+						"text-color": "red",
+						"text-halo-color": "#ffffff",
+						"text-halo-width": 0.8,
+					},
+					"minzoom": 7,
+					"maxzoom": 17.5,
+					allowWaterRefract: false //不被水面折射！！！！！
+				});
+			}
+
+			/**
+			 * 初始化GUI控制面板
+			 */
+			function initializeGUI() {
+				const gui = new lil.GUI({width: 300});
+
+				// === 水面渲染模式控制组 ===
+				const waterRenderingFolder = gui.addFolder("水面渲染模式");
+				const waterRenderingParams = {
+					mode: 'normal'
+				};
+
+				waterRenderingFolder.add(waterRenderingParams, "mode", ['normal', 'simplified']).name("渲染模式").onChange(v => {
+					map.waterRenderingMode = v;
+					console.log('水面渲染模式已切换为:', v);
+				});
+
+				waterRenderingFolder.open();
+			}
+		</script>
+	</body>
+</html>

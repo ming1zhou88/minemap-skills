@@ -1,0 +1,1064 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+	<title>实例化模型自动赋高动画</title>
+	<link rel="stylesheet" href="../style/demo.css" />
+	<!-- 引入MineMap API插件 -->
+	<link rel="stylesheet" href="https://minemap.minedata.cn/minemapapi/v4.0.0/minemap.css" />
+	<script src="../../dist/minemap-dev.js"></script>
+	<script type="text/javascript" src="../js/lil-gui.umd.min.js"></script>
+	<style>
+		html,
+		body,
+		#map {
+			margin: 0;
+			padding: 0;
+			width: 100%;
+			height: 100%;
+		}
+	</style>
+</head>
+
+<body>
+<div id="map">
+	<div id="text" class="toolContainer"></div>
+</div>
+<script>
+	/*全局参数设置*/
+	minemap.domainUrl = "https://minedata.cn";
+	minemap.dataDomainUrl = "https://minedata.cn";
+	minemap.serverDomainUrl = "https://minedata.cn";
+	minemap.spriteUrl = "http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite";
+	minemap.serviceUrl = "https://minedata.cn/service/";
+
+	minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+	minemap.solution = 11001;
+	window.minemapCDN = "https://minedata.cn/minemapapi/minemap-CDN";
+
+	const style = {
+		glyphs: 'minemap://fonts/{fontstack}/{range}',
+		sprite: 'minemap://sprite/sprite',
+		sources: {},
+		layers: [],
+		version: 8
+	};
+
+	const trackPositions0 = [
+		120.36645827105184,
+		36.08609371708044,
+		0,
+		120.36881831227618,
+		36.086441734359525,
+		0,
+		120.37057439875832,
+		36.08684113598499,
+		0,
+		120.37229060461239,
+		36.08698776281118,
+		0,
+		120.37391668858135,
+		36.086994308483206,
+		0,
+		120.37404809246063,
+		36.08588092704303,
+		0,
+		120.3741605977985,
+		36.08490551453739,
+		0,
+		120.37434759436026,
+		36.08390190863374,
+		0,
+		120.37472110902424,
+		36.08290165646915,
+		0,
+		120.37505710651618,
+		36.082098903151945,
+		0,
+		120.37536382929991,
+		36.08157845160189,
+		0,
+		120.37661771678168,
+		36.08212834430549,
+		0,
+		120.37774993941471,
+		36.08252574781662,
+		0,
+		120.37938751760247,
+		36.08288883001596,
+		0,
+		120.38077254873652,
+		36.08288554539771,
+		0,
+		120.3820468310056,
+		36.08288201885299,
+		0,
+		120.38355788274244,
+		36.08288210509883,
+		0,
+		120.38523341116903,
+		36.08288497955479,
+		0,
+		120.38540235733954,
+		36.084003868065366,
+		0,
+		120.38538710366252,
+		36.08485063258973,
+		0,
+		120.38540752935279,
+		36.085532278251726,
+		0,
+		120.38531990640509,
+		36.08652858646977,
+		0,
+		120.3854095556206,
+		36.08705535279575,
+		0,
+		120.38532840056301,
+		36.088128137190594,
+		0,
+		120.38534126112468,
+		36.08919896835264,
+		0,
+		120.38533659638743,
+		36.09020575691156,
+		0,
+		120.38543154167158,
+		36.090986688030874,
+		0,
+		120.38537632039166,
+		36.09106185766374,
+		0,
+		120.38321331338703,
+		36.09106366315731,
+		0,
+		120.3809303594264,
+		36.09109573767794,
+		0,
+		120.38031504245215,
+		36.091096835630395,
+		0,
+		120.37767833180058,
+		36.09109578565583,
+		0,
+		120.376206025004,
+		36.09106360419975,
+		0,
+		120.37483827901082,
+		36.09101575712136,
+		0,
+		120.37402989724183,
+		36.091015633938426,
+		0,
+		120.37372915390272,
+		36.09101566884106,
+		0,
+		120.37369202914165,
+		36.091610848524326,
+		0,
+		120.3737117516215,
+		36.09304344499033,
+		0,
+		120.37358428165973,
+		36.094314951338546,
+		0,
+		120.37349366789344,
+		36.09515761363258,
+		0,
+		120.37366658162289,
+		36.09530855576145,
+		0,
+		120.375303094049,
+		36.09532930039252,
+		0,
+		120.37866454582847,
+		36.095414677947936,
+		0,
+		120.37967388612826,
+		36.09550657019629,
+		0
+	];
+	const trackPositions1 = [
+		120.37288985958952,
+		36.104557646589036,
+		0,
+		120.37302904709588,
+		36.10259668708913,
+		0,
+		120.37316333495858,
+		36.10071514409935,
+		0,
+		120.37315805950901,
+		36.098541920921015,
+		0,
+		120.37342024435742,
+		36.09726240373526,
+		0,
+		120.37356231370903,
+		36.095866447186836,
+		0,
+		120.37351544794721,
+		36.095259474308385,
+		0,
+		120.37353458670667,
+		36.09424521671181,
+		0,
+		120.37370594897519,
+		36.093018105628865,
+		0,
+		120.37373025044396,
+		36.091868008702015,
+		0,
+		120.37380472102548,
+		36.09112120351059,
+		0,
+		120.37385436652032,
+		36.09007152465748,
+		0,
+		120.37385461269383,
+		36.08930305892583,
+		0,
+		120.3738045429511,
+		36.08793269066646,
+		0,
+		120.37387905492675,
+		36.087085695440074,
+		0,
+		120.37397860694199,
+		36.086339360492865,
+		0,
+		120.37402873942263,
+		36.08547216111596,
+		0,
+		120.37430250599013,
+		36.08444441867463,
+		0,
+		120.37457635794055,
+		36.083539252496344,
+		0,
+		120.37497376816088,
+		36.08253621928168,
+		0,
+		120.37527152728364,
+		36.081662372286765,
+		0,
+		120.37729582679273,
+		36.08242471720787,
+		0,
+		120.37872382768403,
+		36.082868370445794,
+		0,
+		120.3802572172918,
+		36.082946158896775,
+		0,
+		120.3818191308761,
+		36.08292348082184,
+		0,
+		120.38276074525542,
+		36.0828623653824,
+		0,
+		120.38465678041368,
+		36.08282401139042,
+		0,
+		120.38620615433635,
+		36.08270514701208,
+		0,
+		120.38772888774591,
+		36.082236779359995,
+		0,
+		120.38884699948372,
+		36.081972009503474,
+		0,
+		120.38975480311196,
+		36.081743957431314,
+		0,
+		120.39093079616212,
+		36.08136818164706,
+		0,
+		120.39236957890337,
+		36.080888607089356,
+		0,
+		120.39385187949762,
+		36.08053475164913,
+		0,
+		120.39522153074296,
+		36.080348736968425,
+		0,
+		120.39756128981162,
+		36.080328339621104,
+		0,
+		120.39954965067275,
+		36.080240177241755,
+		0,
+		120.40159176103768,
+		36.08018137633866,
+		0,
+		120.40314763522302,
+		36.08016086812337,
+		0,
+		120.40481652544494,
+		36.08040795811234,
+		0,
+		120.40569737408823,
+		36.08106694780129,
+		0
+	]
+	const trackPositions2 = [
+		120.35690098524475,
+		36.08792215919826,
+		0,
+		120.35860816528344,
+		36.08694075168068,
+		0,
+		120.36047957269045,
+		36.08600429438649,
+		0,
+		120.36267934949618,
+		36.08538015780022,
+		0,
+		120.3648680854439,
+		36.08587179493841,
+		0,
+		120.36678604042018,
+		36.08596514124355,
+		0,
+		120.36960293182585,
+		36.08649115933998,
+		0,
+		120.37154268038215,
+		36.08702274467799,
+		0,
+		120.3734044204064,
+		36.08678492176987,
+		0,
+		120.37436142988714,
+		36.08684404082956,
+		0,
+		120.377013105604,
+		36.086842457791356,
+		0,
+		120.38009289398278,
+		36.08688163355205,
+		0,
+		120.38201957633525,
+		36.08682279549587,
+		0,
+		120.38418931336183,
+		36.0868765209948,
+		0,
+		120.38580873128393,
+		36.0869645198459,
+		0,
+		120.3873739519217,
+		36.08707299695337,
+		0,
+		120.38874199137715,
+		36.08707156523946,
+		0,
+		120.391844436227,
+		36.08684240270046,
+		0,
+		120.39448669298721,
+		36.08767994092398,
+		0,
+		120.3969661195761,
+		36.08860586448224,
+		0,
+		120.39816274975603,
+		36.08874141118214,
+		0,
+		120.39914620390675,
+		36.08749966705453,
+		0,
+		120.40024446915791,
+		36.085815306058834,
+		0,
+		120.40122181636204,
+		36.084394472753914,
+		0,
+		120.40132933656541,
+		36.08305763646013,
+		0,
+		120.40143992615793,
+		36.081463137091426,
+		0,
+		120.4023149603821,
+		36.080656814023655,
+		0,
+		120.404287251041,
+		36.08007590828165,
+		0,
+		120.40663858109116,
+		36.081992723933666,
+		0,
+		120.40909322921259,
+		36.08279642157729,
+		0,
+		120.4108860107708,
+		36.08390864868731,
+		0,
+		120.4131719164948,
+		36.08690324221854,
+		0,
+		120.41499798195191,
+		36.08961731985514,
+		0,
+		120.41459552094267,
+		36.08878673252825,
+		0,
+		120.41278649158262,
+		36.08651503036329,
+		0,
+		120.41092652270507,
+		36.084307418276886,
+		0,
+		120.40907430711451,
+		36.08271804765232,
+		0,
+		120.41171167704267,
+		36.0830765139452,
+		0,
+		120.41345262890177,
+		36.082958776551784,
+		0,
+		120.4158516034506,
+		36.08322742677649,
+		0,
+		120.41827322250563,
+		36.08301103686739,
+		0,
+		120.42084869587201,
+		36.083053570045806,
+		0,
+		120.42296756692781,
+		36.083170830116444,
+		0,
+		120.42489121571923,
+		36.08384708984268,
+		0,
+		120.42602279884407,
+		36.08325167905191,
+		0,
+		120.42658975548248,
+		36.08291089609855,
+		0,
+		120.42747034953595,
+		36.082397739220596,
+		0,
+		120.42830367288165,
+		36.081933061168186,
+		0,
+		120.42894454078365,
+		36.08131453600683,
+		0,
+		120.4295128590195,
+		36.08106164518852,
+		0,
+		120.43088954983905,
+		36.08142141230929,
+		0,
+		120.4315851016213,
+		36.0816465794984,
+		0,
+		120.43252538659559,
+		36.08224747843082,
+		0,
+		120.43342097339357,
+		36.0834870395011,
+		0,
+		120.4337260460518,
+		36.08389435069293,
+		0,
+		120.43350325835333,
+		36.08452661811473,
+		0,
+		120.43372939946612,
+		36.08521364971292,
+		0,
+		120.43453440473913,
+		36.086373600638126,
+		0,
+		120.43505825566132,
+		36.08738045625619,
+		0,
+		120.43764053099034,
+		36.08794712579781,
+		0,
+		120.438179455466,
+		36.088989949911635,
+		0,
+		120.44021345811596,
+		36.08911998512458,
+		0,
+		120.4425251785528,
+		36.089919721748416,
+		0
+	];
+	const animationPositions0 = minemap.Math.Vector3.fromDegreesArrayHeights(trackPositions0);
+	const animationPositions1 = minemap.Math.Vector3.fromDegreesArrayHeights(trackPositions1);
+	const animationPositions2 = minemap.Math.Vector3.fromDegreesArrayHeights(trackPositions2);
+
+	const geometry0 = new minemap.Geometries.PolylineGeometry({
+		positions: minemap.Math.Vector3.fromDegreesArrayHeights(trackPositions0),
+		width: 10,
+		arcType: minemap.ARCTYPE.GEODESIC
+	});
+	const geometry1 = new minemap.Geometries.PolylineGeometry({
+		positions: minemap.Math.Vector3.fromDegreesArrayHeights(trackPositions1),
+		width: 10,
+		arcType: minemap.ARCTYPE.GEODESIC
+	});
+	const geometry2 = new minemap.Geometries.PolylineGeometry({
+		positions: minemap.Math.Vector3.fromDegreesArrayHeights(trackPositions2),
+		width: 10,
+		arcType: minemap.ARCTYPE.GEODESIC
+	});
+
+	const map = new minemap.Map({
+		container: 'map',
+		style: style /*球面矢量底图样式*/,
+		center: [120.35690098524475, 36.08792215919826],
+		zoom: 16 /*地图默认缩放等级*/,
+		pitch: 0 /*地图俯仰角度*/,
+		bearing: 0 /*地图旋转角度*/,
+		maxZoom: 22 /*地图最大缩放等级*/,
+		minZoom: 1 /*地图最小缩放等级*/,
+		projection: 'MERCATOR'
+	});
+	map.repaint = true;
+
+	//设置地形数据
+	map.setTerrain({
+		tiles: ['https://ol-data.minedata.cn/dem/{z}/{r}/{c}/{z}_{x}_{y}.terrain'], //瓦片服务地址
+		tileSize: 512, //瓦片大小
+		maxzoom: 14 //dem最高切分zoom，30米一般是14级；12.5米一般是16级
+	});
+
+	let carModel,
+		animationBlender,
+		currentModel = "police_car1";
+	map.on("load", function () {
+		/*添加DEM数字高程模型数据*/
+		map.addSource('3D_SOURCE', {
+			type: 'raster', //DEM的数据类型为"raster"
+			tiles: ['https://ol-data.minedata.cn/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg'], //瓦片服务地址
+			tileSize: 512 //瓦片大小
+		});
+		map.addLayer({
+			type: 'raster', //DEM的图层类型为"raster"
+			id: '3d-layer',
+			source: '3D_SOURCE',
+			minzoom: 1,
+			maxzoom: 20,
+			layout: {}
+		});
+
+		const tileset = map.addSceneComponent({
+			id: 'serve',
+			type: '3d-tiles',
+			show: true,
+			url: 'https://minedata.cn/mine-support/assets/web/support-data/3d-tiles/QD/tileset.json', // 要加载的数据
+			skipLevelOfDetail: false, //跨层调度
+			maximumScreenSpaceError: 4,
+			useMipmap: true, // 20210923 不开启useMipmap，3d-tiles 默认为 false
+			sourceLoaded: tileset => { }
+		});
+		carModel = map.addSceneComponent({
+			id: "police_car", // 唯一标识
+			position: new minemap.Math.Vector3(120.35690098524475, 36.08792215919826, 0),
+			rotation: [90, 90, 0],
+			scale: [1, 1, 1],
+			type: "3d-model",
+			data: "../data/police_car.glb",
+			castShadow: true,
+			receiveShadow: true
+		});
+		initializeGUI();
+		createTrackingPath();
+		playAnimation();
+	});
+
+	let pickTolerance = 50;
+	const params = {
+		播放速度: 1,
+		时间轴: 0,
+		暂停: pause,
+		停止: stop,
+		复位: reset,
+		拾取容差: pickTolerance,
+		"拾取并拖动模型(左键按下拖动，抬起结束)": pickAndDragModel,
+		当前拾取模型: "",
+		自由模式: free,
+		视野跟随: follow,
+		视野锁定: lock,
+		跟踪模型: "police_car1"
+	};
+
+	let timeAxis, pickAndDragButton;
+	let dragModel = false;
+	function initializeGUI() {
+		const gui = new lil.GUI({ width: 300 });
+		gui.onChange((event) => {
+			params[event.property] = event.value;
+		});
+
+		const animationMode = gui.addFolder("动画设置");
+		animationMode.open();
+		animationMode.add(params, "播放速度", 0.1, 10).onChange((value) => {
+			updateSpeed(value);
+		});
+		pauseButton = animationMode.add(params, "暂停");
+		animationMode.add(params, "停止");
+		animationMode.add(params, "复位");
+
+		const animationEdit = gui.addFolder("动画编辑");
+		timeAxis = animationEdit.add(params, "时间轴", 0, 20).onChange((value) => {
+			if (!animationBlender) {
+				return;
+			}
+
+			if (pauseButton.$button.children[0].innerText === "暂停") {
+				animationBlender.currentTime = value; // 设置当前动画运行的时间(动画起止时间差值，单位：秒)
+			} else if (pauseButton.$button.children[0].innerText === "继续") {
+				carModel.modelInstanceCollection.instances.forEach((instance) => {
+					let instancePositions;
+					switch (instance.instanceName) {
+						case "police_car1":
+							instancePositions = animationPositions0;
+							break;
+						case "police_car2":
+							instancePositions = animationPositions1;
+							break;
+						case "police_car3":
+							instancePositions = animationPositions2;
+							break;
+					}
+					if (instancePositions !== null) {
+						updateModelAnimationByTime(instance, animationBlender, value, instancePositions);
+					}
+				});
+			}
+		});
+		animationEdit.add(params, "拾取容差", 0.1, 100).onChange((value) => {
+			pickTolerance = value;
+		});
+		pickAndDragButton = animationEdit.add(params, "拾取并拖动模型(左键按下拖动，抬起结束)");
+		modelNameButton = animationEdit.add(params, "当前拾取模型");
+		modelNameButton.$widget.children[0].style.color = "red";
+		modelNameButton.disable();
+
+		const trackingModelFolder = gui.addFolder("跟踪模型");
+		trackingModelFolder.open();
+		trackingModelFolder
+			.add(params, "跟踪模型")
+			.options(["police_car1", "police_car2", "police_car3"])
+			.onChange(function (value) {
+				currentModel = value;
+				map.animationManager.animationTracking.name = currentModel;
+			});
+
+		const cameraMode = gui.addFolder("相机模式");
+		cameraMode.open();
+		cameraMode.add(params, "自由模式");
+		cameraMode.add(params, "视野跟随");
+		cameraMode.add(params, "视野锁定");
+	}
+
+	// 自由模式动画
+	function free() {
+		map.animationManager.animationTracking.enabled = false;
+	}
+
+	// 视野跟随动画
+	function follow() {
+		// 引擎自带动画跟踪配置，根据需要设置不同的效果和模式，也可以根据需求进行创建设置
+		map.animationManager.animationTracking.name = currentModel;
+		map.animationManager.animationTracking.mode = minemap.AnimationTrackingMode.FOLLOW;
+		map.animationManager.animationTracking.effect = minemap.AnimationTrackingEffects.STABLE;
+		map.animationManager.animationTracking.headingPitchRoll = new minemap.Math.HeadingPitchRoll(
+			minemap.Math.toRadians(0),
+			minemap.Math.toRadians(60),
+			0
+		);
+		map.animationManager.animationTracking.distance = 100;
+		map.animationManager.animationTracking.enabled = true;
+
+		// 自主创建动画跟踪配置
+		// map.animationManager.animationTracking = new minemap.AnimationTracking({
+		// 	distance: 100,
+		// 	effects: minemap.AnimationTrackingEffects.STABLE,
+		// 	enabled: true,
+		// 	mode: minemap.AnimationTrackingMode.FOLLOW,
+		// 	name: currentModel,
+		// 	headingPitchRoll: new minemap.Math.HeadingPitchRoll(
+		// 		minemap.Math.toRadians(0),
+		// 		minemap.Math.toRadians(60),
+		// 		0
+		// 	)
+		// });
+	}
+
+	// 视野锁定动画
+	function lock() {
+		// 引擎自带动画跟踪配置，根据需要设置不同的效果和模式，也可以根据需求进行创建设置
+		map.animationManager.animationTracking.name = currentModel;
+		map.animationManager.animationTracking.mode = minemap.AnimationTrackingMode.LOCK;
+		map.animationManager.animationTracking.effect = minemap.AnimationTrackingEffects.STABLE;
+		map.animationManager.animationTracking.headingPitchRoll = new minemap.Math.HeadingPitchRoll(
+			minemap.Math.toRadians(0),
+			minemap.Math.toRadians(60),
+			0
+		);
+		map.animationManager.animationTracking.distance = 100;
+		map.animationManager.animationTracking.enabled = true;
+
+		// 自主创建动画跟踪配置
+		// map.animationManager.animationTracking = new minemap.AnimationTracking({
+		// 	distance: 100,
+		// 	effects: minemap.AnimationTrackingEffects.PRECISE,
+		// 	enabled: true,
+		// 	mode: minemap.AnimationTrackingMode.LOCK,
+		// 	name: currentModel,
+		// 	headingPitchRoll: new minemap.Math.HeadingPitchRoll(
+		// 		minemap.Math.toRadians(0),
+		// 		minemap.Math.toRadians(6),
+		// 		0
+		// 	)
+		// });
+	}
+
+	// 创建跟踪路径
+	const animationPathPrimitives = [];
+	function createTrackingPath() {
+		// red route
+		const redRoute = new minemap.Geometries.PolylineGeometry({
+			positions: minemap.Math.Vector3.fromDegreesArrayHeights(trackPositions0),
+			width: 2,
+			arcType: minemap.ARCTYPE.GEODESIC
+		});
+
+		const redRouteMaterial = new minemap.PolylineMaterial({
+			color: "red"
+		});
+
+		const redRoutePrimitive = new minemap.Primitive({
+			geometry: redRoute,
+			material: redRouteMaterial,
+			name: "redRoutePrimitive",
+			adaptTerrain: true
+		});
+
+		animationPathPrimitives.push(map.addPrimitive(redRoutePrimitive));
+
+		// yellow route
+		const blueRoute = new minemap.Geometries.PolylineGeometry({
+			positions: minemap.Math.Vector3.fromDegreesArrayHeights(trackPositions1),
+			width: 2,
+			arcType: minemap.ARCTYPE.GEODESIC
+		});
+
+		const yellowRouteMaterial = new minemap.PolylineMaterial({
+			color: "blue"
+		});
+
+		const blueRoutePrimitive = new minemap.Primitive({
+			geometry: blueRoute,
+			material: yellowRouteMaterial,
+			name: "yellowRoutePrimitive",
+			adaptTerrain: true
+		});
+
+		animationPathPrimitives.push(map.addPrimitive(blueRoutePrimitive));
+
+		// lime route
+		const limeRoute = new minemap.Geometries.PolylineGeometry({
+			positions: minemap.Math.Vector3.fromDegreesArrayHeights(trackPositions2),
+			width: 2,
+			arcType: minemap.ARCTYPE.GEODESIC,
+		});
+
+		const limeRouteMaterial = new minemap.PolylineMaterial({
+			color: "lime"
+		});
+
+		const limeRoutePrimitive = new minemap.Primitive({
+			geometry: limeRoute,
+			material: limeRouteMaterial,
+			name: "limeRoutePrimitive",
+			adaptTerrain: true
+		});
+
+		animationPathPrimitives.push(map.addPrimitive(limeRoutePrimitive));
+	}
+
+	// 创建动画并播放
+	function playAnimation() {
+		const modelInstanceContent = {
+			id: "police_car",
+			type: "modelInstance",
+			trackIds: ["police_car1", "police_car2", "police_car3"], //实例化模型id
+			reference: "ellipsoid",
+			positions: [trackPositions0, trackPositions1, trackPositions2],
+			times: {
+				start: "2023-08-21T11:30:00.000Z",
+				end: "2023-08-21T11:30:20.000Z"
+				// "steps":[
+				// [0, 3, 5, 10, 13, 18, 21], //可选
+				// [0, 3, 5, 10, 13, 18, 21], //可选
+				// [0, 3, 5, 10, 13, 18, 21] //可选
+				// ], //可选
+			},
+			loop: "repeat", //repeat, once, none
+			autoPlay: true, // 默认:false
+			autoHeight: true
+		};
+
+		const animationJson = {
+			documnet: "Animation",
+			contents: [modelInstanceContent]
+		};
+
+		animation = map.animationManager.add(animationJson);
+
+		animation.then((values) => {
+			values.forEach((value) => {
+				animationBlender = value;
+				timeAxis.max(animationBlender.duration); // 设置时间轴最大值
+				// animationBlender.onPlay = (event) => {
+				// 	console.log("Play", event);
+				// }; // 开始播放时的回调
+				animationBlender.onPlaying = (event) => {
+					timeAxis.setValue(event.time);
+					// console.log("Playing", event);
+				}; // 播放时的回调，参数包含动画时间和模型状态
+				// animationBlender.onPause = (event) => {
+				// 	console.log("Pause", event);
+				// }; // 暂停播放时的回调
+				// animationBlender.onStop = (event) => {
+				// 	console.log("Stop", event);
+				// }; // 停止播放时的回调
+				// animationBlender.onReset = (event) => {
+				// 	console.log("Reset", event);
+				// }; // 重置播放时的回调
+			});
+		});
+	}
+
+	// 暂停、停止、复位
+	function pause() {
+		if (!animationBlender) {
+			return;
+		}
+
+		if (pauseButton.$button.children[0].innerText === "暂停") {
+			pauseButton.$button.children[0].innerText = "继续";
+			animationBlender.pause();
+		} else {
+			pauseButton.$button.children[0].innerText = "暂停";
+			animationBlender.play();
+		}
+	}
+
+	function stop() {
+		if (!animationBlender) {
+			return;
+		}
+		animationBlender.stop();
+	}
+
+	function reset() {
+		if (!animationBlender) {
+			return;
+		}
+		animationBlender.reset();
+	}
+	function updateSpeed(value) {
+		if (!animationBlender) {
+			return;
+		}
+		animationBlender.speed = value;
+	}
+
+	function pickAndDragModel() {
+		dragModel = true;
+		pickAndDragButton.$button.style.backgroundColor = "green";
+	}
+
+	const flickerMaterial = minemap.PolylineMaterial.fromType("Flicker", {
+		color: "yellow", // 颜色
+		speed: 3, // 可选，闪烁速度
+		opacity: 1.0 // 可选，透明度
+	});
+
+	let selectModelInstance, animationPositions, preGeometry, preMaterial, flickerPrimitive;
+	map.on("mousedown", (e) => {
+		if (dragModel) {
+			map.cameraController.enableInputs = false;
+			const feature = map.getFeatureByGPUPick(e.point);
+			if (feature instanceof minemap.ModelInstance) {
+				selectModelInstance = feature;
+				animationBlender.pause();
+				modelNameButton.setValue(selectModelInstance.instanceName);
+
+				let currentGeometry;
+				switch (selectModelInstance.instanceName) {
+					case "police_car1":
+						animationPositions = animationPositions0;
+						currentGeometry = geometry0;
+						flickerPrimitive = animationPathPrimitives[0];
+						break;
+					case "police_car2":
+						animationPositions = animationPositions1;
+						currentGeometry = geometry1;
+						flickerPrimitive = animationPathPrimitives[1];
+						break;
+					case "police_car3":
+						animationPositions = animationPositions2;
+						currentGeometry = geometry2;
+						flickerPrimitive = animationPathPrimitives[2];
+						break;
+				}
+
+				if (flickerPrimitive !== undefined) {
+					preGeometry = flickerPrimitive.geometry;
+					preMaterial = flickerPrimitive.material;
+					flickerPrimitive.geometry = currentGeometry;
+					flickerPrimitive.material = flickerMaterial;
+				}
+			}
+		}
+	});
+
+	map.on("mouseup", () => {
+		if (dragModel) {
+			dragModel = false;
+			selectModelInstance = undefined;
+			if (pauseButton.$button.children[0].innerText === "暂停") {
+				animationBlender.play();
+			}
+			map.cameraController.enableInputs = true;
+			modelNameButton.setValue("");
+			animationPositions = undefined;
+			if (flickerPrimitive !== undefined) {
+				flickerPrimitive.geometry = preGeometry;
+				flickerPrimitive.material = preMaterial;
+				flickerPrimitive = undefined;
+			}
+			preMaterial = undefined;
+			pickAndDragButton.$button.style.backgroundColor = "";
+		}
+	});
+
+	map.on("mousemove", function (e) {
+		if (
+			dragModel &&
+			selectModelInstance !== undefined &&
+			animationBlender !== undefined &&
+			animationPositions !== undefined
+		) {
+			const point = map.painter.getPositionByGPUPick(e.point);
+			const pickPosition = minemap.Math.Vector3.fromDegrees(point.x, point.y, point.z);
+			updateModelAnimationByPick(
+				selectModelInstance,
+				animationBlender,
+				pickPosition,
+				pickTolerance,
+				animationPositions
+			);
+		}
+	});
+
+	/**
+	 * 更新模型位置和动画运行时间
+	 * @param {SceneModel} model 模型对象
+	 * @param {AnimationBlender} blender 动画混合器对象
+	 * @param {Vector3} pickPosition 鼠标拾取点(世界坐标)
+	 * @param {number} tolerance 点吸附线容差
+	 * @param {Vector3[]} positions 轨迹点数组(世界坐标)
+	 */
+	function updateModelAnimationByPick(model, blender, pickPosition, tolerance, positions) {
+		let currentTime;
+		if (positions.length >= 2) {
+			const duration = blender.duration;
+			let minDist = Infinity;
+			// 点吸附线信息，包含吸附点索引和吸附点坐标
+			let adsorptionInformation = {
+				index: undefined,
+				point: undefined
+			};
+			let totalDist = 0;
+			let insectPointDist = 0;
+			for (let i = 1; i < positions.length; i++) {
+				// 计算拾取点到轨迹线段的投影
+				const segment = minemap.Math.Vector3.subtract(positions[i], positions[i - 1]);
+				const segmentToPoint = minemap.Math.Vector3.subtract(pickPosition, positions[i - 1]);
+				const projection =
+					minemap.Math.Vector3.dot(segmentToPoint, segment) /
+					minemap.Math.Vector3.magnitudeSquared(segment);
+				// 若投影在线段上，则计算拾取点到线段投影点的世界坐标
+				if (projection >= 0 && projection <= 1) {
+					// 计算投影点的世界坐标
+					const insectPoint = minemap.Math.Vector3.add(
+						positions[i - 1],
+						segment.multiplyScalar(projection)
+					);
+					// 计算拾取点到投影点的距离，若小于容差则吸附到该点
+					const dist = minemap.Math.Vector3.distance(pickPosition, insectPoint);
+					if (dist <= minDist && dist <= tolerance) {
+						minDist = dist;
+						adsorptionInformation.index = i;
+						adsorptionInformation.point = insectPoint;
+						insectPointDist = dist;
+					}
+				}
+				totalDist += minemap.Math.Vector3.distance(positions[i], positions[i - 1]);
+			}
+
+			if (adsorptionInformation.point !== undefined) {
+				model.position = adsorptionInformation.point;
+				// 计算投影点所对应的动画运行时间
+				currentTime = ((adsorptionInformation.index - 1) / (positions.length - 1)) * duration;
+				currentTime +=
+					(insectPointDist /
+						minemap.Math.Vector3.distance(
+							positions[adsorptionInformation.index],
+							positions[adsorptionInformation.index - 1]
+						) /
+						(positions.length - 1)) *
+					duration;
+
+				// 设置当前动画运行的时间(动画起止时间差值，单位：秒)
+				blender.currentTime = currentTime;
+			}
+		}
+	}
+
+	/**
+	 * 更新模型位置和动画运行时间
+	 * @param {SceneModel} model 模型对象
+	 * @param {AnimationBlender} blender 动画混合器对象
+	 * @param {number} currentTime 当前动画运行的时间(动画起止时间差值，单位：秒)
+	 * @param {Vector3[]} positions 轨迹点数组(世界坐标)
+	 */
+	function updateModelAnimationByTime(model, blender, currentTime, positions) {
+		const unitInterval = blender.duration / (positions.length - 1); // 计算轨迹段之间的时间间隔
+		const index = Math.floor(currentTime / unitInterval); // 计算当前时间所在的轨迹段起点索引
+		const periodOfTime = currentTime % unitInterval; // 计算当前时间在当前轨迹某一段轨迹中的时间
+		// 计算当前时间在当前轨迹段中的位置，并更新模型位置和设置动画运行时间
+		let position;
+		if (index < positions.length - 1) {
+			const direction = minemap.Math.Vector3.subtract(positions[index + 1], positions[index]).normalize();
+			position = positions[index].add(direction.multiplyScalar(periodOfTime));
+		} else {
+			position = positions[index];
+		}
+
+		model.position = position;
+		blender.currentTime = currentTime; // 设置当前动画运行的时间(动画起止时间差值，单位：秒)
+	}
+</script>
+</body>
+
+</html>

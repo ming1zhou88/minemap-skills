@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no"/>
+	<title>城市产业结构饼图标记 - MineMap + ECharts 示例</title>
+	<link rel="stylesheet" href="https://minedata.cn/nce-static/support/demo/js-3d-ultra/zh/css/demo.css">
+	<!-- 引入MineMap API插件 -->
+	<link rel="stylesheet" href="../../dist/minemap.css">
+	<script src="../../dist/minemap-dev.js"></script>
+	<!-- 引入ECharts -->
+	<script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+	<style>
+		html, body, #map {
+			margin: 0;
+			padding: 0;
+			width: 100%;
+			height: 100%;
+		}
+
+		#echarts-container {
+			position: absolute;
+			top: 0;
+			left: 0;
+			width: 100%;
+			height: 100%;
+			pointer-events: auto;
+			z-index: 1000;
+		}
+
+		.info-panel {
+			position: absolute;
+			top: 20px;
+			left: 20px;
+			background: rgba(0, 0, 0, 0.85);
+			color: white;
+			padding: 20px;
+			border-radius: 10px;
+			z-index: 2000;
+			font-family: 'Microsoft YaHei', Arial, sans-serif;
+			box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+			backdrop-filter: blur(10px);
+			border: 1px solid rgba(255, 255, 255, 0.1);
+			max-width: 350px;
+		}
+
+		.info-panel h1 {
+			margin: 0 0 15px 0;
+			font-size: 18px;
+			font-weight: bold;
+			color: #FFD700;
+			text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+		}
+
+		.info-panel .subtitle {
+			margin: 0 0 15px 0;
+			font-size: 12px;
+			color: #ccc;
+			font-style: italic;
+		}
+
+		.stats {
+			display: grid;
+			grid-template-columns: 1fr 1fr;
+			gap: 10px;
+			margin: 15px 0;
+		}
+
+		.stat-item {
+			text-align: center;
+			padding: 8px;
+			background: rgba(255, 255, 255, 0.1);
+			border-radius: 5px;
+			border: 1px solid rgba(255, 255, 255, 0.2);
+		}
+
+		.stat-number {
+			font-size: 20px;
+			font-weight: bold;
+			color: #4CAF50;
+			display: block;
+		}
+
+		.stat-label {
+			font-size: 10px;
+			color: #ccc;
+			margin-top: 2px;
+		}
+
+		.description {
+			font-size: 11px;
+			line-height: 1.4;
+			color: #ddd;
+			margin-top: 15px;
+			padding-top: 15px;
+			border-top: 1px solid rgba(255, 255, 255, 0.2);
+		}
+
+		.tech-stack {
+			margin-top: 10px;
+			font-size: 10px;
+			color: #999;
+		}
+
+		.tech-stack span {
+			display: inline-block;
+			background: rgba(33, 150, 243, 0.2);
+			color: #2196F3;
+			padding: 2px 6px;
+			border-radius: 3px;
+			margin: 2px 2px 0 0;
+			border: 1px solid rgba(33, 150, 243, 0.3);
+		}
+	</style>
+</head>
+<body>
+<div id="map"></div>
+
+<div class="info-panel">
+	<h1>城市产业结构分析</h1>
+	<div class="subtitle">饼图标记可视化示例</div>
+
+	<div class="stats">
+		<div class="stat-item">
+			<span class="stat-number">8</span>
+			<div class="stat-label">主要城市</div>
+		</div>
+		<div class="stat-item">
+			<span class="stat-number">5</span>
+			<div class="stat-label">产业类别</div>
+		</div>
+	</div>
+
+	<div class="description">
+		本示例展示了如何在地图上使用饼图标记显示各城市的产业结构分布。每个饼图代表一个城市的产业构成，包括制造业、服务业、科技业、金融业和其他产业的占比。
+	</div>
+
+	<div class="tech-stack">
+		<span>MineMap</span>
+		<span>ECharts</span>
+		<span>饼图</span>
+		<span>坐标转换</span>
+	</div>
+</div>
+
+<script>
+	/**
+	 * ========================================
+	 * MineMap + ECharts 饼图标记示例
+	 * ========================================
+	 * 本示例展示如何在地图上使用ECharts绘制饼图标记和城市标签
+	 * 适用于：产业结构分析、数据占比可视化、多维度分类展示
+	 * 
+	 * 🎯 快速上手指南：
+	 * 1. 替换API密钥：修改 minemap.key 和 minemap.solution
+	 * 2. 替换数据源：修改 cityIndustryData 数组
+	 * 3. 自定义样式：重点关注 getEChartsOption() 函数中的饼图配置
+	 * 4. 调整产业类型：修改数据中的 industries 数组来改变分类
+	 * 
+	 * 📋 核心功能模块：
+	 * 1. 地图初始化配置
+	 * 2. 城市产业数据源定义
+	 * 3. 饼图标记配置（多个饼图+城市标签）
+	 * 4. 动态标记生成与位置同步
+	 * 5. 坐标转换与实时更新
+	 * 
+	 * 🔧 自定义ECharts配置重点：
+	 * - getEChartsOption(): 饼图和标签配置（饼图样式、标签位置）
+	 * - generatePieChartSeries(): 饼图系列生成逻辑
+	 * - generateCityLabelSeries(): 城市标签系列配置
+	 * - cityIndustryData: 城市产业结构数据（各行业占比）
+	 */
+
+	// ==================== 1. 全局参数设置 ====================
+	// 【配置说明】请根据实际项目替换以下参数
+	minemap.domainUrl = "https://minedata.cn";
+	minemap.dataDomainUrl = "https://minedata.cn";
+	minemap.serverDomainUrl = "https://minedata.cn";
+	minemap.spriteUrl = "http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite";
+	minemap.serviceUrl = "https://service.minedata.cn/service";
+
+	// 【重要】请替换为您的API密钥和解决方案ID
+	minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+	minemap.solution = 11001;
+
+	// ==================== 2. 数据源定义 ====================
+	// 【数据替换区域】城市产业数据 - 请根据实际需求替换城市信息和产业结构
+	// 数据格式：{name: 城市名, coord: [经度, 纬度], industries: [{name: 产业名, value: 数值, color: 颜色}]}
+	const cityIndustryData = [
+		{
+			name: '北京',
+			coord: [116.4074, 39.9042],
+			industries: [
+				{name: '科技业', value: 35, color: '#FF6B6B'},
+				{name: '金融业', value: 25, color: '#4ECDC4'},
+				{name: '服务业', value: 20, color: '#45B7D1'},
+				{name: '制造业', value: 15, color: '#96CEB4'},
+				{name: '其他', value: 5, color: '#FFEAA7'}
+			]
+		},
+		{
+			name: '上海',
+			coord: [121.4737, 31.2304],
+			industries: [
+				{name: '金融业', value: 30, color: '#4ECDC4'},
+				{name: '制造业', value: 25, color: '#96CEB4'},
+				{name: '服务业', value: 22, color: '#45B7D1'},
+				{name: '科技业', value: 18, color: '#FF6B6B'},
+				{name: '其他', value: 5, color: '#FFEAA7'}
+			]
+		},
+		{
+			name: '深圳',
+			coord: [114.0579, 22.5431],
+			industries: [
+				{name: '科技业', value: 40, color: '#FF6B6B'},
+				{name: '制造业', value: 30, color: '#96CEB4'},
+				{name: '金融业', value: 15, color: '#4ECDC4'},
+				{name: '服务业', value: 12, color: '#45B7D1'},
+				{name: '其他', value: 3, color: '#FFEAA7'}
+			]
+		},
+		{
+			name: '广州',
+			coord: [113.2644, 23.1291],
+			industries: [
+				{name: '制造业', value: 28, color: '#96CEB4'},
+				{name: '服务业', value: 25, color: '#45B7D1'},
+				{name: '科技业', value: 22, color: '#FF6B6B'},
+				{name: '金融业', value: 18, color: '#4ECDC4'},
+				{name: '其他', value: 7, color: '#FFEAA7'}
+			]
+		},
+		{
+			name: '杭州',
+			coord: [120.1551, 30.2741],
+			industries: [
+				{name: '科技业', value: 38, color: '#FF6B6B'},
+				{name: '服务业', value: 25, color: '#45B7D1'},
+				{name: '制造业', value: 20, color: '#96CEB4'},
+				{name: '金融业', value: 12, color: '#4ECDC4'},
+				{name: '其他', value: 5, color: '#FFEAA7'}
+			]
+		},
+		{
+			name: '成都',
+			coord: [104.0665, 30.5723],
+			industries: [
+				{name: '服务业', value: 30, color: '#45B7D1'},
+				{name: '制造业', value: 25, color: '#96CEB4'},
+				{name: '科技业', value: 20, color: '#FF6B6B'},
+				{name: '金融业', value: 15, color: '#4ECDC4'},
+				{name: '其他', value: 10, color: '#FFEAA7'}
+			]
+		},
+		{
+			name: '武汉',
+			coord: [114.3054, 30.5931],
+			industries: [
+				{name: '制造业', value: 32, color: '#96CEB4'},
+				{name: '服务业', value: 28, color: '#45B7D1'},
+				{name: '科技业', value: 18, color: '#FF6B6B'},
+				{name: '金融业', value: 15, color: '#4ECDC4'},
+				{name: '其他', value: 7, color: '#FFEAA7'}
+			]
+		},
+		{
+			name: '西安',
+			coord: [108.9398, 34.3416],
+			industries: [
+				{name: '制造业', value: 30, color: '#96CEB4'},
+				{name: '科技业', value: 25, color: '#FF6B6B'},
+				{name: '服务业', value: 22, color: '#45B7D1'},
+				{name: '金融业', value: 13, color: '#4ECDC4'},
+				{name: '其他', value: 10, color: '#FFEAA7'}
+			]
+		}
+	];
+
+	// ==================== 3. 地图初始化 ====================
+	// 【地图配置】可根据需求调整地图样式、中心点、缩放级别等
+	const map = new minemap.Map({
+		container: "map",
+		style: "https://service.minedata.cn/map/solu/style/11001",
+		center: [108, 34],
+		zoom: 4.5,
+		pitch: 0,
+		bearing: 0
+	});
+
+	let echartsInstance = null;
+	let animationFrameId = null;
+	let animationFrameIds = new Set(); // 存储所有动画帧ID
+
+	// 清除所有动画帧
+	function clearAllAnimationFrames() {
+		if (animationFrameId) {
+			cancelAnimationFrame(animationFrameId);
+			animationFrameId = null;
+		}
+		animationFrameIds.forEach(id => cancelAnimationFrame(id));
+		animationFrameIds.clear();
+	}
+
+	// 使用requestAnimationFrame替代setTimeout
+	function requestAnimationFrameWithDelay(callback, delay = 0) {
+		if (delay === 0) {
+			const id = requestAnimationFrame(callback);
+			animationFrameIds.add(id);
+			return id;
+		}
+
+		const startTime = performance.now();
+
+		function frame(currentTime) {
+			if (currentTime - startTime >= delay) {
+				callback();
+			} else {
+				const id = requestAnimationFrame(frame);
+				animationFrameIds.add(id);
+			}
+		}
+
+		const id = requestAnimationFrame(frame);
+		animationFrameIds.add(id);
+		return id;
+	}
+
+	// 清理ECharts实例
+	function disposeECharts() {
+		clearAllAnimationFrames(); // 清除所有动画帧
+		if (echartsInstance) {
+			echartsInstance.dispose();
+			echartsInstance = null;
+		}
+		// 移除动态创建的容器
+		const container = document.getElementById('echarts-container');
+		if (container && container.parentNode) {
+			container.parentNode.removeChild(container);
+		}
+	}
+
+	// ==================== 4. 核心工具函数 ====================
+	// 【核心函数】地理坐标转屏幕坐标 - 实现地图与ECharts的坐标同步
+	function convertGeoToScreen(coord) {
+		const point = map.project(coord);
+		const container = document.getElementById('echarts-container');
+		const containerWidth = container.clientWidth;
+		const containerHeight = container.clientHeight;
+
+		return [point.x, point.y];
+	}
+
+	// 【数据处理】生成饼图系列 - 为每个城市创建饼图标记
+	function generatePieChartSeries() {
+		const series = [];
+
+		cityIndustryData.forEach((city, index) => {
+			const screenCoord = convertGeoToScreen(city.coord);
+			const radius = 40; // 饼图半径
+
+			// 为每个城市创建一个饼图系列
+			series.push({
+				type: 'pie',
+				name: city.name,
+				center: screenCoord,
+				radius: [0, radius],
+				data: city.industries.map(industry => ({
+					name: industry.name,
+					value: industry.value,
+					itemStyle: {
+						color: industry.color,
+						borderColor: '#fff',
+						borderWidth: 2
+					}
+				})),
+				label: {
+					show: false
+				},
+				labelLine: {
+					show: false
+				},
+				emphasis: {
+					scale: true,
+					scaleSize: 10,
+					itemStyle: {
+						shadowBlur: 10,
+						shadowOffsetX: 0,
+						shadowColor: 'rgba(0, 0, 0, 0.5)'
+					}
+				},
+				animationType: 'scale',
+				animationEasing: 'elasticOut',
+				animationDelay: index * 200
+			});
+		});
+
+		return series;
+	}
+
+	// 【数据处理】生成城市标签系列 - 在地图上显示城市名称标签
+	function generateCityLabelSeries() {
+		return {
+			type: 'scatter',
+			name: '城市标签',
+			coordinateSystem: 'cartesian2d',
+			data: cityIndustryData.map(city => {
+				const screenCoord = convertGeoToScreen(city.coord);
+				return {
+					value: [screenCoord[0], screenCoord[1] - 60], // 标签位置在饼图上方
+					name: city.name,
+					itemStyle: {
+						opacity: 0
+					}
+				};
+			}),
+			label: {
+				show: true,
+				position: 'inside',
+				formatter: '{b}',
+				fontSize: 14,
+				fontWeight: 'bold',
+				color: '#333',
+				backgroundColor: 'rgba(255, 255, 255, 0.9)',
+				borderColor: '#ddd',
+				borderWidth: 1,
+				borderRadius: 4,
+				padding: [4, 8]
+			},
+			symbolSize: 0
+		};
+	}
+
+	// 获取ECharts配置
+	function getEChartsOption() {
+		const containerWidth = document.getElementById('echarts-container').clientWidth;
+		const containerHeight = document.getElementById('echarts-container').clientHeight;
+
+		return {
+			animation: false,
+			animationDuration: 0,
+			animationEasing: 'linear',
+			useUTC: true,
+			xAxis: {
+				type: 'value',
+				show: false,
+				min: 0,
+				max: containerWidth
+			},
+			yAxis: {
+				type: 'value',
+				show: false,
+				min: 0,
+				max: containerHeight
+			},
+			grid: {
+				containLabel: false
+			},
+			series: [
+				...generatePieChartSeries(),
+				generateCityLabelSeries()
+			],
+			tooltip: {
+				trigger: 'item',
+				formatter: function (params) {
+					if (params.seriesType === 'pie') {
+						return `<strong>${params.seriesName}</strong><br/>
+                      ${params.name}: ${params.value}%<br/>
+                      占比: ${params.percent}%`;
+					}
+					return params.name;
+				},
+				backgroundColor: 'rgba(0, 0, 0, 0.8)',
+				borderColor: '#777',
+				borderWidth: 1,
+				textStyle: {
+					color: '#fff'
+				}
+			},
+			legend: {
+				show: true,
+				orient: 'vertical',
+				right: 20,
+				top: 'center',
+				data: ['科技业', '金融业', '服务业', '制造业', '其他'],
+				textStyle: {
+					color: '#333',
+					fontSize: 12
+				},
+				itemWidth: 14,
+				itemHeight: 14,
+				backgroundColor: 'rgba(255, 255, 255, 0.9)',
+				borderColor: '#ddd',
+				borderWidth: 1,
+				borderRadius: 4,
+				padding: 10
+			}
+		};
+	}
+
+	// 初始化ECharts
+	function initECharts() {
+		disposeECharts(); // 清理旧实例
+		
+		// 动态创建echarts容器并添加到minemap的canvas容器中
+		const mapCanvasContainer = map.getCanvasContainer();
+		const container = document.createElement("div");
+		container.id = "echarts-container";
+		mapCanvasContainer.appendChild(container);
+		
+		echartsInstance = echarts.init(container, null, {
+			renderer: 'canvas',
+			useDirtyRect: true,
+			useCoarsePointer: true
+		});
+		updateECharts();
+	}
+
+	// 更新ECharts
+	function updateECharts() {
+		if (echartsInstance) {
+			const option = getEChartsOption();
+			echartsInstance.setOption(option, {
+				notMerge: true,
+				lazyUpdate: true,
+				silent: true
+			});
+		}
+	}
+
+	// ==================== 7. 性能优化工具 ====================
+	// 【性能优化】防抖函数 - 限制函数调用频率，提升性能
+	function debounce(func, wait) {
+		let frameId;
+		return function executedFunction(...args) {
+			const later = () => {
+				if (frameId) {
+					animationFrameIds.delete(frameId);
+				}
+				func(...args);
+			};
+			if (frameId) {
+				cancelAnimationFrame(frameId);
+				animationFrameIds.delete(frameId);
+			}
+			frameId = requestAnimationFrameWithDelay(later, wait);
+		};
+	}
+
+	// 【性能优化】节流函数 - 控制函数执行间隔，避免频繁更新
+	function throttle(func, limit) {
+		let inThrottle;
+		return function () {
+			const args = arguments;
+			const context = this;
+			if (!inThrottle) {
+				func.apply(context, args);
+				inThrottle = true;
+				requestAnimationFrameWithDelay(() => inThrottle = false, limit);
+			}
+		};
+	}
+
+	// ==================== 8. 事件监听与初始化 ====================
+	// 【初始化】地图加载完成后初始化ECharts实例
+	map.on('load', function () {
+		initECharts();
+
+		// 监听地图变化事件 - 使用节流处理连续事件
+		const throttledUpdate = throttle(updateECharts, 16); // ~60fps
+		const debouncedUpdate = debounce(updateECharts, 100); // 最终更新
+
+		// 【地图交互】地图移动事件监听 - 实时更新图表位置
+		map.on('move', throttledUpdate);
+		// 【地图交互】地图缩放事件监听 - 响应缩放级别变化
+		map.on('zoom', throttledUpdate);
+		// 【地图交互】地图旋转事件监听 - 响应地图旋转
+		map.on('rotate', throttledUpdate);
+		// 【地图交互】地图倾斜事件监听 - 响应地图倾斜角度变化
+		map.on('pitch', throttledUpdate);
+
+		// 监听移动结束事件 - 确保最终状态准确
+		map.on('moveend', debouncedUpdate);
+		map.on('zoomend', debouncedUpdate);
+		map.on('rotateend', debouncedUpdate);
+		map.on('pitchend', debouncedUpdate);
+	});
+
+	// 监听窗口大小变化
+	window.addEventListener('resize', function () {
+		if (echartsInstance) {
+			requestAnimationFrameWithDelay(() => {
+				echartsInstance.resize();
+				updateECharts();
+			}, 50);
+		}
+	});
+
+	// 页面卸载时清理资源
+	window.addEventListener('beforeunload', function () {
+		disposeECharts();
+	});
+
+	// 页面可见性变化时暂停/恢复更新
+	document.addEventListener('visibilitychange', function () {
+		if (document.hidden) {
+			console.log('页面隐藏，暂停ECharts更新');
+		} else {
+			console.log('页面可见，恢复ECharts更新');
+			if (echartsInstance) {
+				updateECharts();
+			}
+		}
+	});
+</script>
+</body>
+</html>

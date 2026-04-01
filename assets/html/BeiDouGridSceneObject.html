@@ -1,0 +1,175 @@
+<!--
+ * @Author: lsw
+ * @Date: 2022-04-20 15:50:33
+ * @LastEditTime: 2024-10-28 16:42:26
+ * @LastEditors: liwei
+ * @Description:
+ * @FilePath: \MineMap3DEngine\demo\html\RegionGeometry.html
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8" />
+	<title>全图层北斗网格位置码对象</title>
+	<!-- demo样式文件 -->
+	<link rel="stylesheet" href="../style/demo.css" />
+	<!-- 引入MineMap API插件 -->
+	<link rel="stylesheet" href="../../dist/minemap.css" />
+	<script src="../../dist/minemap-dev.js"></script>
+	<script src="../js/lil-gui.umd.min.js"></script>
+	<style>
+		#map {
+			width: 100%;
+			height: 100%;
+		}
+	</style>
+</head>
+
+<body>
+<div id="map"></div>
+<script>
+	/**
+	 * 全局参数设置
+	 */
+
+	minemap.domainUrl = "https://minedata.cn";
+	minemap.dataDomainUrl = "https://minedata.cn";
+	minemap.serverDomainUrl = "https://minedata.cn";
+	minemap.spriteUrl = "https://minedata.cn/minemapapi/sprite/latest/sprite";
+	minemap.serviceUrl = "https://minedata.cn/service/";
+
+	minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+	minemap.solution = 11001;
+	window.minemapCDN = "https://minedata.cn/minemapapi/minemap-CDN";
+
+	// 定义空底图样式
+	var style = {
+		glyphs: "minemap://fonts/{fontstack}/{range}",
+		sprite: "minemap://sprite/sprite",
+		sources: {},
+		layers: [],
+		version: 8
+	};
+
+	/**
+	 * 初始化地图实例
+	 */
+	var map = new minemap.Map({
+		container: "map",
+		style: style,
+		/*球面矢量底图样式*/
+		position: [108.56762059267024, 38.4705585078576, 17189488.51277386],
+		pitch: 0,
+		bearing: -0.40445529184913054,
+		/*地图俯仰角度*/
+		maxZoom: 24,
+		/*地图最大缩放等级*/
+		minZoom: 1,
+		/*地图最小缩放等级*/
+		projection: "MERCATOR",
+		OIT: true,
+		logDepth: true
+	});
+	map.repaint = true;
+
+	const params = {
+		"显示": true,
+		"暂停更新": false,
+		"最高限": 3000,
+		"最低限": 0,
+		"最大显示层级": 5
+	};
+	let beiDouGrid;
+	map.on("load", function() {
+		/*添加栅格图*/
+		map.addSource("IMAGERY_SOURCE", {
+			type: "raster", //数据源类型：栅格数据源
+			tiles: ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+			tileSize: 256 //瓦片尺寸
+		});
+
+		map.addLayer({
+			id: "IMAGERY",
+			type: "raster", //图层类型为"raster"
+			source: "IMAGERY_SOURCE",
+			minzoom: 1,
+			maxzoom: 23,
+			"depth-test": true,
+			paint: {
+				"raster-opacity": 1
+			}
+		});
+		initializeGUI();
+
+		beiDouGrid = map.addSceneComponent(new minemap.BeiDouGrid({
+			maxLevel: params.maxLevel
+		}));
+	});
+
+	let popup = new minemap.Popup({
+		closeOnClick: false,
+		closeButton: false,
+		anchor: "top-left",
+		offset: [10, 5]
+	}).setHTML(
+		`<div class="minemap-popup-diy-jw toolContainer">点击获取当前位置高度</div>`
+	);
+
+	let selectBeiDouGrid;
+	map.on("click", function(e) {
+		const pos = map.getPositionByGPUPick(e.point, { ignoreNoneAllowPick: true });
+		console.log(pos);
+		selectBeiDouGrid = beiDouGrid.getPickedGridByPosition(pos);
+		if (selectBeiDouGrid) {
+			beiDouGrid.setHighlights([selectBeiDouGrid]);
+			if (popup) {
+				popup.setHTML(`<div>
+					<div>网格码id:${selectBeiDouGrid.id}</div>
+					<div>网格码level:${selectBeiDouGrid.level}</div>
+					<div>网格码边界:${JSON.stringify(selectBeiDouGrid.lngLatHeightCorners)}</div>
+					<div>网格码属性:${JSON.stringify(selectBeiDouGrid.property)}</div>
+				</div>`).setLngLat([pos[0], pos[1]]).setAltitude(pos[2]).setMaxWidth("400px");
+			}
+
+			popup.addTo(map);
+		} else {
+			beiDouGrid.clearHighlights();
+			popup.remove();
+			selectBeiDouGrid = undefined;
+		}
+	});
+
+	function initializeGUI() {
+		const sourceList = [1, 2, 3, 4, 5, 6, 7];
+		//参数控制面板
+		const gui = new lil.GUI({ title: "控制菜单" });
+		gui.add(params, "最大显示层级", sourceList).onChange(function(value) {
+			beiDouGrid.maxLevel = value;
+		});
+		gui.add(params, "显示").onChange(function(value) {
+			beiDouGrid.show = value;
+			if (value && selectBeiDouGrid) {
+				popup.addTo(map);
+			} else {
+				popup.remove();
+			}
+		});
+		gui.add(params, "暂停更新").onChange(function(value) {
+			beiDouGrid.freezeFrame = value;
+		});
+		const maxLimit = gui.add(params, "最高限", 0, 6378137 * 2).onChange(function(value) {
+			beiDouGrid.maxHeight = value;
+			if (beiDouGrid.maxHeight < beiDouGrid.minHeight) {
+				minLimit.setValue(Math.max(beiDouGrid.maxHeight - 1, 0));
+			}
+		});
+		const minLimit = gui.add(params, "最低限", 0, 6378137 * 2).onChange(function(value) {
+			beiDouGrid.minHeight = value;
+			if (beiDouGrid.maxHeight < beiDouGrid.minHeight) {
+				maxLimit.setValue(beiDouGrid.minHeight + 1);
+			}
+		});
+	}
+</script>
+</body>
+</html>

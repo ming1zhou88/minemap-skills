@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+	<title>地球自转</title>
+	<link rel="stylesheet" href="https://minedata.cn/nce-static/support/demo/js-3d-ultra/zh/css/demo.css" />
+	<script src="http://192.168.152.123:11187/demo-data/3d-ultra/js/demo.js"></script>
+	<!-- 引入MineMap API插件 -->
+	<link rel="stylesheet" href="../../dist/minemap.css" />
+	<script src="../../dist/minemap-dev.js"></script>
+	<script src="../js/lil-gui.umd.min.js"></script>
+	<style>
+		#map {
+			width: 100%;
+			height: 100%;
+		}
+	</style>
+</head>
+
+<body>
+<div id="map"></div>
+<script>
+	/**
+	 * 全局参数设置
+	 */
+	minemap.domainUrl = 'https://minemap.minedata.cn';
+	minemap.dataDomainUrl = 'https://minemap.minedata.cn';
+	minemap.serverDomainUrl = 'https://sd-data.minedata.cn';
+	minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+	minemap.serviceUrl = 'https://service.minedata.cn/service';
+
+	minemap.key = '0c6ac62182404e5ebc7a789981f6db72';
+	minemap.solution = 11001;
+
+	var style = {
+		"glyphs": "minemap://fonts/{fontstack}/{range}",
+		"sprite": "minemap://sprite/sprite",
+		"sources": {},
+		"layers": [],
+		"version": 8
+	};
+
+	/**
+	 * 初始化地图实例
+	 */
+	var map = new minemap.Map({
+		container: 'map',
+		style: 'https://service.minedata.cn/map/solu/style/1357054324561793024',
+		center: [123.4403, 42.5005], /*地图中心点*/
+		zoom: 1, /*地图默认缩放等级*/
+		pitch: 0, /*地图俯仰角度*/
+		maxZoom: 22, /*地图最大缩放等级*/
+		minZoom: 1,  /*地图最小缩放等级*/
+		projection: 'MERCATOR',
+		bearing: 0
+	});
+	window.map = map;
+	map.repaint = true;
+	/**
+	 * 添加基本球体图层，包括球体表面、天空盒、大气层
+	 *
+	 */
+	var rotationController;
+	map.on('load', function () {
+		initializeGUI();
+		rotationController = new minemap.EarthRotationControl(map, {
+			direction: 'eastToWest', // 由东向西（默认）
+			cycleTime: 5, // 转一圈时间（秒）
+			duration: 10, // 持续时间（可选，默认无限 秒）
+			autoStart: false, // 自动启动
+			onRotate: (center) => {
+				// 自转过程回调
+				console.log('当前地球位置：', center);
+			},
+			onComplete: () => {
+				// 自转完成回调
+				console.log('地球自转完成！');
+			}
+		});
+	})
+
+	const commonParams = {
+		"开始自转": function () {
+			start()
+		},
+		"停止自转": function () {
+			stop()
+		}
+	};
+	function start() {
+		rotationController.start();
+	}
+	function stop() {
+		rotationController.stop();
+	}
+	function initializeGUI() {
+		const gui = new lil.GUI({ width: 300 });
+		const common = gui.addFolder("参数");
+		common.add(commonParams, "开始自转");
+		common.add(commonParams, "停止自转");
+	}
+</script>
+</body>

@@ -1,0 +1,300 @@
+<!--
+ * @Author: liwei
+ * @Date: 2022-11-08 14:00:30
+ * @LastEditTime: 2024-10-24 20:51:37
+ * @LastEditors: liwei
+ * @Description:
+ * @FilePath: \MineMap3DEngine\demo\html\VideoProjection.html
+-->
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<title>视频投影对象</title>
+		<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+		<!-- 引入MineMap API插件 -->
+		<link rel="stylesheet" href="../../dist/minemap.css" />
+		<script src="../../dist/minemap-dev.js"></script>
+		<script type="text/javascript" src="../js/lil-gui.umd.min.js"></script>
+		<style>
+			html,
+			#map,
+			body {
+				margin: 0;
+				padding: 0;
+				width: 100%;
+				height: 100%;
+			}
+		</style>
+	</head>
+	<body>
+		<div id="map"></div>
+		<script>
+			minemap.domainUrl = "//192.168.152.123";
+			minemap.dataDomainUrl = "https://minedata.cn";
+			minemap.serverDomainUrl = "https://minedata.cn";
+			minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+			minemap.serviceUrl = "https://minedata.cn/service/";
+
+			minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+			minemap.solution = 11001;
+			window.minemapCDN = "https://minedata.cn/minemapapi/minemap-CDN";
+
+			// 定义空底图样式
+			var style = {
+				glyphs: "minemap://fonts/{fontstack}/{range}",
+				sprite: "minemap://sprite/sprite",
+				sources: {},
+				layers: [],
+				version: 8
+			};
+			var map = new minemap.Map({
+				container: "map",
+				style: style,
+				position: [120.38732990785768, 36.083710393718306, 252.7191403185773],
+				zoom: 16,
+				bearing: 0,
+				pitch: 60,
+				maxZoom: 22, //地图最大缩放级别限制
+				minZoom: 1 //地图最小缩放级别限制
+			});
+			map.repaint = true;
+
+			map.on("load", function () {
+				/*添加栅格图*/
+				map.addSource("IMAGERY_SOURCE", {
+					type: "raster", //数据源类型：栅格数据源
+					tiles: ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+					tileSize: 512 //瓦片尺寸
+				});
+
+				map.addLayer({
+					id: "IMAGERY",
+					type: "raster", //图层类型为"raster"
+					source: "IMAGERY_SOURCE",
+					minzoom: 1,
+					maxzoom: 23,
+					"depth-test": true,
+					paint: {
+						"raster-opacity": 1
+					}
+				});
+
+				window.tileset = map.addSceneComponent({
+					id: "serve2",
+					type: "3d-tiles",
+					show: true,
+					translation: new minemap.Math.Vector3(0, 0, 0),
+					url: "https://minemap.minedata.cn/earth_data/oblique/QD/tileset.json",
+					skipLevelOfDetail: false, //跨层调度
+					maximumScreenSpaceError: 8,
+				});
+
+				map.addSceneComponent({
+					id: "BIM_SOURCE", // 唯一标识
+					position: new minemap.Math.Vector3(120.39263486429525, 36.08939137185873, 50),
+					rotation: [90, -113, 0],
+					scale: [1, 1, 1],
+					type: "3d-model",
+					data: "http://192.168.152.123:11187/demo-data/bim/only-building.gltf",
+					modelFolder: "http://192.168.152.123:11187/demo-data/bim/"
+				});
+
+				createPolygon();
+				createVideoProjection();
+				initializeGUI();
+			});
+
+			const params = {
+				longitude: 120.38741358618945,
+				latitude: 36.08711278332102,
+				height: 150,
+				heading: 0,
+				pitch: 0,
+				roll: 0,
+				near: 0.1,
+				far: 150,
+				fov: 45,
+				aspect: 1920 / 1080,
+				alpha: 1,
+				enabled: true,
+				debugVideo: true,
+				"3DModel": true,
+				"3DTiles": true,
+				polygon: true,
+				raster: true
+			};
+			let videoProjection;
+
+			function createPolygon() {
+				const polygon = {
+					positions: minemap.Math.Vector3.fromDegreesArray([
+						120.38718336420422, 36.08714235693726, 120.387797467795, 36.08719384090407, 120.38808546516677,
+						36.08831583392172, 120.38716040519199, 36.08833571035091
+					])
+				};
+
+				const geometry = new minemap.Geometries.PolygonGeometry({
+					polygonHierarchy: polygon,
+					perPositionHeight: false,
+					height: 30
+				});
+
+				const material = minemap.StandardMaterial.fromType("Color", {
+					color: "blue",
+					doubleSided: true
+				});
+
+				const primitive = new minemap.Primitive({
+					geometry: geometry,
+					material: material,
+					usedVideoProjection: true //设置字段
+				});
+
+				map.addPrimitive(primitive);
+			}
+
+			function createPlayer(url) {
+				// 创建div,并添加到body中
+				const div = document.createElement("div");
+				div.style.position = "fixed";
+				div.style.left = "10px";
+				div.style.top = "10px";
+				div.style.visibility = "hidden";
+				document.body.appendChild(div);
+
+				// 创建video,并添加到div中
+				let video = document.createElement("video");
+				video.autoplay = true;
+				video.muted = true;
+				video.loop = true;
+				video.setAttribute("src", url);
+				video.crossOrigin = "anonymous";
+				div.appendChild(video);
+
+				// 返回video实例化对象
+				return video;
+			}
+
+			function createVideoProjection() {
+				const videoPlayer = createPlayer(
+					"https://minedata.cn/nce-static/support/demo/js-3d-ultra/zh/assets/xi_an_wu_ren_ji_01_10s.mp4"
+				);
+				videoProjection = new minemap.VideoProjection({
+					location: [params.longitude, params.latitude],
+					altitude: params.height,
+					aspect: params.aspect,
+					fov: params.fov,
+					alpha: params.alpha,
+					heading: params.heading,
+					pitch: params.pitch,
+					roll: params.roll,
+					near: params.near,
+					far: params.far,
+					customOptions: {}, // 自定义选项
+					used3DModel: params["3DModel"],
+					used3DTiles: params["3DTiles"],
+					usedRaster: params.raster,
+					usedPolygon: params.polygon,
+					videoTextureFun: () => {
+						return videoPlayer;
+					},
+					callback: (result) => {
+						const visible = result.target.visible;
+						if (visible) {
+							// do something
+						} else {
+							// do something
+						}
+					},
+					debugVideo: true
+				});
+				map.videoManager.add(videoProjection);
+			}
+
+			function initializeGUI() {
+				const gui = new lil.GUI({ title: "视频投影", width: 300 });
+				gui.onChange((event) => {
+					params[event.property] = event.value;
+				});
+
+				const positionFolder = gui.addFolder("位姿设置");
+				positionFolder.open();
+
+				positionFolder.add(params, "longitude", 120.387, 120.39, 0.00000001).onChange((value) => {
+					videoProjection.location = [value, videoProjection.location[1]];
+				});
+
+				positionFolder.add(params, "latitude", 36.086, 36.088, 0.00000001).onChange((value) => {
+					videoProjection.location = [videoProjection.location[0], value];
+				});
+
+				positionFolder.add(params, "height", 0, 300, 0.1).onChange((value) => {
+					videoProjection.altitude = value;
+				});
+
+				positionFolder.add(params, "heading", 0, 360, 0.1).onChange((value) => {
+					videoProjection.heading = value;
+				});
+
+				positionFolder.add(params, "pitch", 0, 180, 0.1).onChange((value) => {
+					videoProjection.pitch = value;
+				});
+
+				positionFolder.add(params, "roll", 0, 180, 0.1).onChange((value) => {
+					videoProjection.roll = value;
+				});
+
+				positionFolder.add(params, "near", 0, 100, 0.1).onChange((value) => {
+					videoProjection.near = value;
+				});
+
+				positionFolder.add(params, "far", 150, 300, 0.1).onChange((value) => {
+					videoProjection.far = value;
+				});
+
+				positionFolder.add(params, "fov", 0, 180, 0.1).onChange((value) => {
+					videoProjection.fov = value;
+				});
+
+				positionFolder.add(params, "aspect", 0, 3, 0.01).onChange((value) => {
+					videoProjection.aspect = value;
+				});
+
+				const displayFolder = gui.addFolder("显示设置");
+				displayFolder.open();
+
+				displayFolder.add(params, "alpha", 0, 1, 0.01).onChange((value) => {
+					videoProjection.alpha = value;
+				});
+
+				displayFolder.add(params, "enabled").onChange((value) => {
+					videoProjection.enabled = value;
+				});
+
+				displayFolder.add(params, "debugVideo").onChange((value) => {
+					videoProjection.debugVideo = value;
+				});
+
+				const projectionFolder = gui.addFolder("投影设置");
+				projectionFolder.open();
+
+				projectionFolder.add(params, "3DModel").onChange((value) => {
+					videoProjection.used3DModel = value;
+				});
+
+				projectionFolder.add(params, "3DTiles").onChange((value) => {
+					videoProjection.used3DTiles = value;
+				});
+
+				projectionFolder.add(params, "polygon").onChange((value) => {
+					videoProjection.usedPolygon = value;
+				});
+
+				projectionFolder.add(params, "raster").onChange((value) => {
+					videoProjection.usedRaster = value;
+				});
+			}
+		</script>
+	</body>
+</html>

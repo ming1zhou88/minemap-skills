@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+	<title>行政区划专题图</title>
+	<!-- demo样式文件 -->
+	<link rel="stylesheet" href="https://minedata.cn/nce-static/support/demo/js-3d-ultra/zh/css/demo.css" />
+	<!-- 引入MineMap API插件 -->
+
+	<link rel="stylesheet" href="https://minemap.minedata.cn/minemapapi/v4.0.0/minemap.css">
+	<!-- 换上这个就正常 -->
+<!--	<script src="https://minemap.minedata.cn/minemapapi/v4.0.0/minemap.js"></script>-->
+	<script src="../../dist/minemap-dev.js"></script>
+
+	<script src="../data/geojson/provincePositions-JS.js"></script>
+	<style>
+		#map {
+			width: 100%;
+			height: 100%;
+		}
+	</style>
+</head>
+
+<body>
+<div id="map"></div>
+<script>
+	/**
+	 * 全局参数设置
+	 */
+	minemap.domainUrl = 'https://minemap.minedata.cn';
+	minemap.dataDomainUrl = 'https://minemap.minedata.cn';
+	minemap.serverDomainUrl = 'https://sd-data.minedata.cn';
+	minemap.spriteUrl = 'https://minemap.minedata.cn/minemapapi/v4.0.0/sprite/sprite';
+	minemap.serviceUrl = 'https://service.minedata.cn/service';
+
+	minemap.key = "fe68957c8e374122a807c146bacc794d";
+	minemap.solution = 11003;
+
+	// 定义空底图样式
+	const style = {
+		glyphs: "minemap://fonts/{fontstack}/{range}",
+		sprite: "minemap://sprite/sprite",
+		sources: {},
+		layers: [],
+		version: 8
+	};
+	//用于获取鼠标移动到的要素id，要素交互时使用
+	var hoveredStateId = null;
+	var popup = null;
+
+	/**
+	 * 初始化地图实例
+	 */
+	const map = new minemap.Map({
+		container: "map",
+		style: 'https://service.minedata.cn/map/solu/style/11003' /*底图样式  使用极简风格地图，防止与当前的区县边界混淆*/,
+		position: [120.301663, 28.574729, 600000],
+		pitch: 35 /*地图俯仰角度*/,
+		bearing: 0,
+		zoom: 1,
+		maxZoom: 24 /*地图最大缩放等级*/,
+		minZoom: 1 /*地图最小缩放等级*/,
+		projection: "MERCATOR",
+		logoControl: false,
+	});
+	//鼠标样式，普通模式
+	map.getCanvas().style.cursor = 'default'
+	//缩放控件
+	map.addControl(new minemap.Navigation(), "top-right");
+	//全屏控件
+	map.addControl(new minemap.Fullscreen(), "top-right");
+	//map.repaint = true;
+
+	map.on("load", function () {
+		//解決11006地形图样式下，无法显示3D效果，此配置用于去除地形效果
+		map.setTerrain(null);
+		// 增加自定义数据源、自定义图层
+		//江苏省边界（13个地市）
+		map.addSource("jiangsu", { /*pointSource代表数据源ID，是唯一的，不能重复*/
+			"type": "geojson",   /*数据源类型*/
+			"data": "../data/geojson/jiangsu.geojson",
+			/*data参数为geojson格式的数据，支持两种结构：1、url形式，返回的结果为geojson格式；2、具体的geojson格式的数据*/
+
+			// 使用feature-state需要feature中必须含有id，如果没有，添加promoteId属性从properties中取该属性当作id
+			'promoteId': 'adcode'
+		});
+
+		const urls = ["../image/extrusion-wall-1.jpg"];
+		map.loadImages(urls, (error, images) => {
+			if (error) throw error;
+			map.addImage("extrusion-wall", images[urls[0]], { repeat: false });
+
+			/*添加建筑物数据*/
+			map.addSource("ROUGHBUILDING_SOURCE", {
+				type: "geojson",
+				data: "../data/geojson/jiangsu.geojson",
+				tileUsage: "sphere", // 瓦片用途
+				maxzoom: 22,
+			});
+
+			map.addLayer({
+				id: "ROUGHBUILDING",
+				type: "extrusion", //图层类型为"extrusion"
+				source: "ROUGHBUILDING_SOURCE",
+				minzoom: 1,
+				maxzoom: 22,
+				layout: {
+					visibility: "visible",
+				},
+				paint: {
+					"extrusion-pattern": [
+						'case',
+						['boolean', ['feature-state', 'hover'], false],
+						"extrusion-wall",
+						"extrusion-wall"
+					], // 纹理,如果需要贴图，加入此行参数
+					"extrusion-height": 0, // 高度
+					"extrusion-color": "#3b6c8c",// 颜色
+					"extrusion-base": 0, // 基础高度
+					"extrusion-opacity": 0.5, // 透明度
+					"extrusion-translate-anchor": "viewport", // 建筑物偏移锚点：值域map-正北，viewport--视野
+					// "extrusion-offset": [0, 0], // 建筑物贴图偏移
+					// "extrusion-rotation": 0, // 建筑物贴图旋转角度,单位为度,顺时针方向为正
+					// "extrusion-scale": 30.0,// 建筑物贴图缩放比例
+					// "extrusion-top-pattern": "extrusion-wall",// 顶面纹理,如果需要贴图，加入此行参数
+					// "extrusion-pattern-factor": [0, 0] // 建筑物贴图重复次数，如果此项设置为0,0，那么将会采用计算边长的实际距离进行纹理坐标计算贴图，
+					// 如果此项未设定，将会采用横纵向纹理均计算为1
+				},
+				topPatternCompatible: true
+			});
+		});
+
+		map.addLayer({
+			"id": "jiangsulineLayer",
+			"type": "line",
+			"source": "jiangsu",
+			"layout": {
+				"visibility": "visible",
+			},
+			"paint": {
+				"line-color": "#02FCFC",
+				"line-width": 1.5,
+			}
+		});
+
+		map.addLayer({
+			"id": "jsSymbolLayer",
+			"type": "symbol",
+			"source": "jiangsu",
+			"layout": {
+				"visibility": "visible",
+				"text-field": "{name}",//显示文本，动态绑定name字段
+			},
+			paint: {
+				"text-color": "#ffffff",
+			},
+			minzoom: 3,
+			maxzoom: 23,
+		});
+
+		//设置3D面效果
+		addPolygon();
+		//addLayers();
+	});
+
+	function addPolygon() {
+		const wallGeometry = minemap.Geometries.WallGeometry.fromConstantHeights({
+			positions: minemap.Math.Vector3.fromDegreesArray(provincePositions),
+			maximumHeight: 0.0,
+			minimumHeight: -20000.0
+		});
+
+		//贴纹理
+		const fenceTexture = new minemap.TextureLoader().load({ map, texUrl: "../image/extrusion-wall-highlight-1.png" });
+		var material = minemap.StandardMaterial.fromType("Texture", {
+			baseColorTexture: fenceTexture,
+			color: '#0000ff',
+			opacity: 0.7,
+			lightingModel: minemap.LightingModelType.PHONG,
+			doubleSided: false
+		})
+
+		map.addPrimitive(
+			new minemap.Primitive({
+				geometry: wallGeometry,
+				material: material
+			})
+		);
+	}
+
+
+</script>
+</body>
+
+</html>

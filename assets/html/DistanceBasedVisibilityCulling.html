@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8" />
+	<title>基于距离的可见性剔除</title>
+	<!-- demo样式文件 -->
+	<link rel="stylesheet" href="../style/demo.css" />
+	<!-- 引入MineMap API插件 -->
+	<link rel="stylesheet" href="../../dist/minemap.css" />
+	<script src="../../dist/minemap-dev.js"></script>
+	<style>
+		#map {
+			width: 100%;
+			height: 100%;
+		}
+	</style>
+</head>
+<body>
+<div id="map"></div>
+<script>
+	/**
+	 * 全局参数设置
+	 */
+	minemap.domainUrl = "https://minedata.cn";
+	minemap.dataDomainUrl = "https://minedata.cn";
+	minemap.serverDomainUrl = "https://minedata.cn";
+	minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+	minemap.serviceUrl = "https://mineservice.minedata.cn/service/";
+
+	minemap.key = "16be596e00c44c86bb1569cb53424dc9";
+	minemap.solution = 11001;
+	window.minemapCDN = 'https://minedata.cn/minemapapi/minemap-CDN'; // minemapCDN 配置
+
+	// 定义空底图样式
+	var style = {
+		glyphs: "minemap://fonts/{fontstack}/{range}",
+		sprite: "minemap://sprite/sprite",
+		sources: {},
+		layers: [],
+		version: 8
+	};
+	/**
+	 * 初始化地图实例
+	 */
+	var map = new minemap.Map({
+		container: "map",
+		style: style /*球面矢量底图样式*/,
+		center: [116.3918209754059, 39.90984826212655] /*地图中心点*/,
+		bearing: 0,
+		zoom: 15 /*地图默认缩放等级*/,
+		pitch: 0 /*地图俯仰角度*/,
+		maxZoom: 22 /*地图最大缩放等级*/,
+		minZoom: 1 /*地图最小缩放等级*/,
+		projection: "MERCATOR",
+		logDepth: true
+	});
+	map.repaint = true;
+	//设置地形数据
+	// map.setTerrain({
+	// 	"tiles": ["https://staticdata-b.minedata.cn:14434/dem/{z}/{r}/{c}/{z}_{x}_{y}.terrain"], //瓦片服务地址
+	// 	"tileSize": 512,  //瓦片大小
+	// 	"maxzoom": 14        //dem最高切分zoom，30米一般是14级；12.5米一般是16级
+	// });
+	map.enableLight();
+	map.on("load", function () {
+		map.addSource("3D_SOURCE", {
+			type: "raster", //DEM的数据类型为"raster"
+			tiles: [
+				"https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg",
+			], //瓦片服务地址
+			tileSize: 512, //瓦片大小
+		});
+		map.addLayer({
+			type: "raster", //DEM的图层类型为"raster"
+			id: "3d-layer",
+			source: "3D_SOURCE",
+			minzoom: 1,
+			maxzoom: 20,
+			layout: {},
+		});
+
+		// 添加gltf
+		map.addSceneComponent({
+			id: "trafficScene",
+			type: "3d-model",
+			data: "../data/swglb/SWTX_ALL.glb", // 要加载的gltf格式数据
+			// data: "../data/test-gltf/trangles.gltf", // 要加载的gltf格式数据
+			modelFolder: "../data/traffic/", // 该数据引用图片等资源的文件夹路径
+			scale: [1, 1, 1], // 在xyz轴方向上的缩放比例
+			rotation: [90, 0, 0], // 绕xyz轴方向上的旋转，单位为度
+			position: [116.395, 39.909, 10], // 锚点（模型局部坐标原点）的经纬度位置
+			allowPick: true,
+			distanceDisplayCondition: new minemap.DistanceDisplayCondition(1000, 10000),
+			// classificationType: minemap.ClassificationType.IGNORECLASSIFICATION,
+			loaded: () => {
+				// 模型加载完成的回调函数
+			}
+		});
+
+		map.addSceneComponent({
+			id: "treeGltf",
+			type: "3d-model",
+			show: true,
+			data: "../data/shu-max-003/shu13_new.glb",
+			positions:  [new minemap.Math.Vector3([
+				116.3918,
+				39.9098,
+				10
+			]), new minemap.Math.Vector3([
+				116.3918,
+				39.9088,
+				10
+			])],
+			rotations: [ minemap.Math.HeadingPitchRoll.fromDegrees(0, 0, 90), minemap.Math.HeadingPitchRoll.fromDegrees(0, 0, 90)],
+			scales: [new minemap.Math.Vector3([6, 8, 10]), new minemap.Math.Vector3([6, 8, 10])],
+			instanceNames: ['treeGltf1', 'treeGltf2'],
+			distanceDisplayCondition: new minemap.DistanceDisplayCondition(100, 10000),
+		});
+
+		addMarker();
+		drawBox();
+	});
+	function addMarker() {
+		var lnglat = map.getCenter();
+		var marker = new minemap.Marker({
+			color: 'red',
+			distanceDisplayCondition: new minemap.DistanceDisplayCondition(1000, 10000)
+		}).setLngLat([lnglat.lng, lnglat.lat]).setAltitude(100).addTo(map);
+		marker.setDraggable(true); //此方法可以设置marker的拖拽属性，true为可以拖拽，false为不可以拖拽
+		var draggable = marker.isDraggable()
+		var popup = new minemap.Popup({
+			closeOnClick: false,
+			closeButton: false,
+			offset: [0, -40],
+			distanceDisplayCondition: new minemap.DistanceDisplayCondition(1000, 10000)
+		}).setText(`我是默认marker，我的拖拽属性是${draggable}`)
+		marker.setPopup(popup).togglePopup();
+		popup.setAltitude(100);
+	}
+	function drawBox() {
+		const cartographicForGreen = new minemap.Math.Vector3([116.395, 39.912, 50]);
+		const matrixForGreen = minemap.Transforms.cartographicToFixedFrame(cartographicForGreen);
+
+		const greenBoxGeometry = new minemap.Geometries.BoxGeometry({
+			width: 100,
+			height: 100,
+			depth: 100
+		});
+		map.addPrimitive(
+			new minemap.Primitive({
+				modelMatrix: matrixForGreen,
+				geometry: greenBoxGeometry,
+				material: minemap.StandardMaterial.fromType("Color", {
+					color: "green",
+					opacity: 0.5,
+					doubleSided: true
+				}),
+				allowPick: true,
+				distanceDisplayCondition: new minemap.DistanceDisplayCondition(1000, 10000)
+			})
+		);
+	}
+</script>
+</body>
+</html>

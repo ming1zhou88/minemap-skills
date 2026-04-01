@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8" />
+	<title>粒子系统-水发射</title>
+	<link
+		rel="stylesheet"
+		href="../style/demo.css"
+	/>
+	<link rel="stylesheet" href="../../dist/minemap.css" />
+	<script src="../../dist/minemap-dev.js"></script>
+	<script src="../js/lil-gui.umd.min.js"></script>
+	<style>
+		#map {
+			width: 100%;
+			height: 100%;
+		}
+	</style>
+</head>
+<body>
+<div id="map"></div>
+<script>
+	/**
+	 * 全局参数设置
+	 */
+	minemap.domainUrl = "https://minedata.cn";
+	minemap.dataDomainUrl = "https://minedata.cn";
+	minemap.serverDomainUrl = "https://minedata.cn";
+	minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+	minemap.serviceUrl = "https://minedata.cn/service/";
+
+	minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+	minemap.solution = 11001;
+	window.minemapCDN = "https://minedata.cn/minemapapi/minemap-CDN";
+
+	// 定义空底图样式
+	var style = {
+		glyphs: "minemap://fonts/{fontstack}/{range}",
+		sprite: "minemap://sprite/sprite",
+		sources: {},
+		layers: [],
+		version: 8
+	};
+
+	/**
+	 * 初始化地图实例
+	 */
+	var map = new minemap.Map({
+		container: "map",
+		style: style,
+		/*球面矢量底图样式*/
+		position: [108.9607594956354, 34.21819059315598, 10.283513220452917],
+		/*地图中心点*/
+		bearing: -51.85538546707883,
+		/*地图默认缩放等级*/
+		pitch: 77.66770894469668,
+		/*地图俯仰角度*/
+		maxZoom: 22,
+		/*地图最大缩放等级*/
+		minZoom: 1,
+		/*地图最小缩放等级*/
+		projection: "MERCATOR"
+	});
+	map.repaint = true;
+
+	map.on("load", function () {
+		/*添加栅格图*/
+		map.addSource("IMAGERY_SOURCE", {
+			type: "raster", //数据源类型：栅格数据源
+			tiles: ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+			tileSize: 512 //瓦片尺寸
+		});
+
+		map.addLayer({
+			id: "IMAGERY",
+			type: "raster", //图层类型为"raster"
+			source: "IMAGERY_SOURCE",
+			minzoom: 1,
+			maxzoom: 23,
+			paint: {
+				"raster-opacity": 1
+			}
+		});
+
+		const texture = minemap.TextureLoader.load({ map, texUrl: "../image/triangle_curve.png" });
+		const modelMatrix = minemap.Transforms.cartographicToFixedFrame(new minemap.Math.Vector3([108.9605960470355, 34.21830728693849, 0]));
+		// 构建粒子系统
+		const fountainSystem = new minemap.ParticleSystem({
+			modelMatrix: modelMatrix, // 模型矩阵
+			duration: 5, // 粒子系统持续时间，单位为秒
+			looping: true, // 粒子系统是否应在持续时间后循环
+			// 从指向上方的锥形发出
+			shape: new minemap.ConeEmitter({
+				radius: 0.5, // 锥形发射半径
+				angle: Math.PI / 12, // 向上喷射的角度较窄
+				thickness: 0.2, // 大部分是从中心附近发射的
+				arc: Math.PI * 2, // 全圆发射
+			}),
+
+			// 发射100个粒子/秒
+			emissionOverTime: new minemap.ParticleFunctions.ConstantValue(100),
+			// 初始化粒子属性
+			startLife: new minemap.ParticleFunctions.IntervalValue(2, 3), // 粒子的初始寿命（秒）
+			startSpeed: new minemap.ParticleFunctions.IntervalValue(10, 15), // 粒子初始速度
+			startSize: new minemap.ParticleFunctions.ConstantValue(0.2), // 粒子初始大小，单位为米
+			startColor: new minemap.ParticleFunctions.ConstantColor(new minemap.Math.Vector4(0.5, 0.7, 1.0, 1.0)), // 粒子初始颜色
+
+			// 渲染设置
+			worldSpace: true, // 粒子使用世界空间坐标
+			// 粒子材质
+			material: new minemap.BasicMaterial({
+				baseColorMap: texture,
+				transparent: true,
+				doubleSided: true,
+			}),
+
+			// 控制粒子演化的行为
+			behaviors: [
+				// 施加重力使粒子下落
+				new minemap.ParticleBehaviors.ApplyForce(new minemap.Math.Vector3(0, -9.8, 0), new minemap.ParticleFunctions.ConstantValue(1)),
+
+				// 在快到达生命周期尽头时渐渐消失
+				new minemap.ParticleBehaviors.ColorOverLife(
+					new minemap.ParticleFunctions.Gradient(
+						[
+							[new minemap.Math.Vector3(0.5, 0.7, 1.0), 0],
+							[new minemap.Math.Vector3(0.5, 0.7, 1.0), 0.8],
+							[new minemap.Math.Vector3(0.5, 0.7, 1.0), 1],
+						],
+						[
+							[1, 0],
+							[1, 0.8],
+							[0, 1],
+						],
+					),
+				),
+
+				// 在生命周期中轻微变化大小
+				new minemap.ParticleBehaviors.SizeOverLife(new minemap.ParticleFunctions.PiecewiseBezier([[new minemap.ParticleFunctions.Bezier(1, 1.2, 0.8, 0), 0]])),
+			],
+		});
+		// 添加粒子系统到地图
+		map.addParticleSystem(fountainSystem);
+
+		// 5秒后移除粒子系统
+		// setTimeout(() => {
+		// 	map.removeParticleSystem(fountainSystem);
+		// }, 10000);
+	});
+
+</script>
+</body>
+</html>

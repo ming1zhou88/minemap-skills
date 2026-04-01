@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+		<title>Sky Atmosphere</title>
+		<script src="../js/lil-gui.umd.min.js"></script>
+		<link rel="stylesheet" href="../../dist/minemap.css" />
+		<script src="../../dist/minemap-dev.js"></script>
+		<style>
+			html,
+			body,
+			#map {
+				margin: 0;
+				padding: 0;
+				width: 100%;
+				height: 100%;
+				font-size: 12px;
+			}
+		</style>
+	</head>
+	<body>
+		<div id="map"></div>
+		<script>
+			// 地图初始化
+			minemap.domainUrl = "https://minemap.minedata.cn";
+			minemap.dataDomainUrl = "https://minemap.minedata.cn";
+			minemap.serverDomainUrl = "https://sd-data.minedata.cn";
+			minemap.spriteUrl = "http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite";
+			minemap.serviceUrl = "https://service.minedata.cn/service";
+			minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+			minemap.solution = 11001;
+			window.minemapCDN = "http://192.168.152.123/minemap-engine/minemap-CDN/";
+			const style = {
+				glyphs: "minemap://fonts/{fontstack}/{range}",
+				sprite: "minemap://sprite/sprite",
+				sources: {},
+				layers: [],
+				version: 8
+			};
+			const map = new minemap.Map({
+				container: "map",
+				style: style,
+				center: [116.26531978613971, 40.05753009943292],
+				pitch: 85,
+				bearing: -65,
+				zoom: 12,
+				maxZoom: 22,
+				minZoom: 1
+			});
+			map.repaint = true;
+			map.on("load", function () {
+				initializeGUI();
+				addRasterLayer();
+			});
+
+			// 开启光影
+			map.enableLight();
+
+			const { sunLight: sunLight } = map.getLights();
+			const skyAtmosphere = map.getSky();
+			// 光影参数
+			const commonParams = {
+				enableLight: true,
+				enableSkyAtmosphere: true
+			};
+			const sunParams = {
+				year: 2024,
+				month: 6,
+				day: 6,
+				hours: 10,
+				minutes: 0,
+				seconds: 0,
+				castShadow: true,
+				intensity: 1,
+				autoRotate: false,
+				autoRotateSpeed: 1
+			};
+			const skyParams = {
+				useAerialPerspective: false,
+				useSunDisk: true,
+				useAerialPerspectiveLUT: true,
+				useSkyViewLUT: true,
+				groundHeight: 6.36e6,
+				atmosphereHeight: 6.42e6,
+				rayleighDistribution: 8.0e3,
+				mieDistribution: 1.2e3,
+				ozoneDistributionHeight: 25.0e3,
+				ozoneDistributionWidth: 15.0e3,
+				rayleighScatteringCoefficientR: 3.8e-6,
+				rayleighScatteringCoefficientG: 13.5e-6,
+				rayleighScatteringCoefficientB: 33.1e-6,
+				mieScatteringCoefficient: 3.996e-6,
+				mieAbsorptionCoefficient: 4.44e-6,
+				ozoneAbsorptionCoefficientR: 0.65e-6,
+				ozoneAbsorptionCoefficientG: 1.881e-6,
+				ozoneAbsorptionCoefficientB: 0.085e-6
+			};
+
+			map.setSunLightTime(sunParams);
+
+			function initializeGUI() {
+				const gui = new lil.GUI({ width: 300 });
+				const common = gui.addFolder("Common");
+				const sun = gui.addFolder("Sun Light");
+				const sky = gui.addFolder("Sky");
+
+				common.close();
+				common.add(commonParams, "enableLight").onChange((value) => {
+					if (value) map.enableLight();
+					else map.disableLight();
+				});
+				common.add(commonParams, "enableSkyAtmosphere").onChange((value) => {
+					if (value) map.enableSkyAtmosphere();
+					else map.disableSkyAtmosphere();
+				});
+
+				sun.close();
+				sun.add(sunParams, "month")
+					.min(1)
+					.max(12)
+					.step(1)
+					.onChange((value) => {
+						map.setSunLightTime(sunParams);
+					});
+				sun.add(sunParams, "day")
+					.min(1)
+					.max(30)
+					.step(1)
+					.onChange((value) => {
+						map.setSunLightTime(sunParams);
+					});
+				sun.add(sunParams, "hours")
+					.min(0)
+					.max(23)
+					.step(1)
+					.onChange((value) => {
+						map.setSunLightTime(sunParams);
+					});
+				sun.add(sunParams, "minutes")
+					.min(0)
+					.max(59)
+					.step(1)
+					.onChange((value) => {
+						map.setSunLightTime(sunParams);
+					});
+				sun.add(sunParams, "castShadow").onChange((value) => {
+					sunLight.castShadow = value;
+				});
+				sun.add(sunParams, "intensity")
+					.min(0)
+					.max(5)
+					.step(0.1)
+					.onChange((value) => {
+						sunLight.intensity = value;
+					});
+				sun.add(sunParams, "autoRotate").onChange((value) => {
+					if (value) {
+						runRotate();
+					} else {
+						stopRotate();
+					}
+				});
+				sun.add(sunParams, "autoRotateSpeed")
+					.min(0.1)
+					.max(5)
+					.step(0.01)
+					.onChange((value) => {});
+
+				sky.open();
+				sky.add(skyParams, "useAerialPerspectiveLUT").onChange((value) => {
+					skyAtmosphere.useAerialPerspectiveLUT = value;
+				});
+				sky.add(skyParams, "useSkyViewLUT").onChange((value) => {
+					skyAtmosphere.useSkyViewLUT = value;
+				});
+				sky.add(skyParams, "useAerialPerspective").onChange((value) => {
+					skyAtmosphere.useAerialPerspective = value;
+				});
+				sky.add(skyParams, "useSunDisk").onChange((value) => {
+					skyAtmosphere.useSunDisk = value;
+				});
+				sky.add(skyParams, "groundHeight", 5e6, 10e6, 1e2).onChange((value) => {
+					skyAtmosphere.setProps({ groundHeight: value });
+				});
+				sky.add(skyParams, "atmosphereHeight", 5e6, 10e6, 1e2).onChange((value) => {
+					skyAtmosphere.setProps({ atmosphereHeight: value });
+				});
+				sky.add(skyParams, "rayleighDistribution", 1e3, 50e3, 1e2).onChange((value) => {
+					skyAtmosphere.setProps({ rayleighDistribution: value });
+				});
+				sky.add(skyParams, "mieDistribution", 1e3, 50e3, 1e2).onChange((value) => {
+					skyAtmosphere.setProps({ mieDistribution: value });
+				});
+				sky.add(skyParams, "ozoneDistributionHeight", 1e3, 50e3, 1e2).onChange((value) => {
+					const newValue = new minemap.Math.Vector2(value, skyAtmosphere.ozoneDistribution[1]);
+					skyAtmosphere.setProps({ ozoneDistribution: newValue });
+				});
+				sky.add(skyParams, "ozoneDistributionWidth", 1e3, 50e3, 1e2).onChange((value) => {
+					const newValue = new minemap.Math.Vector2(skyAtmosphere.ozoneDistribution[0], value);
+					skyAtmosphere.setProps({ ozoneDistribution: newValue });
+				});
+				sky.add(skyParams, "rayleighScatteringCoefficientR", 0, 2e-4, 0.1e-6).onChange((value) => {
+					const newValue = new minemap.Math.Vector3(
+						value,
+						skyAtmosphere.rayleighScatteringCoefficient[1],
+						skyAtmosphere.rayleighScatteringCoefficient[2]
+					);
+					skyAtmosphere.setProps({ rayleighScatteringCoefficient: newValue });
+				});
+				sky.add(skyParams, "rayleighScatteringCoefficientG", 0, 2e-4, 0.1e-6).onChange((value) => {
+					const newValue = new minemap.Math.Vector3(
+						skyAtmosphere.rayleighScatteringCoefficient[0],
+						value,
+						skyAtmosphere.rayleighScatteringCoefficient[2]
+					);
+					skyAtmosphere.setProps({ rayleighScatteringCoefficient: newValue });
+				});
+				sky.add(skyParams, "rayleighScatteringCoefficientB", 0, 2e-4, 0.1e-6).onChange((value) => {
+					const newValue = new minemap.Math.Vector3(
+						skyAtmosphere.rayleighScatteringCoefficient[0],
+						skyAtmosphere.rayleighScatteringCoefficient[1],
+						value
+					);
+					skyAtmosphere.setProps({ rayleighScatteringCoefficient: newValue });
+				});
+				sky.add(skyParams, "mieScatteringCoefficient", 0, 2e-4, 0.1e-6).onChange((value) => {
+					skyAtmosphere.setProps({ mieScatteringCoefficient: value });
+				});
+				sky.add(skyParams, "mieAbsorptionCoefficient", 0, 2e-4, 0.1e-6).onChange((value) => {
+					skyAtmosphere.setProps({ mieAbsorptionCoefficient: value });
+				});
+				sky.add(skyParams, "ozoneAbsorptionCoefficientR", 0, 2e-4, 0.1e-6).onChange((value) => {
+					const newValue = new minemap.Math.Vector3(
+						value,
+						skyAtmosphere.ozoneAbsorptionCoefficient[1],
+						skyAtmosphere.ozoneAbsorptionCoefficient[2]
+					);
+					skyAtmosphere.setProps({ ozoneAbsorptionCoefficient: newValue });
+				});
+				sky.add(skyParams, "ozoneAbsorptionCoefficientG", 0, 2e-4, 0.1e-6).onChange((value) => {
+					const newValue = new minemap.Math.Vector3(
+						skyAtmosphere.ozoneAbsorptionCoefficient[0],
+						value,
+						skyAtmosphere.ozoneAbsorptionCoefficient[2]
+					);
+					skyAtmosphere.setProps({ ozoneAbsorptionCoefficient: newValue });
+				});
+				sky.add(skyParams, "ozoneAbsorptionCoefficientB", 0, 2e-4, 0.1e-6).onChange((value) => {
+					const newValue = new minemap.Math.Vector3(
+						skyAtmosphere.ozoneAbsorptionCoefficient[0],
+						skyAtmosphere.ozoneAbsorptionCoefficient[1],
+						value
+					);
+					skyAtmosphere.setProps({ ozoneAbsorptionCoefficient: newValue });
+				});
+			}
+
+			function addRasterLayer() {
+				map.setTerrain({
+					tiles: ["https://staticdata-b.minedata.cn:14434/dem/{z}/{r}/{c}/{z}_{x}_{y}.terrain"],
+					availabilities: ["https://staticdata-b.minedata.cn:14434/dem/layer.json"],
+					tileSize: 512,
+					maxzoom: 14
+				});
+
+				map.addSource("IMAGERY_SOURCE", {
+					type: "raster", //数据源类型：栅格数据源
+					tiles: ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+					tileSize: 256 //瓦片尺寸
+				});
+
+				map.addLayer({
+					id: "IMAGERY",
+					type: "raster", //图层类型为"raster"
+					source: "IMAGERY_SOURCE",
+					minzoom: 1,
+					maxzoom: 23
+				});
+			}
+
+			let prevTime = performance.now(),
+				autoRotate = false;
+
+			function runRotate() {
+				autoRotate = true;
+				prevTime = performance.now();
+				requestAnimationFrame(animation);
+			}
+
+			function stopRotate() {
+				autoRotate = false;
+			}
+
+			function updateTime(delta) {
+				const currentTime = sunLight.getTime();
+				const newTime = currentTime + delta * (sunParams.autoRotateSpeed * 1000);
+				sunLight.setTime(newTime);
+			}
+
+			function updateHeight(time) {
+				map.setCameraHeight((1.0 - Math.cos(time / 2.0)) * 65000);
+			}
+
+			function animation(time) {
+				if (autoRotate) {
+					const deltaTime = time - prevTime;
+					prevTime = time;
+					updateTime(deltaTime);
+					requestAnimationFrame(animation);
+				}
+			}
+		</script>
+	</body>
+</html>

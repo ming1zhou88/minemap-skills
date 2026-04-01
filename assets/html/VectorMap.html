@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no"/>
+	<title>球体矢量图层</title>
+	<!-- 引入MineMap API插件 -->
+	<link rel="stylesheet" href="../../dist/minemap.css">
+	<script src="../../dist/minemap-dev.js"></script>
+	<style>
+		html, body, #map {
+			margin: 0;
+			padding: 0;
+			width: 100%;
+			height: 100%;
+		}
+	</style>
+</head>
+<body>
+<div id="map"></div>
+<script>
+	/**
+	 * 全局参数设置
+	 */
+	minemap.domainUrl = 'https://minemap.minedata.cn';
+	minemap.dataDomainUrl = 'https://minemap.minedata.cn';
+	minemap.serverDomainUrl = 'https://sd-data.minedata.cn';
+	minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+	minemap.serviceUrl = 'https://service.minedata.cn/service';
+
+	minemap.key = '0c6ac62182404e5ebc7a789981f6db72';
+	minemap.solution = 11001;
+	window.minemapCDN = 'http://192.168.152.123/minemapapi/minemap-CDN';
+	/**
+	 * 初始化地图实例
+	 */
+	var style = {
+		"glyphs": "minemap://fonts/{fontstack}/{range}",
+		"sprite": "minemap://sprite/sprite",
+		"sources": {},
+		"layers": [],
+		"version": 8
+	};
+
+	var map = new minemap.Map({
+		container: 'map',
+		style: '../data/11001.json', /*底图样式*/
+		position: [116.33342043168734, 39.93432774869108, 310.5583231340631],
+		pitch: 60.746528467040996,
+		bearing: -11.81984379780748,
+		maxZoom: 20, /*地图最大缩放等级*/
+		minZoom: 0,  /*地图最小缩放等级*/
+		projection: 'MERCATOR'
+	});
+
+	map.repaint = false;
+	map.enableLight()
+	map.enableShadow()
+	map.setShadowType(minemap.ShadowType.SHADOW_MAP_PCF)
+	// 矢量地图上使用大气透视效果或许会觉得不合适，可以通过以下操作关闭大气透视
+	map.getSky().useAerialPerspective = false;
+</script>
+</body>

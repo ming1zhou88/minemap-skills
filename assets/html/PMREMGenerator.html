@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no"/>
+	<title>三维模型浏览工具</title>
+	<!-- demo样式文件 -->
+	<link rel="stylesheet" href="../style/demo.css">
+	<!-- 引入MineMap API插件 -->
+	<link rel="stylesheet" href="https://minemap.minedata.cn/minemapapi/v4.0.0/minemap.css">
+
+	<script src="../../dist/minemap-dev.js"></script>
+	<script src="../js/lil-gui.umd.min.js"></script>
+
+	<link rel="stylesheet" href="../lib/jquery/ztree/css/demo.css">
+	<link rel="stylesheet" href="../lib/jquery/ztree/css/metroStyle/metroStyle.css"/>
+
+	<script type="text/javascript" src="../lib/jquery/jquery-3.6.0.js"></script>
+	<script type="text/javascript" src="../lib/jquery/ztree/js/jquery.ztree.all.min.js"></script>
+
+	<style>
+		#map {
+			width: 100%;
+			height: 100%;
+		}
+
+		.zTreeDemoBackground {
+			position: absolute;
+			left: 10px;
+			top: 60px;
+			z-index: 99999;
+			width: 300px !important;
+			height: calc(100% - 100px) !important;
+		}
+
+		.ztree {
+			width: 100% !important;
+			height: 100% !important;
+		}
+
+		.toolContainer {
+			position: absolute;
+			top: 0;
+			left: 0;
+			z-index: 999;
+			background-color: white;
+		}
+	</style>
+</head>
+
+<body>
+
+<div id="map"></div>
+
+<script>
+	var data = [];
+
+
+	var lastPrimitive = null;
+
+
+	/**
+	 * 全局参数设置
+	 */
+	minemap.domainUrl = 'https://minemap.minedata.cn';
+	minemap.dataDomainUrl = 'https://minemap.minedata.cn';
+	minemap.serverDomainUrl = 'https://sd-data.minedata.cn';
+	minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+	minemap.serviceUrl = 'https://service.minedata.cn/service';
+
+	minemap.key = '0c6ac62182404e5ebc7a789981f6db72';
+	minemap.solution = 11001;
+
+	// 定义空底图样式
+	var style = {
+		"glyphs": "minemap://fonts/{fontstack}/{range}",
+		"sprite": "minemap://sprite/sprite",
+		"sources": {},
+		"layers": [],
+		"version": 8
+	};
+
+	window.minemapCDN = 'https://minemap.minedata.cn/minemapapi/minemap-CDN'; // minemapCDN 配置
+
+	var center = [116.46323356550803, 39.919378786463];
+
+	/**
+	 * 初始化地图实例
+	 */
+	var map = new minemap.Map({
+		container: 'map',
+		style: style, /*球面矢量底图样式*/
+		position: [116.46554748624092, 39.91912545624521, 44.517034891989674],
+		pitch: 90.3786557479508,
+		bearing: -84.6186548328772,
+		maxZoom: 22, /*地图最大缩放等级*/
+		minZoom: 1,  /*地图最小缩放等级*/
+		projection: 'MERCATOR',
+		MSAASamples: 4,
+	});
+
+	map.repaint = true;
+	map.enableLight();
+	// 设置地形数据
+	// map.setTerrain({
+	// 	tiles: ["https://staticdata-b.minedata.cn:14434/dem/{z}/{r}/{c}/{z}_{x}_{y}.terrain"], //瓦片服务地址
+	// 	tileSize: 512, //瓦片大小
+	// 	maxzoom: 14 //dem最高切分zoom，30米一般是14级；12.5米一般是16级
+	// });
+
+	map.on('load', function () {
+		/*添加栅格图*/
+		map.addSource("IMAGERY_SOURCE", {
+			"type": "raster",
+			"tiles": ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+			"tileSize": 512,//瓦片尺寸
+		});
+
+		map.addLayer({
+			"id": "IMAGERY",
+			"type": "raster",
+			"source": "IMAGERY_SOURCE",
+			"minzoom": 1,
+			"maxzoom": 23,
+		});
+		lngLat = map.getCenter();
+
+		addModel();
+	})
+
+
+	function addModel() {
+		// 添加glb
+		const bimModel = map.addSceneComponent({
+			id: "key",
+			type: "3d-model", // 数据类型为“3d-model”
+			data: "../data/house/dae_diorama_-_eco_house.glb",
+			modelFolder: "../data/knife/",
+			scale: [10, 10, 10], // 在xyz轴方向上的缩放比例
+			rotation: [90, 0, 0], // 绕xyz轴方向上的旋转，单位为度
+			position: [...center, 0], // 锚点（模型局部坐标原点）的经纬度位置
+			lightingModel: minemap.LightingModelType.PBR,
+			activeAnimation: true,
+			accurateBounding: true
+		});
+
+	}
+</script>
+</body>
+
+</html>

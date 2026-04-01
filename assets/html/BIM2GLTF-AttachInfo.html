@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+	<title>BIM模型转换附加模式</title>
+	<!-- demo样式文件 -->
+	<link rel="stylesheet" href="../style/demo.css">
+	<!-- 引入MineMap API插件 -->
+	<link rel="stylesheet" href="https://minemap.minedata.cn/minemapapi/v4.0.0/minemap.css">
+
+	<script src="http://192.168.152.123/minemap-engine/v4.0.0/minemap.js"></script>
+	<script src="../js/lil-gui.umd.min.js"></script>
+
+	<link rel="stylesheet" href="../lib/jquery/ztree/css/demo.css">
+	<link rel="stylesheet" href="../lib/jquery/ztree/css/metroStyle/metroStyle.css" />
+
+	<script type="text/javascript" src="../lib/jquery/jquery-3.6.0.js"></script>
+	<script type="text/javascript" src="../lib/jquery/ztree/js/jquery.ztree.all.min.js"></script>
+
+	<style>
+		#map {
+			width: 100%;
+			height: 100%;
+		}
+
+		.zTreeDemoBackground {
+			position: absolute;
+			left: 10px;
+			top: 60px;
+			z-index: 99999;
+			width: 300px !important;
+			height: calc(100% - 100px) !important;
+		}
+
+		.ztree {
+			width: 100% !important;
+			height: 100% !important;
+		}
+
+		.toolContainer {
+			position: absolute;
+			top: 0;
+			left: 0;
+			z-index: 999;
+			background-color: white;
+		}
+
+		#modelInfoPanel {
+			position: absolute;
+			top: 160px;
+			right: 10px;
+			width: 400px;
+			height: 45%;
+			background-color: rgba(255, 255, 255, 0.9);
+			padding: 10px;
+			border-radius: 5px;
+			box-shadow: 0 0 5px rgba(0, 0, 0, 0.3);
+			display: none;
+			overflow: auto;
+			z-index: 1000;
+		}
+
+		.div-table {
+			display: table;
+			width: 100%;
+			border-collapse: collapse;
+			font-size: 12px;
+		}
+
+		.div-row {
+			display: table-row;
+		}
+
+		.div-cell,
+		.div-head {
+			display: table-cell;
+			border: 1px solid #ddd;
+			padding: 4px;
+			cursor: pointer;
+			word-break: break-all;
+		}
+
+		.div-head {
+			font-weight: bold;
+			background-color: #eee;
+			position: sticky;
+			top: 0;
+			z-index: 1;
+		}
+
+		.div-row:not(.header-row):hover {
+			background-color: #f0f0f0;
+		}
+
+		.div-row.selected {
+			background-color: #e0e0ff;
+		}
+
+		#propertyPanel {
+			position: absolute;
+			bottom: 10px;
+			right: 10px;
+			width: 400px;
+			height: 45%;
+			background-color: rgba(255, 255, 255, 0.9);
+			padding: 10px;
+			border-radius: 5px;
+			box-shadow: 0 0 5px rgba(0, 0, 0, 0.3);
+			display: none;
+			overflow-y: auto;
+			z-index: 1000;
+		}
+
+		#propertyPanel h3 {
+			margin: 0 0 10px 0;
+			border-bottom: 1px solid #ddd;
+			padding-bottom: 5px;
+			font-size: 16px;
+		}
+
+		.prop-item {
+			margin-bottom: 5px;
+			display: flex;
+			font-size: 13px;
+		}
+
+		.prop-label {
+			font-weight: bold;
+			width: 100px;
+			flex-shrink: 0;
+			margin-right: 10px;
+		}
+
+		.prop-value {
+			word-break: break-all;
+		}
+	</style>
+</head>
+
+<body>
+	<div class="zTreeDemoBackground">
+		<ul id="tree" class="ztree"></ul>
+	</div>
+
+	<div id="map"></div>
+	<div id="modelInfoPanel"></div>
+	<div id="propertyPanel"></div>
+
+	<script>
+		var data = [];
+
+		function onCheck(event, treeId, treeNode) {
+
+			modelTree[treeNode.id].show = treeNode.checked
+
+			modelTree[treeNode.id].visible = treeNode.checked
+
+			if (treeNode.checked) {
+				modelTree[treeNode.id].visibility = "visible";
+			}
+			else {
+				modelTree[treeNode.id].visibility = "none";
+			}
+		}
+
+		var lastPrimitive = null;
+
+		function onClick(event, treeId, treeNode) {
+
+			const primitive = modelTree[treeNode.id];
+
+			if (lastPrimitive != null && lastPrimitive["oldColor"] != null) {
+				lastPrimitive.color = lastPrimitive["oldColor"]
+			}
+
+			if (primitive instanceof minemap.Primitive) {
+				if (primitive._material && primitive._material.baseColor) {
+					primitive["oldColor"] = primitive._material.baseColor.clone();
+				}
+				else {
+					primitive["oldColor"] = primitive.color.clone();
+				}
+				primitive.color = [1.0, 0.0, 0.0, 0.7]; //选中部分，设置高亮颜色
+				lastPrimitive = primitive;
+
+				controller.setValue(primitive.properties.name);
+
+				if (primitive.parent && primitive.parent.properties && primitive.parent.properties.name) {
+					const guid = primitive.parent.properties.name;
+					// highlightTableRow(guid);
+
+					// 查找对应的属性
+					const item = currentModelProps.find(i => i.guid === guid);
+
+					let html = '<h3>属性信息</h3>';
+					if (item) {
+						for (let key in item) {
+							html += `<div class="prop-item"><div class="prop-label">${key}</div><div class="prop-value">${item[key]}</div></div>`;
+						}
+					} else {
+						html += `<div>未找到GUID: ${guid}</div>`;
+					}
+					$("#propertyPanel").html(html).show();
+				}
+			}
+		}
+
+		function highlightTableRow(guid) {
+			$("#modelInfoPanel .div-row").removeClass("selected");
+			const row = $(`#modelInfoPanel .div-row[data-guid='${guid}']`);
+			if (row.length > 0) {
+				row.addClass("selected");
+				// Scroll to row
+				const panel = $("#modelInfoPanel");
+				panel.scrollTop(row.offset().top - panel.offset().top + panel.scrollTop());
+			}
+		}
+
+		var setting = {
+			view: {
+				selectedMulti: true
+			},
+			check: {
+				enable: true,
+			},
+			data: {
+				simpleData: {
+					enable: true,//是否采用简单数据模式
+					idKey: "id",//树节点ID名称
+					pIdKey: "pid",//父节点ID名称
+					// rootPId: -1,//根节点ID
+				}
+			},
+			callback: {
+				onCheck: onCheck,
+				onClick: onClick
+				// beforeCheck: beforeCheck
+			}
+		};
+
+		$.fn.zTree.init($("#tree"), setting, data);//初始化树节点时，添加同步获取的数据
+
+		/**
+		 * 全局参数设置
+		 */
+		minemap.domainUrl = 'https://minemap.minedata.cn';
+		minemap.dataDomainUrl = 'https://minemap.minedata.cn';
+		minemap.serverDomainUrl = 'https://sd-data.minedata.cn';
+		minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+		minemap.serviceUrl = 'https://service.minedata.cn/service';
+
+		minemap.key = '0c6ac62182404e5ebc7a789981f6db72';
+		minemap.solution = 11001;
+
+		// 定义空底图样式
+		var style = {
+			"glyphs": "minemap://fonts/{fontstack}/{range}",
+			"sprite": "minemap://sprite/sprite",
+			"sources": {},
+			"layers": [],
+			"version": 8
+		};
+		window.minemapCDN = 'https://minemap.minedata.cn/minemapapi/minemap-CDN'; // minemapCDN 配置
+
+		var center = [116.46323356550803, 39.919378786463];
+
+		/**
+		 * 初始化地图实例
+		 */
+		var map = new minemap.Map({
+			container: 'map',
+			style: style, /*球面矢量底图样式*/
+			center, /*地图中心点*/
+			bearing: 0,
+			zoom: 16, /*地图默认缩放等级*/
+			pitch: 60, /*地图俯仰角度*/
+			maxZoom: 22, /*地图最大缩放等级*/
+			minZoom: 1,  /*地图最小缩放等级*/
+			projection: 'MERCATOR',
+			MSAASamples: 4,
+		});
+
+		map.repaint = true;
+		map.enableLight();
+
+
+		const modelList = {
+			"Schependomlaan": 0,
+		};
+		const modelOptions = [
+			{
+				key: "Schependomlaan",
+				data: "http://192.168.152.123:11187/demo-data/bim2gltf/Schependomlaan.gltf",
+				modelFolder: "http://192.168.152.123:11187/demo-data/bim2gltf/",
+				modelInfo: "http://192.168.152.123:11187/demo-data/bim2gltf/Schependomlaan_props.json",
+				scale: [1, 1, 1]
+			}
+		];
+		const defaultModel = "Schependomlaan";
+		let controller;
+		let currentIndex = modelList[defaultModel];
+		initializeGUI();
+
+		var dataJson = [];
+		var lngLat;
+
+		map.on('load', function () {
+			/*添加栅格图*/
+			map.addSource("IMAGERY_SOURCE", {
+				"type": "raster",
+				"tiles": ["http://192.168.152.227:18105/raster/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+				"tileSize": 512,//瓦片尺寸
+				"maxzoom": 15
+			});
+
+			map.addLayer({
+				"id": "IMAGERY",
+				"type": "raster",
+				"source": "IMAGERY_SOURCE",
+				"minzoom": 1,
+				"maxzoom": 23,
+			});
+			lngLat = map.getCenter();
+
+			addModel(modelOptions[currentIndex]);
+		})
+
+		var modelTree = {};
+		var currentModelProps = [];
+
+		function addModel(options) {
+			// 加载属性数据
+			if (options.modelInfo) {
+				$.getJSON(options.modelInfo, function (data) {
+					currentModelProps = data;
+					// renderModelInfoTable(data);
+				});
+			} else {
+				currentModelProps = [];
+				$("#modelInfoPanel").hide();
+			}
+
+			// 添加glb
+			const bimModel = map.addSceneComponent({
+				id: options.key,
+				type: "3d-model", // 数据类型为“3d-model”
+				data: options.data,
+				modelFolder: options.modelFolder,
+				scale: options.scale || [10, 10, 10], // 在xyz轴方向上的缩放比例
+				rotation: [90, 0, 0], // 绕xyz轴方向上的旋转，单位为度
+				position: [...center, 50], // 锚点（模型局部坐标原点）的经纬度位置
+				lightingModel: minemap.LightingModelType.PBR,
+				activeAnimation: true,
+				accurateBounding: true,
+				loaded: loaded
+			});
+
+			function loaded() {
+
+				map.flyTo({
+					target: bimModel,
+					bearing: 0,
+					pitch: 0,
+					duration: 2000,
+					range: 100
+				});
+
+				dataJson.push({
+					pid: -1,
+					id: 0,
+					name: options.key,
+					open: true
+				})
+
+				modelTree[0] = bimModel
+
+				for (var j = 0; j < bimModel._gltfJson.scene.nodes.length; j++) {
+					// 模型部件层次化加载
+					var nodeP = bimModel._gltfJson.scene.nodes[j]
+
+					var nodeIdP = dataJson.length
+
+					dataJson.push({
+						pid: 0,
+						id: nodeIdP,
+						name: nodeP.properties.name,
+						open: true,
+						checked: true,
+						nocheck: !!nodeP.isJoint
+					})
+					modelTree[nodeIdP] = nodeP
+
+					getNodeChildren(nodeP, nodeIdP, dataJson);
+				}
+
+				$.fn.zTree.init($("#tree"), setting, dataJson);
+
+			};
+		}
+
+		function renderModelInfoTable(data) {
+			if (!data || data.length === 0) {
+				$("#modelInfoPanel").hide();
+				return;
+			}
+
+			// 获取所有可能的key
+			let keySet = new Set();
+			data.forEach(item => Object.keys(item).forEach(k => keySet.add(k)));
+			// guid放第一列
+			let keys = Array.from(keySet).filter(k => k !== 'guid');
+			if (keySet.has('guid')) keys.unshift('guid');
+
+			let html = '<h3 style="position:sticky;top:0;background:white;z-index:2;margin-top:0;">ModelInfo 列表</h3><div class="div-table"><div class="div-row header-row">';
+			keys.forEach(key => {
+				html += `<div class="div-head">${key}</div>`;
+			});
+			html += '</div>';
+
+			data.forEach(item => {
+				const guid = item.guid || '';
+				html += `<div class="div-row" data-guid="${guid}">`;
+				keys.forEach(key => {
+					html += `<div class="div-cell">${item[key] !== undefined ? item[key] : ''}</div>`;
+				});
+				html += '</div>';
+			});
+			html += '</div>';
+
+			$("#modelInfoPanel").html(html).show();
+
+			// 绑定点击事件
+			$("#modelInfoPanel .div-row[data-guid]").click(function () {
+				const guid = $(this).attr("data-guid");
+				interactByGuid(guid);
+			});
+		}
+
+		function interactByGuid(guid) {
+			// 1. 在树中查找
+			const nodeData = dataJson.find(n => n.name === guid);
+			if (nodeData) {
+				const treeObj = $.fn.zTree.getZTreeObj("tree");
+				const treeNode = treeObj.getNodeByParam("id", nodeData.id);
+				if (treeNode) {
+					treeObj.selectNode(treeNode);
+					// 触发树的点击逻辑，实现高亮和属性显示
+					onClick(null, "tree", treeNode);
+				}
+			} else {
+				console.warn("Guid not found in model tree:", guid);
+			}
+		}
+
+		function getNodeChildren(node, pid, dataJson) {
+
+			for (var i = 0; i < node.children.length; i++) {
+				var nodeChild = node.children[i]
+				var nodeId = dataJson.length
+
+				dataJson.push({
+					pid: pid,
+					id: nodeId,
+					name: nodeChild.properties.name,
+					// open: true,
+					checked: true,
+					nocheck: !!nodeChild.isJoint
+				})
+
+				modelTree[nodeId] = nodeChild
+				if (nodeChild.children.length > 0) {
+					getNodeChildren(nodeChild, nodeId, dataJson)
+				}
+			}
+		}
+
+		var instance;
+		var rotationX = 0;
+		map.on("click", function (e) {
+			const instance = map.getFeatureByGPUPick(e.point);
+
+			if (lastPrimitive != null && lastPrimitive["oldColor"] != null) {
+				lastPrimitive.color = lastPrimitive["oldColor"]
+				lastPrimitive = null;
+			}
+
+			if (instance instanceof minemap.Primitive) {
+				const primitive = instance
+
+				if (primitive) {
+					if (primitive._material && primitive._material.baseColor) {
+						primitive["oldColor"] = primitive._material.baseColor.clone();
+					}
+					else {
+						primitive["oldColor"] = primitive.color.clone();
+					}
+					primitive.color = [1.0, 0.0, 0.0, 0.7]; //选中部分，设置高亮颜色
+					lastPrimitive = primitive;
+
+					console.log(primitive.properties);
+
+					controller.setValue(primitive.properties.name);
+
+					if (primitive.parent && primitive.parent.properties && primitive.parent.properties.name) {
+						const guid = primitive.parent.properties.name;
+						// 查找对应的属性
+						const item = currentModelProps.find(i => i.guid === guid);
+
+						let html = '<h3>属性信息</h3>';
+						if (item) {
+							for (let key in item) {
+								html += `<div class="prop-item"><div class="prop-label">${key}</div><div class="prop-value">${item[key]}</div></div>`;
+							}
+						} else {
+							html += `<div>未找到GUID: ${guid}</div>`;
+						}
+						$("#propertyPanel").html(html).show();
+					}
+				}
+			} else {
+				$("#propertyPanel").hide();
+			}
+		});
+
+		function initializeGUI() {
+			const gui = new lil.GUI({ width: 300 });
+			const props = {
+				"数据列表": defaultModel,
+				"ModelInfo": modelOptions[currentIndex].modelInfo,
+				"部件名称": ''
+			};
+
+			gui.add(props, "数据列表", modelList).onChange(function (event) {
+				removeModel(modelOptions[currentIndex].key);
+				currentIndex = event;
+
+				// 更新显示的ModelInfo
+				props["ModelInfo"] = modelOptions[currentIndex].modelInfo;
+				modelInfoController.updateDisplay();
+
+				addModel(modelOptions[currentIndex]);
+			});
+			const modelInfoController = gui.add(props, "ModelInfo").disable();
+			controller = gui.add(props, "部件名称");
+		}
+
+		function removeModel(key) {
+			if (map.getSceneComponent(key)) {
+				map.removeSceneComponent(key);
+			}
+			dataJson = [];
+			lastPrimitive = null;
+		}
+
+	</script>
+</body>
+
+</html>

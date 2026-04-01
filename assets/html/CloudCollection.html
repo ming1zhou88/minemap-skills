@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8" />
+	<title>局部单体实例化云</title>
+	<link
+		rel="stylesheet"
+		href="../style/demo.css"
+	/>
+	<link
+		rel="stylesheet"
+		href="https://minemap.minedata.cn/minemapapi/v3.4.0/minemap.css"
+	/>
+	<script src="../../dist/minemap-dev.js"></script>
+	<script src="../js/lil-gui.umd.min.js"></script>
+	<style>
+		#map {
+			width: 100%;
+			height: 100%;
+		}
+	</style>
+</head>
+<body>
+<div id="map"></div>
+<script>
+	/**
+	 * 全局参数设置
+	 */
+	minemap.domainUrl = "https://minedata.cn";
+	minemap.dataDomainUrl = "https://minedata.cn";
+	minemap.serverDomainUrl = "https://minedata.cn";
+	minemap.spriteUrl = "http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite";
+	minemap.serviceUrl = "https://minedata.cn/service/";
+
+	minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+	minemap.solution = 11001;
+	window.minemapCDN = "https://minedata.cn/minemapapi/minemap-CDN";
+
+	// 定义空底图样式
+	var style = {
+		glyphs: "minemap://fonts/{fontstack}/{range}",
+		sprite: "minemap://sprite/sprite",
+		sources: {},
+		layers: [],
+		version: 8
+	};
+
+	/**
+	 * 初始化地图实例
+	 */
+	var map = new minemap.Map({
+		container: "map",
+		style: style,
+		position: [116.03898150837098, 40.10578658198666, 2943.796215105384],
+		pitch: 80.96105001484179, /*地图俯仰角度*/
+		bearing: -27.35623634633208, /*地图偏航角度*/
+		/*地图俯仰角度*/
+		maxZoom: 22,
+		/*地图最大缩放等级*/
+		minZoom: 1,
+		/*地图最小缩放等级*/
+		projection: "MERCATOR",
+	});
+	map.repaint = true;
+	const clouds = [];
+
+	// 动画状态（requestAnimationFrame）
+	let cloudAnimationRafId = null;
+	let cloudAnimationLastTime = null;
+	const CLOUD_EAST_SPEED_M_PER_SEC = 20; // 米/秒：数值越大移动越快
+
+	function stopCloudAnimation() {
+		if (cloudAnimationRafId != null) {
+			cancelAnimationFrame(cloudAnimationRafId);
+			cloudAnimationRafId = null;
+		}
+		cloudAnimationLastTime = null;
+	}
+
+	// 计算给定笛卡尔坐标下的局部 East 单位向量（基于 ENU->FixedFrame 矩阵）
+	function getEastUnitVectorAtCartesian(p) {
+		// minemap.Transforms.eastNorthUpToFixedFrame 返回 4x4 矩阵（列主序，列为轴向量）
+		// 第 0 列是 East， 第 1 列是 North， 第 2 列是 Up， 第 3 列是平移。
+		const m = minemap.Transforms.eastNorthUpToFixedFrame(p);
+		if (!m) return new minemap.Math.Vector3(1, 0, 0);
+
+		let ex = m[0], ey = m[1], ez = m[2];
+		const len = Math.sqrt(ex * ex + ey * ey + ez * ez);
+		if (!isFinite(len) || len === 0) return new minemap.Math.Vector3(1, 0, 0);
+		return new minemap.Math.Vector3(ex / len, ey / len, ez / len);
+	}
+
+	function stepCloudAnimation(timestamp) {
+		if (!cloudParams.animate) {
+			stopCloudAnimation();
+			return;
+		}
+
+		if (cloudAnimationLastTime == null) {
+			cloudAnimationLastTime = timestamp;
+		}
+		const dtSec = Math.max(0, (timestamp - cloudAnimationLastTime) / 1000);
+		cloudAnimationLastTime = timestamp;
+
+		const d = CLOUD_EAST_SPEED_M_PER_SEC * dtSec;
+		for (let i = 0; i < clouds.length; i++) {
+			const cloud = clouds[i];
+			if (!cloud || cloud.show === false) continue;
+
+			const p = cloud.position;
+			const east = getEastUnitVectorAtCartesian(p);
+			cloud.position = new minemap.Math.Vector3(
+				p.x + east.x * d,
+				p.y + east.y * d,
+				p.z + east.z * d
+			);
+		}
+
+		cloudAnimationRafId = requestAnimationFrame(stepCloudAnimation);
+	}
+
+	function startCloudAnimation() {
+		// 幂等：避免重复启动多个 RAF 循环
+		if (cloudAnimationRafId != null) return;
+		cloudAnimationLastTime = null;
+		cloudAnimationRafId = requestAnimationFrame(stepCloudAnimation);
+	}
+
+	map.on("load", function () {
+		/*添加栅格图*/
+		map.addSource("IMAGERY_SOURCE", {
+			type: "raster", //数据源类型：栅格数据源
+			tiles: ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+			tileSize: 512 //瓦片尺寸
+		});
+
+		map.addLayer({
+			id: "IMAGERY",
+			type: "raster", //图层类型为"raster"
+			source: "IMAGERY_SOURCE",
+			minzoom: 1,
+			maxzoom: 23,
+			paint: {
+				"raster-opacity": 1
+			},
+		});
+
+		map.setTerrain({
+			tiles: [
+				"https://ol-data.minedata.cn/dem/{z}/{r}/{c}/{z}_{x}_{y}.terrain?key=anonymous_user_key"
+			], //瓦片服务地址
+			availabilities: ["https://ol-data-inner.minedata.cn:14435/dem/layer.json?key=anonymous_user_key"],
+			tileSize: 512, //瓦片大小
+			maxzoom: 14 //dem最高切分zoom，30米一般是14级；12.5米一般是16级
+			// bounds: [130, 60, 140, 70],//要显示区域的经纬度外包框，按west，south，east，north填写
+		});
+
+		createClouds();
+
+		initializeGUI();
+	});
+
+	const cloudParams = {
+		show: true,
+		partialShow: true,
+		animate: false,
+		"加载云": createClouds,
+		"全部删除": removeClouds
+	};
+
+	function createClouds() {
+		if(clouds.length > 0) {
+			return;
+		}
+		for(let i = 0; i < 20; i++){
+			// 添加单体云
+			clouds[i] = map.cloudCollection.add({
+				position: minemap.Math.Vector3.fromDegrees(115.9733 + 0.1 * (Math.random() * 2 - 1) , 40.20299 + 0.1 * (Math.random() * 2 - 1), 1300), // 云的位置
+				scale: new minemap.Math.Vector2(3000 + 1000 * Math.random(), 500 + 100 * Math.random()), // 云的实际大小缩放比例，以米为单位
+				maximumSize: new minemap.Math.Vector3(50, 15, 13), // 云朵出现的边界尺寸，影响云朵的形状，改变z（本质上改变形状纹理采样位置）会对外观有较大影响
+				slice: Math.max(Math.min(Math.random(), 0.7), 0.2), // 云的切片位置，0-1之间，控制基于云朵在 z 方向上的最大尺寸。低于设定值0.2可能会导致横截面过小，从而露出椭球体的边缘。同样，高于设定值0.7 则会导致云团显得过小
+			})
+		}
+
+		// 如果开启了动画，确保云加载后开始跑（幂等）
+		if (cloudParams.animate) {
+			startCloudAnimation();
+		}
+	}
+
+	function removeClouds() {
+		// 删除云时同步停止动画，避免 RAF 持续访问已移除对象
+		cloudParams.animate = false;
+		stopCloudAnimation();
+
+		map.cloudCollection.removeAll();
+		clouds.length = 0;
+	}
+
+	function initializeGUI() {
+		const gui = new lil.GUI();
+		const cloudFolder = gui.addFolder("实例化云参数设置");
+
+		cloudFolder.add(cloudParams, "show").name("全部显隐").onChange((value) => {
+			map.cloudCollection.show = value;
+		});
+
+		cloudFolder.add(cloudParams, "partialShow").name("部分显隐").onChange((value) => {
+			for(let i = 0;i < clouds.length;i=i+2) {
+				clouds[i].show = value;
+			}
+		});
+
+		cloudFolder.add(cloudParams, "animate").name("动画").onChange((value) => {
+			if (value) {
+				startCloudAnimation();
+			} else {
+				stopCloudAnimation();
+			}
+		});
+
+		cloudFolder.add(cloudParams, "加载云");
+
+		cloudFolder.add(cloudParams, "全部删除");
+
+		cloudFolder.open();
+	}
+</script>
+</body>
+</html>

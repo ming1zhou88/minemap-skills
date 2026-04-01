@@ -1,0 +1,188 @@
+<!--
+ * @FileDescription:
+ * @Author: weipeng@cennavi.com.cn
+ * @Date: 2022-11-10 09:51:42
+ * @LastEditors: weipeng@cennavi.com.cn
+ * @LastEditTime: 2022-11-10 11:22:22
+ * @FilePath: \新建文件夹\transformRequest.html
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8"/>
+	<meta
+		name="viewport"
+		content="initial-scale=1,maximum-scale=1,user-scalable=no"
+	/>
+	<title>transformRequest问题</title>
+
+	<script src="../../dist/minemap-dev.js"></script>
+	<style>
+		html,
+		body {
+			overflow: hidden;
+			margin: 0;
+			padding: 0;
+			width: 100%;
+			height: 100%;
+		}
+
+		#map {
+			width: 100%;
+			height: 100%;
+		}
+	</style>
+</head>
+<body>
+<div id="mapCompare"></div>
+<div id="map"></div>
+<script>
+	/**
+	 * 全局参数设置
+	 */
+	minemap.domainUrl = "https://minemap.minedata.cn";
+	minemap.serverDomainUrl = "https://sd-data.minedata.cn";
+	minemap.solution = 11001;
+	window.minemapCDN = "http://192.168.153.116:18111/minemapapi/minemap-CDN";
+
+	// 定义空底图样式
+	var style = {
+		center: [121.45164911852152, 35.89553307190154],
+		zoom: 1.5,
+		pitch: 0.20669999999552965,
+		bearing: 7.937279999828319,
+		maxZoom: 23,
+		minZoom: 0,
+		style: {
+			version: 8,
+			sprite: "minemap://sprite/sprite",
+			glyphs: "minemap://fonts/{fontstack}/{range}",
+			sources: {
+				// dem
+				"basemap-dem": {
+					maxzoom: 24,
+					minzoom: 3,
+					tileSize: 512,
+					tiles: [
+						"http://10.130.200.244/raster/{z}/{r}/{c}/{z}_{x}_{y}.jpg",
+					],
+					type: "raster",
+				},
+				// 矢量
+				"basemap-vector-merge": {
+					tiles: [
+						"http://10.130.200.244/service/data/mvt-layer/merge/{z}/{r}/{c}/{z}_{x}_{y}.pbf",
+					],
+					type: "vector",
+				},
+				// 3d-tiles
+				"basemap-3d-tiles": {
+					url: "http://10.52.0.217:30808/qingdao/oblique/tileset.json",
+					type: "3d-tiles",
+					maxzoom: 24,
+					minzoom: 3,
+					loadSiblings: true,
+					log: false,
+					maxRequests: 6,
+					maximumMemoryUsage: 64,
+					maximumScreenSpaceError: 16,
+					pickable: true,
+					skipLevelOfDetail: true,
+					skipLevels: 1,
+					throttleRequests: true,
+				},
+			},
+			layers: [
+				{
+					id: "basemap-dem",
+					maxzoom: 24,
+					minzoom: 3,
+					source: "basemap-dem",
+					type: "raster",
+				},
+				{
+					id: "basemap-vector",
+					source: "basemap-vector-merge",
+					"source-layer": "world_continent_name",
+					type: "symbol",
+					layout: {
+						"text-field": "{name}",
+						"text-size": 10,
+					},
+					paint: {
+						"text-color": "#ffffff",
+						"text-halo-color": "#ffffff",
+					},
+				},
+				{
+					id: "basemap-3d-tiles",
+					maxzoom: 24,
+					minzoom: 3,
+					source: "basemap-3d-tiles",
+					type: "3d-tiles",
+				},
+			],
+		},
+	};
+	const map = new minemap.Map({
+		container: "map",
+		...style,
+		transformRequest: (url, type) => {
+			console.log(url, type);
+			if (type === "Tile" || type === "Source") {
+				const urlObj = new URL(url);
+				urlObj.searchParams.set("key", 123456);
+				// return {
+				// 	url: urlObj.href,
+				// };
+				return {
+					url: urlObj.href,
+					headers: {
+						Authorization: "token123456",
+					}
+				};
+			}
+			return {
+				url,
+			};
+		},
+	});
+
+	//设置地形数据
+	map.setTerrain({
+		"tiles": ["https://staticdata-b.minedata.cn:14434/dem/{z}/{r}/{c}/{z}_{x}_{y}.terrain"], //瓦片服务地址
+		"tileSize": 512,  //瓦片大小
+		"maxzoom": 14        //dem最高切分zoom，30米一般是14级；12.5米一般是16级
+	});
+
+	map.on("load", () => {
+		// 3d-model
+		map.addLayer({
+			id: "basemap-3d-model",
+			source: {
+				data: "http://10.52.0.217:30808/qingdao/3dmodel/siweituxin_single/building.gltf",
+				modelFolder:
+					"http://10.52.0.217:30808/qingdao/3dmodel/siweituxin_single/assets/BIMWithLabel/",
+				location: [120.34785916257701, 36.155249404956855],
+				type: "3d-model",
+				maxzoom: 18,
+				minzoom: 10,
+			},
+			type: "3d-model",
+			usePBR: false,
+		});
+
+		// geojson
+		map.addLayer({
+			id: "basemap-geojson",
+			source: {
+				type: "geojson",
+				data: 'http://192.168.153.116:18080/test/nwj/line-string.json'
+			},
+			type: "line",
+		});
+
+	});
+</script>
+</body>
+</html>

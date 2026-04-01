@@ -1,0 +1,104 @@
+<!--
+ * @Author: liwei
+ * @Date: 2023-04-03 15:36:40
+ * @LastEditTime: 2023-06-08 17:54:21
+ * @LastEditors: liwei
+ * @Description:
+ * @FilePath: \MineMap3DEngine\demo\html\EarthCrate.html
+-->
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+	<title>内发光效果</title>
+	<link rel="stylesheet" href="../style/demo.css">
+	<!-- 引入MineMap API插件 -->
+	<link rel="stylesheet" href="../../dist/minemap.css">
+	<script src="../../dist/minemap-dev.js"></script>
+	<script src="../js/lil-gui.umd.min.js"></script>
+	<style>
+		#map {
+			width: 100%;
+			height: 100%;
+		}
+	</style>
+</head>
+
+<body>
+<div id="map"></div>
+<script>
+	/**
+	 * 全局参数设置
+	 */
+	minemap.domainUrl = 'https://minemap.minedata.cn';
+	minemap.dataDomainUrl = 'https://minemap.minedata.cn';
+	minemap.serverDomainUrl = 'https://sd-data.minedata.cn';
+	minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+	minemap.serviceUrl = 'https://service.minedata.cn/service';
+
+	minemap.key = '0c6ac62182404e5ebc7a789981f6db72';
+	minemap.solution = 11001;
+
+	// 定义空底图样式
+	var style = {
+		"glyphs": "minemap://fonts/{fontstack}/{range}",
+		"sprite": "minemap://sprite/sprite",
+		"sources": {},
+		"layers": [],
+		"version": 8
+	};
+	var map = new minemap.Map({
+		container: 'map',
+		style,
+		center: [117.173528, 31.865383],
+		zoom: 2,
+		pitch: 0,
+		maxZoom: 19,
+		minZoom: 1,
+		projection: 'MERCATOR',
+	});
+
+	map.repaint = true;
+
+	map.on('load', function () {
+		initializeGUI();
+		map.addSource("IMAGERY_SOURCE", {
+			"type": "raster",
+			"tiles": ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"],
+			"tileSize": 512,
+		});
+
+		map.addLayer({
+			"id": "IMAGERY",
+			"type": "raster",
+			"source": "IMAGERY_SOURCE",
+			"minzoom": 0,
+			"maxzoom": 23,
+		});
+	})
+
+	const commonParams = {
+		"开启内发光": function () {
+			open()
+		},
+		"关闭内发光": function () {
+			close()
+		}
+	};
+	function open() {
+		map.setInnerGlow(true);
+	}
+	function close() {
+		map.setInnerGlow(false);
+	}
+	function initializeGUI() {
+		const gui = new lil.GUI({ width: 300 });
+		const common = gui.addFolder("参数");
+		common.add(commonParams, "开启内发光");
+		common.add(commonParams, "关闭内发光");
+	}
+
+</script>
+</body>

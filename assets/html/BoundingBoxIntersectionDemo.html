@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>包围盒求交检测示例</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="../js/lil-gui.umd.min.js"></script>
+    <script src="../../dist/minemap-dev.js"></script>
+    <link rel="stylesheet" href="../../dist/minemap.css" />
+    <style>
+        html,
+        body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+
+        .info-panel {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: Arial, sans-serif;
+            font-size: 14px;
+            max-width: 300px;
+            z-index: 1000;
+        }
+
+        .intersection-result {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 3px;
+            font-weight: bold;
+        }
+
+        .intersecting {
+            background-color: rgba(255, 0, 0, 0.3);
+            color: #ff6666;
+        }
+
+        .not-intersecting {
+            background-color: rgba(0, 255, 0, 0.3);
+            color: #66ff66;
+        }
+
+        .info-panel h3 {
+            margin-top: 0;
+            color: #333;
+        }
+
+        .result-item {
+            display: flex;
+            justify-content: space-between;
+            margin: 8px 0;
+            padding: 5px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+        }
+
+        .result-value {
+            font-weight: bold;
+            color: #007bff;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="map"></div>
+    <div class="info-panel">
+        <h3>相交检测结果</h3>
+        <div class="result-item">
+            <span>红盒子 ↔ 蓝盒子:</span>
+            <span id="box1-box2-util" class="result-value">-</span>
+        </div>
+        <div class="result-item">
+            <span>红盒子 ↔ 绿球体:</span>
+            <span id="box1-sphere-util" class="result-value">-</span>
+        </div>
+        <div class="result-item">
+            <span>蓝盒子 ↔ 绿球体:</span>
+            <span id="box2-sphere-util" class="result-value">-</span>
+        </div>
+    </div>
+
+
+    <script>
+		/**
+		 * 全局参数设置
+		 */
+		minemap.domainUrl = 'https://minemap.minedata.cn';
+		minemap.dataDomainUrl = 'https://minemap.minedata.cn';
+		minemap.serverDomainUrl = 'https://sd-data.minedata.cn';
+		minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+		minemap.serviceUrl = 'https://service.minedata.cn/service';
+
+		minemap.key = '0c6ac62182404e5ebc7a789981f6db72';
+		minemap.solution = 11001;
+
+		// 定义空底图样式
+		var style = {
+			"glyphs": "minemap://fonts/{fontstack}/{range}",
+			"sprite": "minemap://sprite/sprite",
+			"sources": {},
+			"layers": [],
+			"version": 8
+		};
+
+        const map = new minemap.Map({
+            container: 'map',
+            style,
+            center: [116, 39.9093],
+            zoom: 15,
+            pitch: 45,
+            bearing: 0
+        });
+
+        // 等待地图加载完成
+        map.on('load', function () {
+			/*添加卫星影像数据*/
+			map.addSource("3D_SOURCE", {
+				type: "raster", //DEM的数据类型为"raster"
+				tiles: [
+					"https://ol-data-inner.minedata.cn:14435/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg?key=anonymous_user_key"
+				], //瓦片服务地址
+				tileSize: 512 //瓦片大小
+			});
+			map.addLayer({
+				type: "raster", //DEM的图层类型为"raster"
+				id: "3d-layer",
+				source: "3D_SOURCE",
+				minzoom: 1,
+				maxzoom: 20,
+				layout: {}
+			});
+
+            // 创建几何体和材质
+            const boxGeometry1 = new minemap.BoxGeometry({
+                width: 50,
+                height: 50,
+                depth: 50
+            });
+
+            const boxGeometry2 = new minemap.BoxGeometry({
+                width: 40,
+                height: 40,
+                depth: 40
+            });
+
+            const sphereGeometry = new minemap.SphereGeometry({
+                radius: 30,
+                widthSegments: 16,
+                heightSegments: 16
+            });
+
+            // 创建材质
+            const redMaterial = minemap.StandardMaterial.fromType("Color", {
+                color: "red",
+                opacity: 0.7,
+                doubleSided: false
+            });
+            redMaterial.isTranslucent = true;
+
+            const blueMaterial = minemap.StandardMaterial.fromType("Color", {
+                color: "blue",
+                opacity: 0.7,
+                doubleSided: false
+            });
+            blueMaterial.isTranslucent = true;
+
+            const greenMaterial = minemap.StandardMaterial.fromType("Color", {
+                color: "green",
+                opacity: 0.7,
+                doubleSided: false
+            });
+            greenMaterial.isTranslucent = true;
+
+            // 计算地理位置的变换矩阵
+            const center = new minemap.Math.Vector3(116, 39.9093, 0);
+            const modelMatrix = minemap.Transforms.cartographicToFixedFrame(center);
+
+            // 创建图元对象
+            const boxPrimitive1 = new minemap.Primitive({
+                geometry: boxGeometry1,
+                material: redMaterial,
+                modelMatrix: minemap.Math.Matrix4.multiplyByTranslation(
+                    modelMatrix,
+                    new minemap.Math.Vector3(-30, 0, 25),
+                    new minemap.Math.Matrix4()
+                )
+            });
+
+            const boxPrimitive2 = new minemap.Primitive({
+                geometry: boxGeometry2,
+                material: blueMaterial,
+                modelMatrix: minemap.Math.Matrix4.multiplyByTranslation(
+                    modelMatrix,
+                    new minemap.Math.Vector3(30, 0, 25),
+                    new minemap.Math.Matrix4()
+                )
+            });
+
+            const spherePrimitive = new minemap.Primitive({
+                geometry: sphereGeometry,
+                material: greenMaterial,
+                modelMatrix: minemap.Math.Matrix4.multiplyByTranslation(
+                    modelMatrix,
+                    new minemap.Math.Vector3(0, 30, 25),
+                    new minemap.Math.Matrix4()
+                )
+            });
+
+            // 添加到地图
+            map.addPrimitive(boxPrimitive1);
+            map.addPrimitive(boxPrimitive2);
+            map.addPrimitive(spherePrimitive);
+
+            // 创建边界框对象
+            let box1 = new minemap.AxisAlignedBoundingBox(
+                new minemap.Math.Vector3(-55, -25, 0),
+                new minemap.Math.Vector3(-5, 25, 50)
+            );
+
+            let box2 = new minemap.AxisAlignedBoundingBox(
+                new minemap.Math.Vector3(10, -20, 5),
+                new minemap.Math.Vector3(50, 20, 45)
+            );
+
+            let sphere = new minemap.BoundingSphere(
+                new minemap.Math.Vector3(0, 30, 25),
+                30
+            );
+
+            // GUI控制参数
+            const params = {
+                // Box 1 参数
+                box1_x: -30,
+                box1_y: 0,
+                box1_z: 25,
+                box1_width: 50,
+                box1_height: 50,
+                box1_depth: 50,
+
+                // Box 2 参数
+                box2_x: 30,
+                box2_y: 0,
+                box2_z: 25,
+                box2_width: 40,
+                box2_height: 40,
+                box2_depth: 40,
+
+                // Sphere 参数
+                sphere_x: 0,
+                sphere_y: 30,
+                sphere_z: 25,
+                sphere_radius: 30
+            };
+
+            // 更新边界框和图元位置的函数
+            function updateGeometry() {
+				map.repaint = true;
+                // 更新Box1
+                const box1Matrix = minemap.Math.Matrix4.multiplyByTranslation(
+                    modelMatrix,
+                    new minemap.Math.Vector3(params.box1_x, params.box1_y, params.box1_z),
+                    new minemap.Math.Matrix4()
+                );
+                boxPrimitive1.setMatrix(box1Matrix);
+
+                box1 = new minemap.AxisAlignedBoundingBox(
+                    new minemap.Math.Vector3(
+                        params.box1_x - params.box1_width / 2,
+                        params.box1_y - params.box1_height / 2,
+                        params.box1_z - params.box1_depth / 2
+                    ),
+                    new minemap.Math.Vector3(
+                        params.box1_x + params.box1_width / 2,
+                        params.box1_y + params.box1_height / 2,
+                        params.box1_z + params.box1_depth / 2
+                    )
+                );
+
+                // 更新Box2
+                const box2Matrix = minemap.Math.Matrix4.multiplyByTranslation(
+                    modelMatrix,
+                    new minemap.Math.Vector3(params.box2_x, params.box2_y, params.box2_z),
+                    new minemap.Math.Matrix4()
+                );
+                boxPrimitive2.setMatrix(box2Matrix);
+
+                box2 = new minemap.AxisAlignedBoundingBox(
+                    new minemap.Math.Vector3(
+                        params.box2_x - params.box2_width / 2,
+                        params.box2_y - params.box2_height / 2,
+                        params.box2_z - params.box2_depth / 2
+                    ),
+                    new minemap.Math.Vector3(
+                        params.box2_x + params.box2_width / 2,
+                        params.box2_y + params.box2_height / 2,
+                        params.box2_z + params.box2_depth / 2
+                    )
+                );
+
+                // 更新Sphere
+                const sphereMatrix = minemap.Math.Matrix4.multiplyByTranslation(
+                    modelMatrix,
+                    new minemap.Math.Vector3(params.sphere_x, params.sphere_y, params.sphere_z),
+                    new minemap.Math.Matrix4()
+                );
+                spherePrimitive.setMatrix(sphereMatrix);
+
+                sphere = new minemap.BoundingSphere(
+                    new minemap.Math.Vector3(params.sphere_x, params.sphere_y, params.sphere_z),
+                    params.sphere_radius
+                );
+
+                // 更新几何体尺寸
+                boxGeometry1.setData({
+                    width: params.box1_width,
+                    height: params.box1_height,
+                    depth: params.box1_depth
+                });
+
+                boxGeometry2.setData({
+                    width: params.box2_width,
+                    height: params.box2_height,
+                    depth: params.box2_depth
+                });
+
+                // 更新球体几何体（SphereGeometry没有setData方法，需要重新创建）
+                const newSphereGeometry = new minemap.SphereGeometry({
+                    radius: params.sphere_radius,
+                    widthSegments: 16,
+                    heightSegments: 16
+                });
+                spherePrimitive.geometry = newSphereGeometry;
+
+                // 检测相交并更新显示
+                updateIntersectionResults();
+				map.repaint = false;
+            }
+
+            // 更新相交检测结果显示
+            function updateIntersectionResults() {
+                // 使用BoundingBoxIntersection类进行检测
+                const box1_box2 = minemap.BoundingBoxIntersection.intersects(box1, box2);
+                const box1_sphere = minemap.BoundingBoxIntersection.intersects(box1, sphere);
+                const box2_sphere = minemap.BoundingBoxIntersection.intersects(box2, sphere);
+
+                // 更新显示
+                document.getElementById('box1-box2-util').textContent = box1_box2 ? '相交' : '不相交';
+                document.getElementById('box1-sphere-util').textContent = box1_sphere ? '相交' : '不相交';
+                document.getElementById('box2-sphere-util').textContent = box2_sphere ? '相交' : '不相交';
+
+                // 更新颜色
+                document.getElementById('box1-box2-util').style.color = box1_box2 ? '#28a745' : '#dc3545';
+                document.getElementById('box1-sphere-util').style.color = box1_sphere ? '#28a745' : '#dc3545';
+                document.getElementById('box2-sphere-util').style.color = box2_sphere ? '#28a745' : '#dc3545';
+            }
+
+            // 创建GUI控制面板
+            const gui = new lil.GUI();
+
+            // Box 1 控制
+            const box1Folder = gui.addFolder('红色盒子 (Box 1)');
+            box1Folder.add(params, 'box1_x', -100, 100).name('X位置').onChange(updateGeometry);
+            box1Folder.add(params, 'box1_y', -100, 100).name('Y位置').onChange(updateGeometry);
+            box1Folder.add(params, 'box1_z', 0, 100).name('Z位置').onChange(updateGeometry);
+            box1Folder.add(params, 'box1_width', 10, 100).name('宽度').onChange(updateGeometry);
+            box1Folder.add(params, 'box1_height', 10, 100).name('高度').onChange(updateGeometry);
+            box1Folder.add(params, 'box1_depth', 10, 100).name('深度').onChange(updateGeometry);
+            box1Folder.open();
+
+            // Box 2 控制
+            const box2Folder = gui.addFolder('蓝色盒子 (Box 2)');
+            box2Folder.add(params, 'box2_x', -100, 100).name('X位置').onChange(updateGeometry);
+            box2Folder.add(params, 'box2_y', -100, 100).name('Y位置').onChange(updateGeometry);
+            box2Folder.add(params, 'box2_z', 0, 100).name('Z位置').onChange(updateGeometry);
+            box2Folder.add(params, 'box2_width', 10, 100).name('宽度').onChange(updateGeometry);
+            box2Folder.add(params, 'box2_height', 10, 100).name('高度').onChange(updateGeometry);
+            box2Folder.add(params, 'box2_depth', 10, 100).name('深度').onChange(updateGeometry);
+            box2Folder.open();
+
+            // Sphere 控制
+            const sphereFolder = gui.addFolder('绿色球体 (Sphere)');
+            sphereFolder.add(params, 'sphere_x', -100, 100).name('X位置').onChange(updateGeometry);
+            sphereFolder.add(params, 'sphere_y', -100, 100).name('Y位置').onChange(updateGeometry);
+            sphereFolder.add(params, 'sphere_z', 0, 100).name('Z位置').onChange(updateGeometry);
+            sphereFolder.add(params, 'sphere_radius', 5, 50).name('半径').onChange(updateGeometry);
+            sphereFolder.open();
+
+            // 初始化显示
+            updateIntersectionResults();
+        });
+    </script>
+</body>
+</html>

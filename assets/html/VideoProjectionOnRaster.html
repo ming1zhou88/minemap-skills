@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+	<title>视频投影在raster上瓦片拼接处抖动解决</title>
+	<meta http-equiv="Access-Control-Allow-Origin" content="*"/>
+	<meta charset="utf-8"/>
+	<!-- <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"> -->
+	<link rel="stylesheet" href="http://192.168.152.123/minemapapi/v4.0.0/minemap.css"/>
+	<link rel="stylesheet"
+		  href="../style/demo.css">
+
+	<!-- <script src="http://192.168.152.123/minemapapi/v4.0.0/minemap.js"></script> -->
+	<script src="../../dist/minemap-dev.js"></script>
+	<script src="http://192.168.152.123/minemap-engine/minemap-CDN/hls.js/1.2.1/hls.min.js"></script>
+
+	<script src="https://cdn.bootcdn.net/ajax/libs/axios/0.21.1/axios.min.js"></script>
+	<script src="http://192.168.152.123/minemap-engine/project/uav/minemap-plugins.dev.js"></script>
+	<style>
+		* {
+			padding: 0;
+			margin: 0;
+		}
+
+		html,
+		body,
+		#map {
+			width: 100%;
+			height: 100%;
+		}
+
+		#videoBox {
+			position: absolute;
+			top: 0px;
+			right: 10px;
+			z-index: 10;
+			width: 600px;
+		}
+
+		#videoBox video {
+			margin-top: 10px;
+			width: inherit;
+		}
+
+		.demo-btn.active {
+			background-color: #475AFF;
+			color: #FFFFFF;
+			text-decoration: none
+		}
+	</style>
+</head>
+<!-- 工具 -->
+
+<body>
+<div class="card-panel card-panel-top-left toolContainer">
+	<div class="card-json-info">
+		<div class="input-item">
+			<div class="input-item-prepend">
+				<span class="input-item-text" style="width:70px;">经度</span>
+			</div>
+			<input id='lon-input' oninput="lonChange(event)" type="text" autocomplete="off"
+				   style="width: 80px; margin-right: 8px;" value="">
+			<div class="input-item-prepend">
+				<span class="input-item-text" style="width:70px;">纬度</span>
+			</div>
+			<input id='lat-input' oninput="latChange(event)" type="text" autocomplete="off"
+				   style="width: 80px; margin-right: 8px;" value="">
+			<div class="input-item-prepend">
+				<span class="input-item-text" style="width:70px;">高度</span>
+			</div>
+			<input id='height-input' oninput="heightChange(event)" type="text" autocomplete="off" style="width: 80px;"
+				   value="">
+		</div>
+		<div class="input-item">
+			<div class="input-item-prepend">
+				<span class="input-item-text" style="width:70px;">heading</span>
+			</div>
+			<input id='heading-input' oninput="headingChange(event)" type="text" autocomplete="off"
+				   style="width: 80px; margin-right: 8px;" value="">
+			<div class="input-item-prepend">
+				<span class="input-item-text" style="width:70px;">pitch</span>
+			</div>
+			<input id='pitch-input' oninput="pitchChange(event)" type="text" autocomplete="off"
+				   style="width: 80px; margin-right: 8px;" value="">
+			<div class="input-item-prepend">
+				<span class="input-item-text" style="width:70px;">roll</span>
+			</div>
+			<input id='roll-input' oninput="rollChange(event)" type="text" autocomplete="off" style="width: 80px;"
+				   value="">
+			<!-- <button onclick="save()" class="demo-btn"
+			  style="height: 30px;border-bottom-left-radius: 0;border-top-left-radius: 0;">保存
+			</button> -->
+		</div>
+		<div class="input-item">
+			<button onclick="plane()" class="demo-btn plane" style="height: 30px;margin-right: 8px;">无人机
+			</button>
+
+			<button onclick="planeLine()" class="demo-btn plane-line" style="height: 30px;margin-right: 8px;">无人机轨迹
+			</button>
+
+			<button onclick="planeImg()" class="demo-btn plane-img" style="height: 30px;margin-right: 8px;">历史图片
+			</button>
+			<!-- <button onclick="draw()" class="demo-btn plane-img" style="height: 30px;margin-right: 8px;">绘制
+			</button> -->
+
+		</div>
+	</div>
+</div>
+<div id="videoBox" class="toolContainer"></div>
+<div id="map"></div>
+<script>
+	mapInit();
+	let pointArr = [];
+	let animationTimer = null;
+	let curPoint;
+	let planeLinePrimitive = null;
+	let addPlaneLineFlag = false;
+	let addImgFlag = false;
+	let planeImgArr = [
+		{
+			url: "http://192.168.152.123/minemap-engine/project/uav/roi1.jpg",
+			coordinates: [
+				[114.24583986238162, 36.677527162244246],
+				[114.24569259891396, 36.676097092965506],
+				[114.240861, 36.676476],
+				[114.24098, 36.678036],
+			]
+		},
+		{
+			url: "http://192.168.152.123/minemap-engine/project/uav/roi2.jpg",
+			coordinates: [
+				[114.24764117395338, 36.67744791648771],
+				[114.247399, 36.675878],
+				[114.24532400814202, 36.67598606883447],
+				[114.245592, 36.677596],
+			]
+		},
+		{
+			url: "http://192.168.152.123/minemap-engine/project/uav/roi3.jpg",
+			coordinates: [
+				[114.250542, 36.677113],
+				[114.250209, 36.675622],
+				[114.246337, 36.675955],
+				[114.24667795613958, 36.677522602177795],
+			]
+		},
+		{
+			url: "http://192.168.152.123/minemap-engine/project/uav/roi4.jpg",
+			coordinates: [
+				[114.25193383396083, 36.67713421864236],
+				[114.25174589181819, 36.675397352500156],
+				[114.24914267779245, 36.675580254730164],
+				[114.2494284342039, 36.67728874128677],
+			]
+		}
+	];
+
+	var drawHandler = null;
+
+	function draw(type = "DrawPolygon") {
+		remove();
+		let fillColor = "rgba(255,34,0,0.3)",
+			lineColor = "#f20";
+		if (["DrawPolygon"].includes(type)) {
+			lineColor = "#fff";
+		}
+		drawHandler = new minemap.DrawTool[type](map, {
+			// unit: "km",
+			featureOptions: {
+				endpointShow: true,
+				endpointImageUrl: "https://minedata.cn/nce-static/support/demo/js-3d-ultra/zh/images/draw-point.png",
+				endpointSize: 0.5,
+				endDblclick: true,
+				endContextmenu: true,
+				fillColor: fillColor,
+				lineColor: lineColor,
+			},
+		});
+		drawHandler.on("eventstart", (e) => {
+			console.log("drawstart", e);
+		});
+
+		drawHandler.on("eventclick", (e) => {
+			console.log("所有点坐标", e.points);
+		});
+
+		drawHandler.on("eventend", (e) => {
+			console.log("drawend", e.points);
+		});
+	}
+
+	function remove() {
+		drawHandler?.destroy();
+		drawHandler = null;
+	}
+
+	//地图初始化
+	function mapInit() {
+		/**
+		 * 全局参数设置
+		 */
+		minemap.domainUrl = 'https://minemap.minedata.cn';
+		minemap.dataDomainUrl = 'https://minemap.minedata.cn';
+		minemap.serverDomainUrl = 'https://sd-data.minedata.cn';
+		minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+		minemap.serviceUrl = 'https://service.minedata.cn/service';
+
+		minemap.key = '0c6ac62182404e5ebc7a789981f6db72';
+		minemap.solution = 11001;
+
+		// 定义空底图样式
+		var style = {
+			"glyphs": "minemap://fonts/{fontstack}/{range}",
+			"sprite": "minemap://sprite/sprite",
+			"sources": {},
+			"layers": [],
+			"version": 8
+		};
+		var map = new minemap.Map({
+			container: "map",
+			style: style,
+			center: [106.68345316978935, 26.564590268107526],
+			zoom: 15.5,
+			pitch: 0,
+			bearing: 0,
+			maxZoom: 22, //地图最大缩放级别限制
+			minZoom: 3, //地图最小缩放级别限制
+			projection: 'MERCATOR',
+		});
+		map.repaint = true;
+		window.map = map;
+		map.on("load", function () {
+			map.addSource("IMAGERY_SOURCE", {
+				"type": "raster",//数据源类型：栅格数据源
+				"tiles": ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+				"tileSize": 512,//瓦片尺寸
+			});
+
+			map.addLayer({
+				"id": "IMAGERY",
+				"type": "raster", //图层类型为"raster"
+				"source": "IMAGERY_SOURCE",
+				"minzoom": 1,
+				"maxzoom": 23,
+				"depth-test": true,
+			});
+			// map.setTerrain({
+			//     type: "terrain", //DEM的数据类型为"raster"
+			//     tiles: ["https://staticdata-b.minedata.cn:14434/service/data/dem?x={x}&y={y}&z={z}.terrain"], //瓦片服务地址
+			//     tileSize: 512, //瓦片大小
+			//     maxzoom: 14, //dem最高切分zoom，30米一般是14级；12.5米一般是16级
+			// });
+			//  添加图像图层
+			arr = [];
+			axios.get("http://192.168.152.123/minemap-engine/project/uav/test.json").then(res => {
+				arr = res.data;
+				let {longitude, latitude, rel_alt: height, gb_yaw: yaw} = arr[0];
+				map.setCenter([longitude, latitude])
+				pointArr = arr;
+				window.videoPlayer = createPlayer('http://192.168.152.123/minemap-engine/project/uav/DJI_20230805162552_0001.MP4');
+				window.videoProjection = videoProjection = new minemap.VideoProjection({
+					alpha: 1,
+					altitude: height,
+					aspect: 1.7777777777777777,
+					clipRegions: null,
+					enabled: true,
+					far: 9999,
+					fov: 45,
+					heading: yaw,
+					id: "474582792cf1da7f4c24d082be28a918",
+					location: [longitude, latitude],
+					near: 1,
+					nextLevel: 0,
+					pitch: 0,
+					roll: 0,
+					used3DModel: true,
+					used3DTiles: true,
+					usedPolygon: false,
+					usedRaster: true,
+					videoTextureFun: () => {
+						return videoPlayer._media;
+					},
+				});
+				map.videoManager.add(videoProjection);
+				setValue();
+			});
+		});
+		map.on("click", function (e) {
+			let [longitude, latitude] = map.getPositionByGPUPick(e.point);
+			longitude = Number(longitude.toFixed(6));
+			latitude = Number(latitude.toFixed(6));
+			// document.getElementById("lon-input").value = longitude;
+			// document.getElementById("lat-input").value = latitude;
+			// videoProjection._location = [longitude, latitude];
+		})
+	}
+
+	function createPlayer(url, id) {
+		let videoPlayer = {};
+		let video = document.createElement(`video`);
+		video.id = "video";
+		video.autoplay = false;
+		video.muted = true;
+		video.loop = false;
+		video.setAttribute("src", url);
+		video.setAttribute("controls", "controls");
+		video.setAttribute('crossOrigin', 'Anonymous'); // 处理跨域
+		video.setAttribute('preload', 'auto'); // auto|metadata|none
+		video.crossOrigin = "anonymous";
+		videoPlayer._media = video;
+		document.getElementById("videoBox").appendChild(video);
+		window.eleVideo = document.getElementById('video');
+		eleVideo.addEventListener('loadedmetadata', () => {
+			//视频的总长度
+			console.log('总长度:' + eleVideo.duration);
+		});
+		eleVideo.addEventListener('play', () => {
+			//播放开始执行的函数
+			console.log('开始播放');
+			videoMove();
+		});
+		eleVideo.addEventListener('pause', () => {
+			console.log('暂停');
+			cancelAnimationFrame(animationTimer);
+		});
+		eleVideo.addEventListener('timeupdate', () => {
+			//播放中
+			//console.log("播放中");
+			setValue()
+		});
+		eleVideo.addEventListener(
+			'ended',
+			() => {
+				//结束
+				console.log('播放结束');
+				cancelAnimationFrame(animationTimer);
+			},
+			false
+		);
+		return videoPlayer;
+	}
+
+	function getIndex() {
+		let index = Math.ceil(eleVideo.currentTime / (1 / 60));
+		index = index > pointArr.length - 1 ? pointArr.length - 1 : index;
+		return index;
+	}
+
+	function planeImg() {
+		addImgFlag = !addImgFlag;
+		document.querySelector(".plane-img").className = addImgFlag ? "demo-btn plane-img active" : "demo-btn plane-img";
+		removeImg();
+		if (addImgFlag) {
+			planeImgArr.map(item => {
+				let {url, coordinates} = item;
+				map.addLayer({
+					"id": url,
+					"type": "raster",
+					"source": {
+						"type": "image", /*图像数据源类型*/
+						"url": url, /*图像url地址*/
+						"coordinates": coordinates
+						/* 图像在地图上的坐标点边界，边界值为顺时针方式，依次为：左上、右上、右下、左下*/
+					},
+					"layout": {
+						"visibility": "visible"
+					},
+					"paint": {
+						"raster-opacity": 1
+					},
+					"minzoom": 0,
+					"maxzoom": 23
+				});
+			})
+		}
+	}
+
+	function removeImg() {
+		planeImgArr.map(item => {
+			let {url, coordinates} = item;
+			map.getLayer(url) && map.removeLayer(url);
+			map.getSource(url) && map.removeSource(url);
+		})
+	}
+
+	function videoMove() {
+		setValue();
+		animationTimer = window.requestAnimationFrame(videoMove);
+	}
+
+	function plane() {
+		let plane = map.getSceneComponent("modelId");
+		document.querySelector(".plane").className = !plane ? "demo-btn plane active" : "demo-btn plane";
+		if (plane) {
+			videoProjection.debugVideo = false;
+			map.removeSceneComponent("modelId");
+		} else {
+			let index = getIndex();
+			let {longitude, latitude, rel_alt: height, gb_yaw: yaw} = pointArr[index];
+			map.addSceneComponent({
+				id: "modelId",
+				type: "3d-model",
+				data: "http://192.168.152.123/minemap-engine/project/uav/无人机1.gltf",// 要加载的gltf格式数据
+				modelFolder: "http://192.168.152.123/minemap-engine/project/uav/",// 该数据引用图片等资源的文件夹路径
+				// modelFolder: "",// 该数据引用图片等资源的文件夹路径,
+				scale: [10, 10, 10], // 在xyz轴方向上的缩放比例
+				rotation: [90, -yaw, 0], // 绕xyz轴方向上的旋转，单位为度
+				position: [longitude, latitude, height], // 锚点（模型局部坐标原点）的经纬度位置
+				loaded: () => {
+					// 模型加载完成的回调函数
+				}
+			});
+			setPlane();
+		}
+	}
+
+	function planeLine() {
+		addPlaneLineFlag = !addPlaneLineFlag;
+		document.querySelector(".plane-line").className = addPlaneLineFlag ? "demo-btn plane-line active" : "demo-btn plane-line";
+		planeLinePrimitive && map.removePrimitive(planeLinePrimitive);
+		setPlaneLine();
+	}
+
+	function setPlaneLine() {
+		if (!addPlaneLineFlag) return;
+		let index = getIndex();
+		let lineArr = pointArr.slice(0, index),
+			linePointArr = [];
+		if (lineArr.length < 2) return;
+
+		lineArr.map(item => {
+			let {longitude, latitude, rel_alt: height} = item;
+			linePointArr = [...linePointArr, Number(longitude), Number(latitude), Number(height)]
+		})
+
+		planeLinePrimitive && map.removePrimitive(planeLinePrimitive);
+		console.log(123);
+		const polyline = new minemap.Geometries.PolylineGeometry({
+			positions: minemap.Math.Vector3.fromDegreesArrayHeights(linePointArr),
+			width: 2,
+			arcType: minemap.ARCTYPE.GEODESIC
+		});
+
+		const material = new minemap.PolylineMaterial({
+			color: "red",
+			alphaMode: "OPAQUE",
+		});
+		planeLinePrimitive = new minemap.Primitive({
+			geometry: polyline,
+			material: material,
+			name: "polyline",
+			allowPick: true
+		});
+		map.addPrimitive(planeLinePrimitive);
+	}
+
+	function setPlane() {
+		let plane = map.getSceneComponent("modelId");
+		if (plane) {
+			if (!videoProjection.debugVideo) {
+				videoProjection.debugVideo = true;
+				setTimeout(() => {
+					videoProjection._debugFrustum.material = minemap.StandardMaterial.fromType("Color", {
+						color: new minemap.Color(0.0, 1.0, 1.0, 0.5),
+					});
+				}, 100);
+			}
+			let index = getIndex();
+			let {
+				longitude,
+				latitude,
+				rel_alt: height,
+				gb_yaw: yaw,
+				drone_pitch: pitch,
+				drone_roll: roll
+			} = pointArr[index];
+			plane.position = minemap.Transforms.cartographicToCartesian3([longitude, latitude, height]);
+			plane.rotation = [plane.rotation[0], -Number(yaw), plane.rotation[2]];
+			plane.updateMatrix(); // 更新sceneModel本身的matrix
+			plane.updateWorldMatrix(true, true); // 更新父子的矩阵
+			plane.updateMatrixWorld(true);
+		}
+	}
+
+	function setValue() {
+		let index = getIndex();
+		//console.log('播放帧数:' + index);
+		curPoint = pointArr[index];
+		if (!curPoint) return;
+		let {longitude, latitude, rel_alt: height, gb_yaw: yaw, drone_pitch: pitch, drone_roll: roll} = curPoint;
+
+		document.getElementById("lon-input").value = longitude;
+		document.getElementById("lat-input").value = latitude;
+		document.getElementById("height-input").value = height;
+		document.getElementById("heading-input").value = yaw;
+		document.getElementById("pitch-input").value = pitch || 0;
+		document.getElementById("roll-input").value = roll || 0;
+		longitude = Number(longitude);
+		latitude = Number(latitude);
+		setPlane();
+		setPlaneLine();
+		videoProjection._location = [longitude, latitude];
+		videoProjection._altitude = Number(height);
+		videoProjection._heading = yaw;
+
+		// videoProjection._pitch = pitch;
+		// videoProjection._roll = roll;
+	}
+
+	function lonChange(e) {
+		if (!Number(e.target.value)) e.target.value = 0;
+		curPoint.longitude = e.target.value;
+		videoProjection._location = [e.target.value, curPoint.latitude];
+	}
+
+	function latChange(e) {
+		if (!Number(e.target.value)) e.target.value = 0;
+		curPoint.latitude = e.target.value;
+		videoProjection._location = [curPoint.longitude, e.target.value];
+	}
+
+	function heightChange(e) {
+		if (!Number(e.target.value)) e.target.value = 0;
+		videoProjection._altitude = e.target.value;
+	}
+
+	function headingChange(e) {
+		if (!Number(e.target.value)) e.target.value = 0;
+		videoProjection._heading = e.target.value;
+	}
+
+	function pitchChange(e) {
+		if (!Number(e.target.value)) e.target.value = 0;
+		videoProjection._pitch = e.target.value;
+	}
+
+	function rollChange(e) {
+		if (!Number(e.target.value)) e.target.value = 0;
+		videoProjection._roll = e.target.value;
+	}
+</script>
+</body>
+
+</html>

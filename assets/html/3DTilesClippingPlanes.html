@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+	<title>3d-tiles裁剪</title>
+	<!-- 引入MineMap API插件 -->
+	<link rel="stylesheet" href="../../dist/minemap.css" />
+	<script src="../../dist/minemap-dev.js"></script>
+	<script src="../js/lil-gui.umd.min.js"></script>
+	<style>
+		html,
+		body,
+		#map {
+			margin: 0;
+			padding: 0;
+			width: 100%;
+			height: 100%;
+		}
+	</style>
+</head>
+
+<body>
+<div id="map"></div>
+<input type="text" name="" id="btn" value="" />
+<script>
+	minemap.domainUrl = "https://minedata.cn";
+	minemap.dataDomainUrl = "https://minedata.cn";
+	minemap.serverDomainUrl = "https://minedata.cn";
+	minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+	minemap.serviceUrl = "https://minedata.cn/service/";
+
+	minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+	minemap.solution = 11001;
+	window.minemapCDN = "http://192.168.152.123/minemapapi/minemap-CDN"; // minemapCDN 配置
+
+	// 定义空底图样式
+	var style = {
+		glyphs: "minemap://fonts/{fontstack}/{range}",
+		sprite: "minemap://sprite/sprite",
+		sources: {},
+		layers: [],
+		version: 8
+	};
+	/**
+	 * 初始化地图实例
+	 */
+	var map = new minemap.Map({
+		container: "map",
+		style: style,
+		// style: 'https://mineservice.minedata.cn/map/solu/style/11001', /*底图样式*//*球面矢量底图样式*/
+		center: [116.3918209754059, 39.90984826212655], // 拉卜楞寺
+		// center: [0, 39.92],
+		bearing: 10.4,
+		zoom: 19 /*地图默认缩放等级*/,
+		pitch: 42.5 /*地图俯仰角度*/,
+		maxZoom: 22 /*地图最大缩放等级*/,
+		minZoom: 1 /*地图最小缩放等级*/,
+		logDepth: true,
+		skyBox: false,
+		earthSkin: false
+	});
+	map.repaint = true;
+
+	const clippingPlanesEnabled = true;
+	const cartographicForRed = new minemap.Math.Vector3([116.39161955554277, 39.90979465923353, 0]);
+	const modelMatrix = minemap.Transforms.cartographicToFixedFrame(cartographicForRed);
+
+	const clippingPlaneCollection = new minemap.ClippingPlaneCollection({
+		modelMatrix: modelMatrix,
+		edgeColor: new minemap.Color(1, 0, 0, 1),
+		edgeWidth: 1.0,
+		enabled: clippingPlanesEnabled
+	});
+
+	clippingPlaneCollection.add(
+		new minemap.ClippingPlane({
+			position: minemap.Math.Vector3.fromDegrees(116.39161955554277, 39.90979465923353, 0),
+			normal: new minemap.Math.Vector3(1.0, 1.0, 0.0),
+			distance: 0.0
+		})
+	);
+	window.clippingPlaneCollection = clippingPlaneCollection;
+	// 添加基本球体图层，包括球体表面、天空盒、大气层
+	map.on("load", function() {
+		/*添加栅格图*/
+		map.addSource("IMAGERY_SOURCE", {
+			type: "raster", //数据源类型：栅格数据源
+			tiles: ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+			tileSize: 512 //瓦片尺寸
+		});
+
+		map.addLayer({
+			id: "IMAGERY",
+			type: "raster", //图层类型为"raster"
+			source: "IMAGERY_SOURCE",
+			minzoom: 1,
+			maxzoom: 23
+		});
+
+		const tileset = map.addSceneComponent({
+			id: "serve",
+			type: "3d-tiles",
+			show: true,
+			url: "../data/天河科技园/tileset.json",
+			// skipLevelOfDetail: true, //跨层调度
+			maximumScreenSpaceError: 8,
+			sourceLoaded: (tileset) => {
+				// map.flyTo({
+				// 	target: tileset,
+				// 	bearing: 0,
+				// 	pitch: 0,
+				// 	duration: 2000,
+				// 	range: 1000
+				// });
+			}
+			// clippingPlanes: clippingPlaneCollection,
+		});
+		window.tileset = tileset;
+	});
+
+	function enableClip(e) {
+		if (e) {
+			tileset.clippingPlanes = clippingPlaneCollection;
+		} else {
+			tileset.clippingPlanes = undefined;
+		}
+	}
+
+	function reverseClip() {
+		clippingPlaneCollection.unionClippingRegions = !clippingPlaneCollection.unionClippingRegions;
+		for (let i = 0; i < clippingPlaneCollection.length; i++) {
+			const plane = clippingPlaneCollection.get(i);
+			plane.normal = plane.normal.multiplyScalar(-1);
+			plane.distance = -plane.distance;
+		}
+	}
+
+	const myObj = {
+		是否裁剪: false,
+		反向裁剪: false
+	};
+	//添加gui
+	const gui = new lil.GUI({ title: "控制菜单" });
+	gui.add(myObj, "是否裁剪").onChange(enableClip);
+	gui.add(myObj, "反向裁剪").onChange(reverseClip);
+</script>
+</body>
+</html>

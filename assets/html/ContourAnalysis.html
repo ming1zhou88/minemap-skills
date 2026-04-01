@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no"/>
+	<title>等高线分析</title>
+	<!-- 引入MineMap API插件 -->
+	<link rel="stylesheet" href="../style/demo.css" />
+	<link rel="stylesheet" href="../../dist/minemap.css">
+	<script src="../../dist/minemap-dev.js"></script>
+	<script src="../js/lil-gui.umd.min.js"></script>
+	<style>
+		html, body, #map {
+			margin: 0;
+			padding: 0;
+			width: 100%;
+			height: 100%;
+		}
+	</style>
+</head>
+<body>
+<div id="map"></div>
+<script>
+	minemap.domainUrl = 'http://192.168.152.123';
+	minemap.dataDomainUrl = 'https://minemap.minedata.cn';
+	minemap.serverDomainUrl = 'https://sd-data.minedata.cn';
+	minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+	minemap.serviceUrl = 'https://service.minedata.cn/service';
+
+	/**
+	 * token、solution设置
+	 */
+	minemap.key = '0c6ac62182404e5ebc7a789981f6db72';
+	minemap.solution = 11001;
+
+	// 定义空底图样式
+	var style = {
+		"glyphs": "minemap://fonts/{fontstack}/{range}",
+		"sprite": "minemap://sprite/sprite",
+		"sources": {},
+		"layers": [],
+		"version": 8
+	};
+
+	/**
+	 * 初始化地图实例
+	 */
+	var map = new minemap.Map({
+		container: 'map',
+		style: style, /*球面矢量底图样式*/
+		// center: [90.28101090188188, 28.18585681678294], /*地图中心点*/
+		center: [116.46, 39.92], /*地图中心点*/
+		zoom: 11, /*地图默认缩放等级*/
+		pitch: 0, /*地图俯仰角度*/
+		maxZoom: 22, /*地图最大缩放等级*/
+		minZoom: 1,  /*地图最小缩放等级*/
+		projection: 'MERCATOR',
+		logDepth: true
+	});
+
+	map.repaint = true;
+
+	map.setTerrain({
+		"tiles": ["https://staticdata-b.minedata.cn:14434/dem/{z}/{r}/{c}/{z}_{x}_{y}.terrain"], //瓦片服务地址
+		"tileSize": 512,  //瓦片大小
+		"availabilities": ["https://staticdata-b.minedata.cn:14434/dem/layer.json"], // 查询最高级别DEM时必须设定索引文件
+	});
+
+	let maskRegion = [];
+
+	const commonParams = {
+		"绘制区域": function () {
+			drawPolygon()
+		},
+		"清除区域": function () {
+			clearPolygon()
+		},
+		"高度间隔": 100,
+		"开始分析": function () {
+			doAnalysis()
+		}
+	};
+
+	map.on('load', function () {
+		// 用于渲染测试的地图初始化完成标记
+		window.InsertFunc = true;
+		/*添加DEM数字高程模型数据*/
+		map.addSource("IMAGERY_SOURCE", {
+			type: "raster", //数据源类型：栅格数据源
+			tiles: ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+			tileSize: 512 //瓦片尺寸
+		});
+
+		map.addLayer({
+			id: "IMAGERY",
+			type: "raster", //图层类型为"raster"
+			source: "IMAGERY_SOURCE",
+			minzoom: 1,
+			maxzoom: 23
+		});
+		initializeGUI();
+	})
+
+	// 初始化UI
+	function initializeGUI() {
+		const gui = new lil.GUI({ width: 300 });
+		const common = gui.addFolder("常规");
+		common.add(commonParams, "绘制区域");
+		common.add(commonParams, "清除区域");
+		common.add(commonParams, "高度间隔", 100, 10000, 100)
+		common.add(commonParams, "开始分析");
+	}
+
+	function doAnalysis() {
+		if(primitive){
+			map.removePrimitive(primitive);
+		}
+		if(maskRegion.length < 2){
+			alert("需要绘制区域！")
+			return;
+		}
+		if(startDraw){
+			alert("需要将区域闭合！")
+			return;
+		}
+		const params = {
+			bbox: {
+				type: "Polygon",
+				coordinates: [maskRegion]
+			},
+			interval: commonParams.高度间隔
+		}
+		const requestOptions = {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json"
+			},
+			body: JSON.stringify(params)
+		};
+		fetch("http://192.168.152.123:18801/service/terrain/contour", requestOptions)
+			.then((response) => {
+				if (response.ok) {
+					return response.json();
+				} else {
+					throw new Error("服务请求失败");
+				}
+			})
+			.then((data) => {
+				const features = [];
+				for (let i = 0; i < data.features.length; i++) {
+					for (let  j = 0; j < data.features[i].geometry.coordinates.length; j++) {
+						features.push({
+							id: data.features[i].id,
+							properties: data.features[i].properties,
+							type: data.features[i].type,
+							geometry: {
+								type: 'LineString',
+								coordinates: data.features[i].geometry.coordinates[j]
+							}
+						})
+						for (let k = 0; k < data.features[i].geometry.coordinates[j].length; k += 50) {
+							features.push({
+								id: data.features[i].id,
+								properties: {
+									height: Math.floor(data.features[i].properties.elevation)+5  // 在高度的基础上增加5m
+								},
+								type: data.features[i].type,
+								geometry: {
+									type: 'Point',
+									coordinates: data.features[i].geometry.coordinates[j][k]
+								}
+							})
+						}
+					}
+				}
+				const jsonData = {
+					type: "FeatureCollection",
+					features: features
+				}
+				drawContour(jsonData);
+			})
+	}
+
+	function drawContour(data) {
+		clearContour();
+		map.addSource("lineSource", {
+			"type": "geojson",
+			"data": data,
+			adaptTerrain: true
+		});
+		map.addLayer({
+			"id": "lineLayer",
+			"type": "line",//图层类型为"line"
+			"source": "lineSource",
+			"paint": {
+				"line-width": 2,
+				"line-color": "#ff0000"
+			},
+			"minzoom": 1,
+			"maxzoom": 17.5
+		});
+
+		map.addLayer({
+			"id": "symbolLayer",
+			"type": "symbol",//图层类型为"symbol"
+			"source": "lineSource",
+			"layout": {
+				"text-field": "{height}",
+				"text-size": 15,
+				// "symbol-placement":"line",
+				"text-allow-overlap": false,   //图标覆盖文字不允许压盖
+				// "text-ignore-placement": true,
+				"text-pitch-alignment": "viewport",
+				"symbol-height-key": "height" //poi高度设置
+			},
+			"paint": {
+				"text-color": "#FFFFFF",
+			},
+			"minzoom": 1,
+			"maxzoom": 17.5,
+			//"auto-height":true,  // 引擎POI赋高开启
+			//"auto-height-offset":5,  // POI赋高基础上增加5米
+			hiddenType: minemap.SymbolHiddenType.SCENE // 描点遮盖策略：按场景或地形 遮盖
+		});
+	}
+
+	function clearContour () {
+		if (map.getLayer("lineLayer")) {
+			map.removeLayer("lineLayer");
+			map.removeLayer("symbolLayer");
+			map.removeSource("lineSource");
+		}
+	}
+
+	let geometry,
+		primitive,
+		startDraw = false, //开始绘制
+		positions = [],
+		tempPoint = []; // polygon点
+	function drawPolygon() {
+		positions = [];
+		maskRegion = [];
+		startDraw = true;
+		geometry = new minemap.Geometries.PolygonGeometry({
+			polygonHierarchy: {
+				positions: () => {
+					const results = positions.concat(tempPoint);
+					// 判断是否自相交，如果自相交则该点不进入数组内
+					if (
+						results.length > 2 &&
+						minemap.Geometries.PolygonGeometry.isSelfIntersection(results, true)
+					) {
+						return positions;
+					} else {
+						return results;
+					}
+				}
+			},
+			perPositionHeight: true
+		});
+		const material = minemap.StandardMaterial.fromType("Color", {
+			color: "red",
+			doubleSided: true
+		});
+		primitive = new minemap.Primitive({
+			geometry: geometry,
+			material: material,
+			adaptTerrain: true
+		});
+		map.addPrimitive(primitive);
+	}
+
+	// leftClick
+	map.on("click", function (e) {
+		if (startDraw) {
+			const point = map.painter.getPositionByGPUPick(e.point);
+			positions.push(minemap.Math.Vector3.fromDegrees(point.x, point.y, point.z));
+			maskRegion.push([point.x, point.y]);
+		}
+	});
+
+	// mouseMove
+	map.on("mousemove", function (e) {
+		if (startDraw) {
+			tempPoint = [];
+			const point = map.painter.getPositionByGPUPick(e.point);
+			if (point) {
+				tempPoint.push(minemap.Math.Vector3.fromDegrees(point.x, point.y, point.z));
+			}
+		}
+	});
+
+	// rightClick
+	map.on("contextmenu", function (e) {
+		if (startDraw) {
+			startDraw = false;
+			tempPoint = [];
+			// map.removePrimitive(primitive);
+			if (positions.length > 2) {
+				maskRegion.push(maskRegion[0]);
+			}
+		}
+	});
+
+	// 清除区域
+	function clearPolygon() {
+		map.removePrimitive(primitive);
+		maskRegion = [];
+		clearContour();
+	}
+
+</script>
+</body>

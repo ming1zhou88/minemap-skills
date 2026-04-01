@@ -1,0 +1,365 @@
+<!--
+ * @Author: liwei
+ * @Date: 2022-04-11 16:11:49
+ * @LastEditTime: 2024-10-28 16:41:28
+ * @LastEditors: liwei
+ * @Description:
+ * @FilePath: \MineMap3DEngine\demo\html\PolygonGeometry.html
+-->
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<title>多边形</title>
+		<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+		<!-- demo样式文件 -->
+		<link rel="stylesheet" href="../style/demo.css" />
+		<!-- 引入MineMap API插件 -->
+		<link rel="stylesheet" href="../../dist/minemap.css" />
+		<script src="../../dist/minemap-dev.js"></script>
+		<script src="../js/lil-gui.umd.min.js"></script>
+		<style>
+			#map {
+				width: 100%;
+				height: 100%;
+			}
+		</style>
+	</head>
+	<body>
+		<div id="map"></div>
+		<script>
+			/**
+			 * 全局参数设置
+			 */
+			minemap.domainUrl = "https://minedata.cn";
+			minemap.dataDomainUrl = "https://minedata.cn";
+			minemap.serverDomainUrl = "https://minedata.cn";
+			minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+			minemap.serviceUrl = "https://minedata.cn/service/";
+
+			minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+			minemap.solution = 11001;
+			window.minemapCDN = "https://minedata.cn/minemapapi/minemap-CDN";
+
+			// 定义空底图样式
+			var style = {
+				glyphs: "minemap://fonts/{fontstack}/{range}",
+				sprite: "minemap://sprite/sprite",
+				sources: {},
+				layers: [],
+				version: 8
+			};
+
+			/**
+			 * 初始化地图实例
+			 */
+			var map = new minemap.Map({
+				container: "map",
+				style: style,
+				/*球面矢量底图样式*/
+				center: [116.39836067240124, 39.921220425646915],
+				/*地图中心点*/
+				bearing: 0,
+				zoom: 14,
+				/*地图默认缩放等级*/
+				pitch: 50,
+				/*地图俯仰角度*/
+				maxZoom: 22,
+				/*地图最大缩放等级*/
+				minZoom: 1,
+				/*地图最小缩放等级*/
+				projection: "MERCATOR",
+				logarithmicDepthBuffer: true
+			});
+			map.repaint = true;
+
+			/**
+			 * 无高度面会与地面重合，暂时还没有解决(关闭影响可以看到)
+			 */
+			function addPolygon() {
+				/**
+				 * // Example 1: 无高度测地面
+				 */
+				const yellowPolygonHierarchy = {
+					positions: minemap.Math.Vector3.fromDegreesArray([
+						116.39842671572592, 39.935657935565295, 116.39884471586343, 39.9333134036087,
+						116.40592511201567, 39.932537678871554, 116.40592498133049, 39.934066370721375
+					])
+				};
+
+				addPolygonPrimitive({
+					polygonHierarchy: yellowPolygonHierarchy,
+					arcType: minemap.ARCTYPE.GEODESIC,
+					color: "yellow"
+				});
+
+				addOutlinePrimitive({
+					polygonHierarchy: yellowPolygonHierarchy,
+					arcType: minemap.ARCTYPE.GEODESIC
+				});
+
+				/**
+				 * // Example 2: 有高度测地面
+				 */
+				const greenPolygonHierarchy = {
+					positions: minemap.Math.Vector3.fromDegreesArrayHeights([
+						116.39842671572592, 39.935657935565295, 100, 116.39884471586343, 39.9333134036087, 100,
+						116.40592511201567, 39.932537678871554, 100, 116.40592498133049, 39.934066370721375, 100
+					])
+				};
+
+				addPolygonPrimitive({
+					polygonHierarchy: greenPolygonHierarchy,
+					perPositionHeight: true,
+					arcType: minemap.ARCTYPE.GEODESIC,
+					color: "green"
+				});
+
+				addOutlinePrimitive({
+					polygonHierarchy: greenPolygonHierarchy,
+					perPositionHeight: true,
+					arcType: minemap.ARCTYPE.GEODESIC
+				});
+
+				/**
+				 * // Example 3: 无高度恒向面
+				 */
+				const pinkPolygonHierarchy = {
+					positions: minemap.Math.Vector3.fromDegreesArray([
+						116.38611725218857, 39.9382118038329, 116.38614939970262, 39.93718269563326, 116.38943416424286,
+						39.93672730349023, 116.38929769367257, 39.938036139377914
+					])
+				};
+
+				addPolygonPrimitive({
+					polygonHierarchy: pinkPolygonHierarchy,
+					perPositionHeight: true,
+					arcType: minemap.ARCTYPE.RHUMB,
+					color: "pink"
+				});
+
+				addOutlinePrimitive({
+					polygonHierarchy: pinkPolygonHierarchy,
+					perPositionHeight: true,
+					arcType: minemap.ARCTYPE.RHUMB
+				});
+
+				/**
+				 * // Example 4: 有高度恒向面
+				 */
+				const lightgreenPolygonHierarchy = {
+					positions: minemap.Math.Vector3.fromDegreesArrayHeights([
+						116.38611725218857, 39.9382118038329, 100, 116.38614939970262, 39.93718269563326, 100,
+						116.38943416424286, 39.93672730349023, 100, 116.38929769367257, 39.938036139377914, 100
+					])
+				};
+
+				addPolygonPrimitive({
+					polygonHierarchy: lightgreenPolygonHierarchy,
+					perPositionHeight: true,
+					arcType: minemap.ARCTYPE.RHUMB,
+					color: "lightgreen"
+				});
+
+				addOutlinePrimitive({
+					polygonHierarchy: lightgreenPolygonHierarchy,
+					perPositionHeight: true,
+					arcType: minemap.ARCTYPE.RHUMB
+				});
+
+				/**
+				 * // Example 5: 面拉伸体(向上拉伸)
+				 */
+				const orangePolygonHierarchy = {
+					positions: minemap.Math.Vector3.fromDegreesArray([
+						116.39183564786981, 39.935009730029826, 116.3916937683639, 39.93395788278954,
+						116.39413237324493, 39.93371920778123, 116.39417908520124, 39.935033833390584
+					])
+				};
+
+				addPolygonPrimitive({
+					polygonHierarchy: orangePolygonHierarchy,
+					extrudedHeight: 100,
+					perPositionHeight: true,
+					color: "orange"
+				});
+
+				addOutlinePrimitive({
+					polygonHierarchy: orangePolygonHierarchy,
+					extrudedHeight: 100,
+					perPositionHeight: true
+				});
+
+				/**
+				 * // Example 6: 面拉伸体(向下拉伸)
+				 */
+				const magentaPolygonHierarchy = {
+					positions: minemap.Math.Vector3.fromDegreesArrayHeights([
+						116.3959428580888, 39.93279915715248, 500, 116.39619438199588, 39.9314895156685, 500,
+						116.39858630220175, 39.93136872953759, 500, 116.39870401593984, 39.932831850905565, 500
+					])
+				};
+				addPolygonPrimitive({
+					polygonHierarchy: magentaPolygonHierarchy,
+					extrudedHeight: 700,
+					perPositionHeight: true,
+					color: "red"
+				});
+
+				addOutlinePrimitive({
+					polygonHierarchy: magentaPolygonHierarchy,
+					extrudedHeight: 0,
+					perPositionHeight: true
+				});
+
+				/**
+				 * // Example 7: 添加带洞面
+				 */
+				const holesPolygonHierarchy = {
+					positions: minemap.Math.Vector3.fromDegreesArray([
+						116.3915214310249, 39.92282500839827, 116.39208326062737, 39.912881524850725, 116.4024921777916,
+						39.91326267295127, 116.40199876387578, 39.9232557360922
+					]),
+					holes: [
+						{
+							positions: minemap.Math.Vector3.fromDegreesArray([
+								116.39212175568608, 39.922497576873404, 116.39257014320924, 39.91338449551361,
+								116.4018705684449, 39.913732063874484, 116.40143033058462, 39.92276911373198
+							]),
+							holes: [
+								{
+									positions: minemap.Math.Vector3.fromDegreesArray([
+										116.39245484048706, 39.922260714584574, 116.3928502772767, 39.91359815014054,
+										116.40169077992118, 39.91392940842956, 116.4012358641022, 39.92258657752859
+									]),
+									holes: [
+										{
+											positions: minemap.Math.Vector3.fromDegreesArray([
+												116.39310686335682, 39.921855338412534, 116.39374266272824,
+												39.91383655032665, 116.40126195344283, 39.91426224976289,
+												116.40102210681903, 39.92208193445666
+											])
+										}
+									]
+								}
+							]
+						}
+					]
+				};
+
+				addPolygonPrimitive({
+					polygonHierarchy: holesPolygonHierarchy,
+					height: 200,
+					color: "red"
+				});
+
+				addOutlinePrimitive({
+					polygonHierarchy: holesPolygonHierarchy,
+					height: 200
+				});
+
+				/**
+				 * // Example 8: 添加带洞面拉伸
+				 */
+				addPolygonPrimitive({
+					polygonHierarchy: holesPolygonHierarchy,
+					extrudedHeight: 100,
+					perPositionHeight: true,
+					color: "blue"
+				});
+
+				addOutlinePrimitive({
+					polygonHierarchy: holesPolygonHierarchy,
+					extrudedHeight: 100,
+					perPositionHeight: true
+				});
+			}
+
+			const polygons = [];
+			const polygonOutlines = [];
+			function addPolygonPrimitive(options) {
+				const geometry = new minemap.Geometries.PolygonGeometry({
+					polygonHierarchy: options.polygonHierarchy,
+					extrudedHeight: options.extrudedHeight,
+					perPositionHeight: options.perPositionHeight,
+					height: options.height,
+					arcType: options.arcType
+				});
+
+				const material = minemap.StandardMaterial.fromType("Color", {
+					color: options.color,
+					doubleSided: true
+				});
+
+				const primitive = new minemap.Primitive({
+					geometry: geometry,
+					material: material
+				});
+
+				map.addPrimitive(primitive);
+				polygons.push(primitive);
+			}
+
+			function addOutlinePrimitive(options) {
+				const geometry = new minemap.Geometries.PolygonOutlineGeometry({
+					polygonHierarchy: options.polygonHierarchy,
+					extrudedHeight: options.extrudedHeight,
+					perPositionHeight: options.perPositionHeight,
+					height: options.height,
+					arcType: options.arcType
+				});
+
+				const material = minemap.StandardMaterial.fromType("Color", {
+					color: "white"
+				});
+
+				const primitive = new minemap.Primitive({
+					geometry: geometry,
+					material: material
+				});
+
+				map.addPrimitive(primitive);
+				polygonOutlines.push(primitive);
+			}
+
+			function removePolygon() {
+				polygons.map((element) => {
+					map.removePrimitive(element);
+				});
+				polygonOutlines.map((element) => {
+					map.removePrimitive(element);
+				});
+			}
+
+			map.on("load", function () {
+				/*添加栅格图*/
+				map.addSource("IMAGERY_SOURCE", {
+					type: "raster", //数据源类型：栅格数据源
+					tiles: ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+					tileSize: 512 //瓦片尺寸
+				});
+
+				map.addLayer({
+					id: "IMAGERY",
+					type: "raster", //图层类型为"raster"
+					source: "IMAGERY_SOURCE",
+					minzoom: 1,
+					maxzoom: 23,
+					// "depth-test": true,
+					paint: {
+						"raster-opacity": 1
+					}
+				});
+				addPolygon();
+
+				let eventObj = {
+					addPolygon: addPolygon,
+					removePolygon: removePolygon
+				};
+				const gui = new lil.GUI({ title: "参数调节面板" });
+				gui.add(eventObj, "addPolygon").name("添加面");
+				gui.add(eventObj, "removePolygon").name("移除面");
+			});
+		</script>
+	</body>
+</html>

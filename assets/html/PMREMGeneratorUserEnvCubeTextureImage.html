@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8"/>
+	<title>六面体环境纹理</title>
+
+	<!-- 引入MineMap API插件 -->
+	<link rel="stylesheet" href="https://minemap.minedata.cn/minemapapi/v4.0.0/minemap.css">
+	<script src='../../dist/minemap-dev.js'></script>
+	<script src="../js/lil-gui.umd.min.js"></script>
+	<style>
+		html, body, div {
+			margin: 0;
+			padding: 0;
+		}
+
+		#map {
+			width: 100vw;
+			height: 100vh;
+		}
+	</style>
+</head>
+
+<body>
+<div id="map"></div>
+<script>
+
+	minemap.domainUrl = "https://minedata.cn";
+	minemap.dataDomainUrl = "https://minedata.cn";
+	minemap.serverDomainUrl = "https://minedata.cn";
+	minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+	minemap.serviceUrl = "https://minedata.cn/service/";
+
+	minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+	minemap.solution = 11001;
+	window.minemapCDN = "http://192.168.152.123/minemap-engine/minemap-CDN/"; // minemapCDN 配置 http://192.168.152.123/
+
+	// 定义空底图样式
+	var style = {
+		glyphs: "minemap://fonts/{fontstack}/{range}",
+		sprite: "minemap://sprite/sprite",
+		sources: {},
+		layers: [],
+		version: 8
+	};
+
+	/**
+	 * 初始化地图实例
+	 */
+	var map = new minemap.Map({
+		container: "map",
+		style: style,
+		position: [120.24811759620638, 29.71562999252129, 15.490263255080576],
+		bearing: -178.32275508714875,
+		pitch: 76.69609189618203,
+		maxZoom: 22,
+		minZoom: 1,
+		projection: "MERCATOR",
+		OIT: false,
+		logDepth: true
+	});
+	map.repaint = true;
+	map.enableLight();
+	map.SSR = true;
+	/**
+	 * 六面体环境纹理的六个面分别是 正x，负x，正y，负y，正z，负z，path是代表总的路径，urls定位到六面的问题文件名
+	 * @type {TextureCube}
+	 */
+	const texture = minemap.TextureCubeLoader.load({
+		map,
+		path: "../image/cube/Park2/",
+		urls: ['posx.jpg', 'negx.jpg', 'posy.jpg', 'negy.jpg', 'posz.jpg', 'negz.jpg'],
+		anisotropy: 1,
+		minFilter: minemap.WebGLConstants.LINEAR,
+		magFilter: minemap.WebGLConstants.LINEAR,
+		wrapS: minemap.WebGLConstants.CLAMP_TO_EDGE,
+		wrapT: minemap.WebGLConstants.CLAMP_TO_EDGE,
+		pixelFormat: minemap.WebGLConstants.RGBA,
+		pixelDatatype: minemap.WebGLConstants.HALF_FLOAT,
+		loaded: () => {
+			map.environment = texture;
+		}
+	});
+
+	map.on("load", function () {
+		/*添加栅格图*/
+		map.addSource("IMAGERY_SOURCE", {
+			type: "raster", //数据源类型：栅格数据源
+			tiles: ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+			tileSize: 256 //瓦片尺寸
+		});
+
+		map.addLayer({
+			id: "IMAGERY",
+			type: "raster", //图层类型为"raster"
+			source: "IMAGERY_SOURCE",
+			minzoom: 1,
+			maxzoom: 23,
+			"depth-test": true,
+			paint: {
+				"raster-opacity": 1
+			}
+		});
+
+		addModel();
+	})
+
+
+	function addModel() {
+		model = map.addSceneComponent({
+			id: "idd",
+			type: "3d-model", // 数据类型为“3d-model”
+			data: "../data/2.0/ABeautifulGame/glTF/ABeautifulGame.gltf",
+			modelFolder: "../data/2.0/ABeautifulGame/glTF/",
+			scale: [100, 100, 100], // 在xyz轴方向上的缩放比例
+			rotation: [90, 0, 0], // 绕xyz轴方向上的旋转，单位为度
+			position: new minemap.Math.Vector3(120.24805053680325, 29.715189931766076, 0), // 锚点（模型局部坐标原点）的经纬度位置
+			lightingModel: minemap.LightingModelType.PBR,
+			activeAnimation: true,
+			accurateBounding: true,
+			loaded: function (sceneModel) {
+
+			}
+		});
+	}
+
+	//添加gui
+
+	const params = {
+		ssrOpacity: 1.0,
+		ssrMaxDistance:10,
+		ssrThickness: 0.018,
+		ssrDelta: 1.0,
+		ssrSigma: 2.0,
+		ssrStepSize: 1.0
+	};
+
+	const gui = new lil.GUI({width: 300});
+
+	gui.add(params, "ssrOpacity", 0, 1, 0.01).onChange((v) => {
+		map.painter.ssrPass.ssrOpacity = v;
+	});
+
+	gui.add(params, "ssrMaxDistance", 0, 20, 0.01).onChange((v) => {
+		map.painter.ssrPass.ssrMaxDistance = v;
+	});
+	gui.add(params, "ssrThickness", 0, 0.1, 0.001).onChange((v) => {
+		map.painter.ssrPass.ssrThickness = v;
+	});
+	gui.add(params, "ssrDelta", 0, 4, 0.1).onChange((v) => {
+		map.painter.ssrPass.ssrDelta = v;
+	});
+	gui.add(params, "ssrSigma", 0, 4, 0.1).onChange((v) => {
+		map.painter.ssrPass.ssrSigma = v;
+	});
+	gui.add(params, "ssrStepSize", 1, 4, 0.1).onChange((v) => {
+		map.painter.ssrPass.ssrStepSize = v;
+	});
+
+
+</script>
+</body>
+
+</html>

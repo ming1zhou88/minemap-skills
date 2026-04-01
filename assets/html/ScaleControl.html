@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<title>比例尺控件添加</title>
+		<!-- 引入MineMap API插件 -->
+		<link rel="stylesheet" href="../style/demo.css" />
+		<!-- 引入MineMap API插件 -->
+		<link rel="stylesheet" href="../../dist/minemap.css" />
+		<script src="../../dist/minemap-dev.js"></script>
+		<style>
+			#map {
+				margin: 0;
+				padding: 0;
+				width: 100%;
+				height: 100%;
+			}
+		</style>
+	</head>
+	<body>
+		<div id="map"></div>
+		<div class="card-panel card-panel-top-right">
+			<div class="card-btn-group group-new">
+				<button onclick="toggleScaleControl()" id="scaleControl"></button>
+			</div>
+		</div>
+		<script>
+			/**
+			 * 全局参数设置
+			 */
+			minemap.domainUrl = 'https://minemap.minedata.cn';
+			minemap.dataDomainUrl = 'https://minemap.minedata.cn';
+			minemap.serverDomainUrl = 'https://sd-data.minedata.cn';
+			minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+			minemap.serviceUrl = 'https://service.minedata.cn/service';
+
+			minemap.key = '0c6ac62182404e5ebc7a789981f6db72';
+			minemap.solution = 11001;
+
+			/**
+			 * 初始化地图实例
+			 */
+			var map = new minemap.Map({
+				container: "map",
+				style: 'https://service.minedata.cn/map/solu/style/11001',
+				center: [116.46, 39.92] /*地图中心点*/,
+				zoom: 18 /*地图默认缩放等级*/,
+				pitch: 0 /*地图俯仰角度*/,
+				maxZoom: 18 /*地图最大缩放等级*/,
+				minZoom: 1 /*地图最小缩放等级*/,
+				projection: "MERCATOR"
+			});
+			map.repaint = true;
+			map.enableLight();
+
+			map.on("load", function () {
+				toggleScaleControl();
+			});
+			let scale;
+			function toggleScaleControl() {
+				let innerHTML;
+
+				if (scale) {
+					map.removeControl(scale);
+					scale = null;
+					innerHTML = "添加比例尺控件";
+				} else {
+					scale = new minemap.Scale();
+					map.addControl(scale, "bottom-left");
+					innerHTML = "删除比例尺控件";
+				}
+
+				document.getElementById("scaleControl").innerHTML = innerHTML;
+			}
+		</script>
+	</body>
+</html>

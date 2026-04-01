@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+	<title>Moving Point Light</title>
+	<link rel="stylesheet" href="../../dist/minemap.css" />
+	<script src="../../dist/minemap-dev.js"></script>
+	<script src="../js/lil-gui.umd.min.js"></script>
+	<style>
+		html,
+		body,
+		#map {
+			margin: 0;
+			padding: 0;
+			width: 100%;
+			height: 100%;
+		}
+
+		#toggle-btn {
+			position: absolute;
+			top: 20px;
+			left: 20px;
+			z-index: 1000;
+			padding: 10px 20px;
+			background-color: #ffffff;
+			border: 1px solid #ccc;
+			border-radius: 4px;
+			cursor: pointer;
+			font-family: sans-serif;
+			font-size: 14px;
+			box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+			width: 180px !important;
+		}
+
+		#toggle-btn:hover {
+			background-color: #f0f0f0;
+		}
+
+		#toggle-system-btn {
+			position: absolute;
+			top: 60px;
+			left: 20px;
+			z-index: 1000;
+			padding: 10px 20px;
+			background-color: #ffffff;
+			border: 1px solid #ccc;
+			border-radius: 4px;
+			cursor: pointer;
+			font-family: sans-serif;
+			font-size: 14px;
+			box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+			width: 180px !important;
+		}
+
+		#toggle-system-btn:hover {
+			background-color: #f0f0f0;
+		}
+	</style>
+</head>
+
+<body>
+	<div id="map"></div>
+	<button id="toggle-btn">关闭点光源</button>
+	<button id="toggle-system-btn">关闭光影系统</button>
+	<script>
+		minemap.domainUrl = "https://minedata.cn";
+		minemap.serverDomainUrl = "https://minedata.cn";
+		minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+		window.minemapCDN = "https://minedata.cn/minemapapi/minemap-CDN";
+
+		minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+
+		const style = {
+			glyphs: "minemap://fonts/{fontstack}/{range}",
+			sprite: "minemap://sprite/sprite",
+			sources: {},
+			layers: [],
+			version: 8
+		};
+
+		// Center map around the building
+		const buildingPosition = [116.22544236500333, 40.03454296210216, 0.0];
+
+		const map = new minemap.Map({
+			container: "map",
+			style: style,
+			center: [116.25882877262502, 40.050207254126114],
+			pitch: 75.35078338525682,
+			bearing: -165.49185076108614,
+			zoom: 14.296100691229146,
+			maxZoom: 22,
+			minZoom: 1
+		});
+
+		map.repaint = true;
+
+		map.on("load", function () {
+			addRasterLayer();
+			addSceneModel();
+			addLight();
+			addBox();
+		});
+
+		function addBox() {
+			const cartographicForGreen = new minemap.Math.Vector3([116.22544236500333, 40.03754296210216, 240]);
+			const cartographicForRed = new minemap.Math.Vector3([116.21245236500333, 40.03654296210216, 240]);
+			const matrixForGreen = minemap.Transforms.cartographicToFixedFrame(cartographicForGreen);
+			const matrixForRed = minemap.Transforms.cartographicToFixedFrame(cartographicForRed);
+			const rotX = new minemap.Math.Matrix4().rotateX(Math.PI / 2);
+			matrixForGreen.multiplyRight(rotX);
+
+			const texDefault = minemap.TextureLoader.load({ map, texUrl: "../data/image/uv.jpg" });
+			const stdTexMaterial = minemap.StandardMaterial.fromType("Texture", {
+				baseColorMap: texDefault,
+				opacity: 1.0,
+				doubleSided: false
+			});
+			greenBoxPrimitive = new minemap.Primitive({
+				modelMatrix: matrixForGreen,
+				geometry: new minemap.Geometries.BoxGeometry({
+					width: 500,
+					height: 500,
+					depth: 500
+				}),
+				material: minemap.StandardMaterial.fromType("Color", {
+					color: "green",
+					opacity: 0.5,
+					doubleSided: false
+				})
+			});
+			map.addPrimitive(greenBoxPrimitive);
+
+			// 添加 立方体轮廓
+			redBoxOutlinePrimitive = new minemap.Primitive({
+				modelMatrix: matrixForGreen,
+				geometry: new minemap.Geometries.BoxOutlineGeometry({
+					// 长宽高
+					width: 500,
+					height: 500,
+					depth: 500
+				}),
+				material: minemap.StandardMaterial.fromType("Color", {
+					color: "red",
+					opacity: 1.0,
+					doubleSided: false
+				})
+			});
+			map.addPrimitive(redBoxOutlinePrimitive);
+
+			redBoxPrimitive = new minemap.Primitive({
+				modelMatrix: matrixForRed,
+				geometry: new minemap.Geometries.BoxGeometry({
+					width: 500,
+					height: 500,
+					depth: 500
+				}),
+				material: minemap.StandardMaterial.fromType("Color", {
+					color: "red",
+					opacity: 1.0,
+					doubleSided: false
+				})
+			});
+			redBoxPrimitive.material.isTranslucent = false;
+			map.addPrimitive(redBoxPrimitive);
+
+			// 添加 立方体轮廓
+			blackOutlinePrimitive = new minemap.Primitive({
+				modelMatrix: matrixForRed,
+				geometry: new minemap.Geometries.BoxOutlineGeometry({
+					// 长宽高
+					width: 500,
+					height: 500,
+					depth: 500
+				}),
+				material: minemap.StandardMaterial.fromType("Color", {
+					color: "black",
+					opacity: 1.0,
+					doubleSided: true
+				})
+			});
+			map.addPrimitive(blackOutlinePrimitive);
+		}
+
+		// 开启光影
+		map.enableLight();
+		map.enableShadow();
+		map.setShadowType(minemap.ShadowType.SHADOW_MAP_PCF);
+
+		let pointLight;
+		let isLightOn = true;
+		let isSystemLightOn = true;
+
+		// Button logic - Toggle Point Light
+		document.getElementById('toggle-btn').addEventListener('click', function () {
+			isLightOn = !isLightOn;
+			if (isLightOn) {
+				pointLight.intensity = 4000; // Restore original intensity
+				pointLight.color = "#00ff00"
+				pointLight.distance = 9000;
+				pointLight.decay = 1;
+
+
+				this.innerText = "关闭点光源";
+			} else {
+				pointLight.intensity = 0; // Turn off
+				this.innerText = "开启点光源";
+			}
+		});
+
+		// Button logic - Toggle System Light
+		document.getElementById('toggle-system-btn').addEventListener('click', function () {
+			isSystemLightOn = !isSystemLightOn;
+			if (isSystemLightOn) {
+				map.enableLight();
+				this.innerText = "关闭光影系统";
+			} else {
+				map.disableLight();
+				this.innerText = "开启光影系统";
+			}
+		});
+
+		function addLight() {
+			// Add a basic ambient light so we can see the building even if point light is far
+			const ambientLight = new minemap.AmbientLight("#ffffff", 0.2);
+			map.addLight(ambientLight);
+
+			addPointLight();
+		}
+
+		function addPointLight() {
+			const color = "#ff0000";
+			const intensity = 400;
+			const distance = 9000;
+			const decay = 1;
+
+			pointLight = new minemap.PointLight(
+				color,
+				intensity,
+				distance,
+				decay
+			);
+
+			// Initial position (will be updated by animation)
+			pointLight.setPosition(
+				new minemap.Math.Vector3(minemap.Transforms.cartographicToCartesian3([116.25882877262502, 40.050207254126114, 300]))
+			);
+			pointLight.castShadow = true;
+			pointLight.shadow.bias = -0.001;
+			pointLight.shadow.normalBias = 0.2;
+			pointLight.shadow.radius = 2;
+
+			map.addLight(pointLight);
+
+			// Add a sphere to visualize the light source
+			const primitiveMatrix = minemap.Transforms.cartographicToFixedFrame([116.25882877262502, 40.050207254126114, 300]);
+			const sphereGeometry = new minemap.Geometries.SphereGeometry({
+				radius: 20,
+				widthSegments: 32,
+				heightSegments: 32
+			});
+			const lightSphere = new minemap.Primitive({
+				modelMatrix: primitiveMatrix,
+				geometry: sphereGeometry,
+				material: minemap.StandardMaterial.fromType("Color", {
+					color: color,
+					opacity: 1.0,
+					doubleSided: false
+				})
+			});
+
+			// Add a static sphere to mark the start point
+			const startSphere = new minemap.Primitive({
+				modelMatrix: primitiveMatrix, // Uses the same initial position matrix
+				geometry: sphereGeometry,
+				material: minemap.StandardMaterial.fromType("Color", {
+					color: "#ffffff", // White color to distinguish start point
+					opacity: 0.8,
+					doubleSided: false
+				})
+			});
+
+			// Add a marker at [buildingPosition[0], buildingPosition[1], 300]
+			const markerPosition = [116.25882877262502, 40.050207254126114, 300];
+			const markerMatrix = minemap.Transforms.cartographicToFixedFrame(markerPosition);
+			const markerGeometry = new minemap.Geometries.BoxGeometry({
+				width: 20,
+				height: 20,
+				depth: 20
+			});
+			const markerPrimitive = new minemap.Primitive({
+				modelMatrix: markerMatrix,
+				geometry: markerGeometry,
+				material: minemap.StandardMaterial.fromType("Color", {
+					color: "red",
+					opacity: 1.0,
+					doubleSided: false
+				})
+			});
+			map.addPrimitive(markerPrimitive);
+
+			map.addPrimitive(lightSphere);
+			map.addPrimitive(startSphere);
+
+			addPointLightAnimation(pointLight, lightSphere);
+
+
+
+
+		}
+
+		function addPointLightAnimation(light, sphere) {
+			const render = () => {
+				const timer = Date.now() * 0.001;
+
+				// Base orbit parameters
+				const baseRadius = 0.006; // Approx 150-200 meters?
+
+				// Add some noise/variation to the orbit
+				// varying radius
+				const r = baseRadius + Math.sin(timer * 2.5) * 0.006;
+				// varying height
+				const h = 80 + Math.sin(timer * 1.5) * 80;
+
+				// Circular orbit with noise
+				let x = 116.26131932213818 + Math.cos(timer) * r;
+				let y = 40.05862271510419 + Math.sin(timer) * r;
+				let z = h;
+
+				let lightPosition = [x, y, z];
+
+				sphere.matrixWorld = minemap.Transforms.cartographicToFixedFrame(lightPosition);
+				sphere.position = minemap.Transforms.cartographicToCartesian3(lightPosition);
+				light.setPosition(
+					new minemap.Math.Vector3(minemap.Transforms.cartographicToCartesian3(lightPosition))
+				);
+				requestAnimationFrame(render);
+			};
+
+			render();
+		}
+
+		function addRasterLayer() {
+			map.addSource("IMAGERY_SOURCE", {
+				type: "raster",
+				tiles: ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"],
+				tileSize: 512
+			});
+
+			map.addLayer({
+				id: "IMAGERY",
+				type: "raster",
+				source: "IMAGERY_SOURCE",
+				minzoom: 1,
+				maxzoom: 23
+			});
+		}
+
+		function addSceneModel() {
+			map.addSceneComponent({
+				id: "modelA",
+				type: "3d-model",
+				data: "http://192.168.152.123:11187/demo-data/bim/only-building.gltf",
+				modelFolder: "http://192.168.152.123:11187/demo-data/bim/",
+				scale: new minemap.Math.Vector3([10, 10, 10]),
+				rotation: new minemap.Math.Vector3([90, 65, 0]),
+				position: new minemap.Math.Vector3(buildingPosition),
+				loaded: () => { },
+				castShadow: true,
+				receiveShadow: true
+			});
+		}
+	</script>
+</body>
+
+</html>

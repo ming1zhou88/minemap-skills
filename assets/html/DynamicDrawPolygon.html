@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<title>动态绘制Polygon</title>
+		<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+		<!-- 引入MineMap API插件 -->
+		<link rel="stylesheet" href="../../dist/minemap.css" />
+		<script src="../../dist/minemap-dev.js"></script>
+		<script src="../js/lil-gui.umd.min.js"></script>
+		<style>
+			html,
+			#map,
+			body {
+				margin: 0;
+				padding: 0;
+				width: 100%;
+				height: 100%;
+			}
+
+			.toolContainer {
+				position: absolute;
+				top: 0;
+				left: 0;
+				z-index: 999;
+			}
+		</style>
+	</head>
+	<body>
+		<div id="map"></div>
+		<script>
+			minemap.domainUrl = "//192.168.152.123";
+			minemap.dataDomainUrl = "https://minedata.cn";
+			minemap.serverDomainUrl = "https://minedata.cn";
+			minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+			minemap.serviceUrl = "https://minedata.cn/service/";
+
+			minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+			minemap.solution = 11001;
+			window.minemapCDN = "https://minedata.cn/minemapapi/minemap-CDN";
+
+			// 定义空底图样式
+			var style = {
+				glyphs: "minemap://fonts/{fontstack}/{range}",
+				sprite: "minemap://sprite/sprite",
+				sources: {},
+				layers: [],
+				version: 8
+			};
+			var map = new minemap.Map({
+				container: "map",
+				style: style,
+				center: [108.96597500382711, 34.218243297462216],
+				zoom: 15,
+				pitch: 0.5,
+				bearing: -175,
+				maxZoom: 22, //地图最大缩放级别限制
+				minZoom: 1 //地图最小缩放级别限制
+			});
+			map.repaint = true;
+
+			/**
+			 * Attention:
+			 * 动态绘制面的核心是把positions设置成回调函数！！！
+			 * 左键绘制，右键结束
+			 * 当左键点击选点个数大于2的时候才能动态绘制面
+			 * 目前线还不支持动态更新，所以当鼠标左键点击数小于3个点位时，无法绘制线，
+			 *
+			 * TODO:
+			 * 线更新动态绘制以后，增加少于3个点的情况下绘制线，保持整个绘制的过程可视化
+			 */
+
+			let geometry,
+				primitive,
+				startDraw = false, //开始绘制
+				positions = [],
+				tempPoint = []; // polygon点
+			function drawPolygon() {
+				positions = [];
+				startDraw = true;
+				geometry = new minemap.Geometries.PolygonGeometry({
+					polygonHierarchy: {
+						positions: function () {
+							const results = positions.concat(tempPoint);
+							// 判断是否自相交，如果自相交则该点不进入数组内
+							if (
+								results.length > 3 &&
+								minemap.Geometries.PolygonGeometry.isSelfIntersection(results, true)
+							) {
+								return positions;
+							} else {
+								return results;
+							}
+						}
+					},
+					perPositionHeight: true
+				});
+
+				const material = minemap.StandardMaterial.fromType("Color", {
+					color: "red",
+					doubleSided: true
+				});
+
+				primitive = new minemap.Primitive({
+					geometry: geometry,
+					material: material
+				});
+
+				map.addPrimitive(primitive);
+			}
+
+			// leftClick
+			map.on("click", function (e) {
+				if (startDraw) {
+					const point = map.painter.getPositionByGPUPick(e.point);
+					positions.push(minemap.Math.Vector3.fromDegrees(point.x, point.y, point.z));
+				}
+			});
+
+			// mouseMove
+			map.on("mousemove", function (e) {
+				if (startDraw) {
+					tempPoint = [];
+					const point = map.painter.getPositionByGPUPick(e.point);
+					tempPoint.push(minemap.Math.Vector3.fromDegrees(point.x, point.y, point.z));
+				}
+			});
+
+			// rightClick
+			map.on("contextmenu", function (e) {
+				if (startDraw) {
+					startDraw = false;
+					map.removePrimitive(primitive);
+
+					const geometryResult = new minemap.Geometries.PolygonGeometry({
+						polygonHierarchy: {
+							positions: positions
+						},
+						perPositionHeight: true
+					});
+
+					const texDefault = minemap.TextureLoader.load({
+						map,
+						texUrl: "../image/DigBody.jpg"
+					});
+
+					const material = minemap.StandardMaterial.fromType("Color", {
+						color: "red",
+						doubleSided: true
+					});
+
+					const primitiveResult = new minemap.Primitive({
+						geometry: geometryResult,
+						material: minemap.StandardMaterial.fromType("Texture", {
+							baseColorMap: texDefault,
+							doubleSided: true
+						})
+					});
+
+					map.addPrimitive(primitiveResult);
+				}
+			});
+			map.on("load", function () {
+				/*添加栅格图*/
+				map.addSource("IMAGERY_SOURCE", {
+					type: "raster", //数据源类型：栅格数据源
+					tiles: ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+					tileSize: 512 //瓦片尺寸
+				});
+
+				map.addLayer({
+					id: "IMAGERY",
+					type: "raster", //图层类型为"raster"
+					source: "IMAGERY_SOURCE",
+					minzoom: 1,
+					maxzoom: 23,
+					// "depth-test": true,
+					paint: {
+						"raster-opacity": 1
+					}
+				});
+
+				/*添加BIM模型数据*/
+				map.addSceneComponent({
+					id: "BIM_SOURCE", // 唯一标识
+					position: new minemap.Math.Vector3(108.964156, 34.218258, 0),
+					rotation: [90, 0, 0],
+					scale: [1, 1, 1],
+					type: "3d-model",
+					data: "http://192.168.152.123:11187/demo-data/bim/only-building.gltf",
+					modelFolder: "http://192.168.152.123:11187/demo-data/bim/"
+				});
+
+				let eventObj = {
+					drawPolygon: drawPolygon
+				};
+				const gui = new lil.GUI({ title: "参数调节面板" });
+				gui.add(eventObj, "drawPolygon").name("绘制面");
+			});
+		</script>
+	</body>
+</html>

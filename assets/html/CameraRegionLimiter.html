@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8"/>
+	<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no"/>
+	<title>相机范围限制</title>
+	<link rel="stylesheet" href="../style/demo.css"/>
+	<!-- 引入MineMap API插件 -->
+	<link rel="stylesheet" href="../../dist/minemap.css"/>
+	<script src="../../dist/minemap-dev.js"></script>
+	<script src="../js/CameraRegionLimiter.js"></script>
+	<style>
+		#map {
+			width: 100%;
+			height: 100%;
+		}
+	</style>
+</head>
+
+<body>
+<div id="map"></div>
+<script>
+	/**
+	 * 全局参数设置
+	 */
+	minemap.domainUrl = 'https://minedata.cn'
+	minemap.serverDomainUrl = 'https://ol-data.minedata.cn'
+	minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite'
+
+	minemap.key = '<您的 key>'
+
+	const style = {
+		glyphs: 'minemap://fonts/{fontstack}/{range}',
+		sprite: 'minemap://sprite/sprite',
+		sources: {},
+		layers: [],
+		version: 8,
+	}
+	const center = [116.46, 39.92]
+	const config = {
+		style,
+		container: 'map',
+		center /*地图中心点*/,
+		zoom: 19 /*地图默认缩放等级*/,
+		pitch: 67.35713145658812 /*地图俯仰角度*/,
+		bearing: -160.25604454977378,
+		roll: 0,
+		maxZoom: 22 /*地图最大缩放等级*/,
+		minZoom: 14 /*地图最小缩放等级*/,
+		projection: 'MERCATOR',
+		skyBox: false,
+		earthSkin: false,
+	}
+	const map = new minemap.Map({
+		...config
+	})
+
+	map.enableLight()
+
+
+	map.on('load', () => {
+		addScene()
+		addVehicle()
+
+		fixedRange()
+	});
+
+
+	function addScene() {
+		map.addSceneComponent({
+			id: 'glbModel',
+			type: '3d-model', // 数据类型为“3d-model”
+			data: '../data/test-gltf/300mzhilu_3_z0.2m.glb',
+			altitude: 0.2,
+			modelFolder: '',
+			scale: [1, 1, 1],
+			rotation: [90, 0, 0],
+			sceneType: 'highWay_3',
+			laneCount: 3,
+			middleWidth: 3.1,
+			laneWidth: 4,
+			long: 150,
+			position: new window.minemap.Math.Vector3(116.46000000000006, 39.92000000000001, 0),
+			loaded: (e) => {
+
+			},
+		})
+	}
+
+	function addVehicle() {
+		map.addSceneComponent({
+			id: 1,
+			type: '3d-model', // 数据类型为“3d-model”
+			data: '../data/test-gltf/xiaohuoche_kong.glb',
+			modelFolder: '',
+			scale: [1, 1, 1],
+			position: new window.minemap.Math.Vector3(116.46004162753684, 39.91997976529183, 0.2),
+			rotation: [90, 180, 0],
+			lightingModel: window.minemap.LightingModelType.PBR,
+			activeAnimation: true,
+			accurateBounding: true,
+			loaded: (e) => {
+				const s = {
+					id: 1,
+					patch: config.pitch,
+					bearing: config.bearing,
+					roll: config.roll,
+					range: 10,
+				}
+				map.flyTo({
+					...s,
+					target: e,
+					callback() {
+
+					}
+				})
+			},
+		})
+	}
+
+	function fixedRange() {
+		// 多边形区域（经纬度），与原来 turf.polygon 使用的顶点一致
+		const polygon = [
+			[116.46159995260251, 39.91867421824535],
+			[116.45847090144287, 39.918666837719925],
+			[116.45847449312302, 39.92135516976565],
+			[116.4616026403456, 39.921365249121436],
+		];
+
+		// 读取当前相机姿态，作为限制器的初始相机状态
+		const pos = map.getCameraPosition();
+		const initialCamera = {
+			lng: pos[0],
+			lat: pos[1],
+			height: pos[2],
+			bearing: map.getCameraBearing(),
+			pitch: map.getCameraPitch(),
+		};
+
+		const regionConfig = {
+			polygon,
+			minHeight: 0,
+			maxHeight: 80,
+		};
+
+		// 创建可复用的相机限制器
+		const limiter = new window.CameraRegionLimiter(map, regionConfig, initialCamera, {
+			// 相机经纬高距离区域包围盒中心超过该值（米）则不允许
+			maxDistanceMeters: 100000,
+		});
+
+		map.on('move', () => {
+			limiter.checkAndCorrect();
+		});
+
+		map.on('click', (e) => {
+			const position = map.getPositionByGPUPick(e.point)
+			console.log('position', position)
+		});
+
+	}
+
+</script>
+</body>
+
+</html>

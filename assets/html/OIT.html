@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+		<title>OIT（顺序无关透明渲染）</title>
+		<script src="//minedata.cn/minemapapi/minemap-CDN/dat.gui/dat.gui.min.js"></script>
+		<link rel="stylesheet" href="../../dist/minemap.css" />
+		<script src="../../dist/minemap-dev.js"></script>
+		<script src="../lib/minemap/sunlight-viewer.js"></script>
+		<style>
+			html,
+			body,
+			#map {
+				margin: 0;
+				padding: 0;
+				width: 100%;
+				height: 100%;
+			}
+
+			.toolContainer {
+				position: absolute;
+				top: 0;
+				left: 0;
+				z-index: 999;
+			}
+		</style>
+	</head>
+	<div class="toolContainer">
+		<button onclick="openOIT()">开启OIT</button>
+		<button onclick="closeOIT()">关闭OIT</button>
+	</div>
+
+	<body>
+		<div id="map"></div>
+		<script>
+			/**
+			 * 全局参数设置
+			 */
+			minemap.domainUrl = "https://minemap.minedata.cn";
+			minemap.dataDomainUrl = "https://minemap.minedata.cn";
+			minemap.serverDomainUrl = "https://sd-data.minedata.cn";
+			minemap.spriteUrl = "http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite";
+			minemap.serviceUrl = "https://service.minedata.cn/service";
+
+			minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+			minemap.solution = 11001;
+
+			// 定义空底图样式
+			var style = {
+				glyphs: "minemap://fonts/{fontstack}/{range}",
+				sprite: "minemap://sprite/sprite",
+				sources: {},
+				layers: [],
+				version: 8
+			};
+
+			/**
+			 * 初始化地图实例
+			 */
+			var map = new minemap.Map({
+				container: "map",
+				style: style /*底图样式*/,
+				center: [116.25518788055763, 40.07185905826532],
+				zoom: 14.575629391632328,
+				pitch: 87.99490021759956,
+				bearing: -71.13680845073861,
+				roll: 0.000013550050467276905,
+				maxZoom: 22 /*地图最大缩放等级*/,
+				minZoom: 1 /*地图最小缩放等级*/,
+				projection: "MERCATOR",
+				OIT: true, // 开启OIT
+				MSAASamples: 2
+			});
+
+			map.repaint = true;
+			map.enableLight(); // 开启灯光
+
+			var blackBoxPrimitive = null;
+			var greenBoxPrimitive = null;
+			var redBoxOutlinePrimitive = null;
+			var redBoxPrimitive = null;
+			var blackOutlinePrimitive = null;
+			map.on("load", function () {
+				// sunlightViewer.build();
+				/*添加栅格图*/
+				map.addSource("IMAGERY_SOURCE", {
+					type: "raster", //数据源类型：栅格数据源
+					tiles: ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+					tileSize: 512 //瓦片尺寸
+				});
+
+				map.addLayer({
+					id: "IMAGERY",
+					type: "raster", //图层类型为"raster"
+					source: "IMAGERY_SOURCE",
+					minzoom: 1,
+					maxzoom: 23,
+					paint: {
+						"raster-opacity": 1
+					}
+				});
+
+				const cartographicForBlack = new minemap.Math.Vector3([116.21, 40.07254296210216, 300]);
+				const cartographicForGreen = new minemap.Math.Vector3([116.24544236500333, 40.07254296210216, 0]);
+				const cartographicForRed = new minemap.Math.Vector3([116.23544236500333, 40.07254296210216, 0]);
+				const matrixForBlack = minemap.Transforms.cartographicToFixedFrame(cartographicForBlack);
+				const matrixForGreen = minemap.Transforms.cartographicToFixedFrame(cartographicForGreen);
+				const matrixForRed = minemap.Transforms.cartographicToFixedFrame(cartographicForRed);
+				const rotX = new minemap.Math.Matrix4().rotateX(Math.PI / 2);
+				matrixForGreen.multiplyRight(rotX);
+
+				const texDefault = minemap.TextureLoader.load({ map, texUrl: "../data/image/uv.jpg" });
+				const stdTexMaterial = minemap.StandardMaterial.fromType("Texture", {
+					baseColorMap: texDefault,
+					opacity: 1.0,
+					doubleSided: false
+				});
+
+				blackBoxPrimitive = new minemap.Primitive({
+					modelMatrix: matrixForBlack,
+					geometry: new minemap.Geometries.BoxGeometry({
+						width: 500,
+						height: 500,
+						depth: 500
+					}),
+					material: minemap.StandardMaterial.fromType("Color", {
+						color: "black",
+						opacity: 1.0,
+						doubleSided: false
+					})
+				});
+				blackBoxPrimitive.material.isTranslucent = false;
+				map.addPrimitive(blackBoxPrimitive);
+
+				greenBoxPrimitive = new minemap.Primitive({
+					modelMatrix: matrixForGreen,
+					geometry: new minemap.Geometries.BoxGeometry({
+						width: 500,
+						height: 500,
+						depth: 500
+					}),
+					material: minemap.StandardMaterial.fromType("Color", {
+						color: "green",
+						opacity: 0.2,
+						doubleSided: false
+					})
+				});
+				greenBoxPrimitive.material.isTranslucent = true;
+				map.addPrimitive(greenBoxPrimitive);
+
+				// 添加 立方体轮廓
+				redBoxOutlinePrimitive = new minemap.Primitive({
+					modelMatrix: matrixForGreen,
+					geometry: new minemap.Geometries.BoxOutlineGeometry({
+						// 长宽高
+						width: 500,
+						height: 500,
+						depth: 500
+					}),
+					material: minemap.StandardMaterial.fromType("Color", {
+						color: "red",
+						opacity: 1.0,
+						doubleSided: false
+					})
+				});
+				redBoxOutlinePrimitive.material.isTranslucent = false;
+				map.addPrimitive(redBoxOutlinePrimitive);
+
+				redBoxPrimitive = new minemap.Primitive({
+					modelMatrix: matrixForRed,
+					geometry: new minemap.Geometries.BoxGeometry({
+						width: 500,
+						height: 500,
+						depth: 500
+					}),
+					material: minemap.StandardMaterial.fromType("Color", {
+						color: "red",
+						opacity: 0.6,
+						doubleSided: false
+					})
+				});
+				redBoxPrimitive.material.isTranslucent = true;
+				map.addPrimitive(redBoxPrimitive);
+
+				// 添加 立方体轮廓
+				blackOutlinePrimitive = new minemap.Primitive({
+					modelMatrix: matrixForRed,
+					geometry: new minemap.Geometries.BoxOutlineGeometry({
+						// 长宽高
+						width: 500,
+						height: 500,
+						depth: 500
+					}),
+					material: minemap.StandardMaterial.fromType("Color", {
+						color: "black",
+						opacity: 1.0,
+						doubleSided: true
+					})
+				});
+				blackOutlinePrimitive.material.isTranslucent = false;
+				map.addPrimitive(blackOutlinePrimitive);
+
+				const billBoardPrimitive = new minemap.Primitive({
+					geometry: new minemap.Geometries.BillboardGeometry({}),
+					material: new minemap.BillboardMaterial({
+						position: [116.25, 40.07254296210216, 200],
+						//pixelResolution: [400, 80], //公告板像素大小
+						scale: [1000, 140, 1],
+						center: new minemap.Math.Vector2(0.5, 1),
+						rotation: 0, // 弧度
+						color: new minemap.Math.Vector4(1.0, 0.7, 0.2, 0.5) // 颜色板
+					})
+				});
+				billBoardPrimitive.material.isTranslucent = true;
+				map.addPrimitive(billBoardPrimitive);
+
+				const height = 0;
+				const polyline = new minemap.Geometries.PolylineGeometry({
+					positions: minemap.Math.Vector3.fromDegreesArrayHeights([
+						116.23,
+						40.06,
+						height,
+						116.23,
+						40.08,
+						height,
+						116.26,
+						40.08,
+						height,
+						116.26,
+						40.06,
+						height,
+						116.23,
+						40.06,
+						height
+					]),
+					width: 20,
+					arcType: minemap.ARCTYPE.GEODESIC
+				});
+
+				const redPolylinePrimitive = new minemap.Primitive({
+					geometry: polyline,
+					material: minemap.PolylineMaterial.fromType("Color", {
+						color: new minemap.Color(1, 1, 0, 0.4)
+					}),
+					name: "polyline"
+				});
+				redPolylinePrimitive.material.isTranslucent = true;
+				map.addPrimitive(redPolylinePrimitive);
+
+				map.addPrimitive(
+					new minemap.PointPrimitiveCollection({
+						pointPrimitives: [
+							new minemap.PointPrimitive({
+								position: minemap.Math.Vector3.fromDegrees(116.23544236500333, 40.07254296210216, 0),
+								color: new minemap.Color(0, 0, 1, 0.5)
+							})
+						]
+					})
+				);
+
+				map.addSceneComponent({
+					id: "Glenfiddich",
+					type: "3d-model", // 数据类型为“3d-model”
+					data: "../data/test-gltf/Scotch.glb",
+					scale: [10, 10, 10], // 在xyz轴方向上的缩放比例
+					rotation: [90, 0, 0], // 绕xyz轴方向上的旋转，单位为度
+					position: new minemap.Math.Vector3(116.24544236500333, 40.07254296210216, 0), // 锚点（模型局部坐标原点）的经纬度位置
+					lightingModel: minemap.LightingModelType.PBR
+				});
+			});
+
+			function openOIT() {
+				if (!map.OIT) {
+					map.OIT = true;
+				}
+			}
+
+			function closeOIT() {
+				if (map.OIT) {
+					map.OIT = false;
+				}
+			}
+		</script>
+	</body>
+</html>

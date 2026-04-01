@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+	<title>模型线框模式</title>
+	<!-- demo样式文件 -->
+	<link rel="stylesheet" href="../style/demo.css">
+	<!-- 引入MineMap API插件 -->
+	<link rel="stylesheet" href="../../dist/minemap.css">
+
+	<script src="../../dist/minemap-dev.js"></script>
+	<script src="../js/lil-gui.umd.min.js"></script>
+
+	<link rel="stylesheet" href="../lib/jquery/ztree/css/demo.css">
+	<link rel="stylesheet" href="../lib/jquery/ztree/css/metroStyle/metroStyle.css" />
+
+	<script type="text/javascript" src="../lib/jquery/jquery-3.6.0.js"></script>
+	<script type="text/javascript" src="../lib/jquery/ztree/js/jquery.ztree.all.min.js"></script>
+
+	<style>
+		html,
+		body {
+			margin: 0;
+			padding: 0;
+			width: 100%;
+			height: 100%;
+			overflow: hidden;
+		}
+
+		#map {
+			width: 100%;
+			height: 100%;
+		}
+
+		.demo-panel {
+			position: absolute;
+			left: 20px;
+			top: 20px;
+			z-index: 99999;
+			width: 320px;
+			height: calc(100% - 40px);
+			display: flex;
+			flex-direction: column;
+			background: rgba(255, 255, 255, 0.96);
+			border-radius: 12px;
+			box-shadow: 0 10px 28px rgba(0, 0, 0, 0.16);
+			overflow: hidden;
+			backdrop-filter: blur(8px);
+		}
+
+		.panel-header {
+			padding: 16px 16px 12px;
+			border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+		}
+
+		.panel-title {
+			margin: 0 0 8px 0;
+			font-size: 16px;
+			font-weight: 600;
+			color: #1f2937;
+		}
+
+		.panel-desc {
+			margin: 0;
+			font-size: 12px;
+			line-height: 1.6;
+			color: #4b5563;
+		}
+
+		.panel-body {
+			padding: 12px 12px 14px;
+			flex: 1;
+			min-height: 0;
+			display: flex;
+			flex-direction: column;
+		}
+
+		.panel-subtitle {
+			margin: 0 0 10px 4px;
+			font-size: 12px;
+			font-weight: 600;
+			color: #374151;
+		}
+
+		.tree-wrapper {
+			flex: 1;
+			min-height: 0;
+			overflow: auto;
+			border-radius: 8px;
+			background: #f8fafc;
+			border: 1px solid rgba(0, 0, 0, 0.06);
+			padding: 8px;
+		}
+
+		.ztree {
+			width: 100% !important;
+			height: auto !important;
+			min-height: 100%;
+		}
+
+		.panel-footer {
+			margin-top: 10px;
+			padding: 10px 12px;
+			border-radius: 8px;
+			background: #f3f4f6;
+			font-size: 12px;
+			line-height: 1.6;
+			color: #4b5563;
+		}
+	</style>
+</head>
+
+<body>
+	<div class="demo-panel">
+		<div class="panel-header">
+			<h1 class="panel-title">模型线框模式</h1>
+			<p class="panel-desc">演示内置线框与引擎生成线框的显示控制，左侧树负责节点级显隐，右侧控制面板负责整体线框状态。</p>
+		</div>
+		<div class="panel-body">
+			<div class="panel-subtitle">节点树控制</div>
+			<div class="tree-wrapper">
+				<ul id="tree" class="ztree"></ul>
+			</div>
+			<div class="panel-footer">
+				支持 `_wireframe / _crease_edge` 内置线框，同时支持引擎生成线框的整体开关控制。
+			</div>
+		</div>
+	</div>
+
+	<div id="map"></div>
+
+	<script>
+		var globalNodeId = 1;
+		var zTreeObj;
+		var modelTree = {};
+		var lastPrimitive = null;
+		var controller;
+		var wireframeFolder;
+		var loadedModels = {};
+
+		const HIGHLIGHT_COLOR = [1.0, 0.0, 0.0, 0.4];
+
+		function colorToArray(colorLike) {
+			if (!colorLike) return null;
+			const r = colorLike.r ?? colorLike.x;
+			const g = colorLike.g ?? colorLike.y;
+			const b = colorLike.b ?? colorLike.z;
+			const a = colorLike.a ?? colorLike.w;
+			if (r === undefined || g === undefined || b === undefined || a === undefined) return null;
+			return [r, g, b, a];
+		}
+
+		function backupPrimitiveColor(primitive) {
+			if (!primitive) return;
+			const currentColor = colorToArray(primitive.color);
+			if (currentColor) {
+				primitive.__oldHighlightColor = currentColor;
+			}
+		}
+
+		function restorePrimitiveColor(primitive) {
+			if (!primitive || !primitive.__oldHighlightColor) return;
+			primitive.color = primitive.__oldHighlightColor;
+			primitive.__oldHighlightColor = undefined;
+		}
+
+		function selectPrimitive(primitive) {
+			if (!(primitive instanceof minemap.Primitive)) return;
+
+			if (lastPrimitive) {
+				restorePrimitiveColor(lastPrimitive);
+			}
+
+			backupPrimitiveColor(primitive);
+			primitive.color = HIGHLIGHT_COLOR;
+			lastPrimitive = primitive;
+
+			if (controller && primitive.properties) {
+				controller.setValue(primitive.properties.name || "");
+			}
+		}
+
+		function onCheck(event, treeId, treeNode) {
+			modelTree[treeNode.id].show = treeNode.checked;
+			modelTree[treeNode.id].visible = treeNode.checked;
+			modelTree[treeNode.id].visibility = treeNode.checked ? "visible" : "none";
+		}
+
+		function onClick(event, treeId, treeNode) {
+			selectPrimitive(modelTree[treeNode.id]);
+		}
+
+		var setting = {
+			view: {
+				selectedMulti: true
+			},
+			check: {
+				enable: true,
+			},
+			data: {
+				simpleData: {
+					enable: true,
+					idKey: "id",
+					pIdKey: "pid",
+				}
+			},
+			callback: {
+				onCheck: onCheck,
+				onClick: onClick
+			}
+		};
+
+		zTreeObj = $.fn.zTree.init($("#tree"), setting, []);
+
+		minemap.domainUrl = 'https://minemap.minedata.cn';
+		minemap.dataDomainUrl = 'https://minemap.minedata.cn';
+		minemap.serverDomainUrl = 'https://sd-data.minedata.cn';
+		minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+		minemap.serviceUrl = 'https://service.minedata.cn/service';
+		minemap.key = '0c6ac62182404e5ebc7a789981f6db72';
+		minemap.solution = 11001;
+
+		var style = {
+			"glyphs": "minemap://fonts/{fontstack}/{range}",
+			"sprite": "minemap://sprite/sprite",
+			"sources": {},
+			"layers": [],
+			"version": 8
+		};
+		window.minemapCDN = 'https://minemap.minedata.cn/minemapapi/minemap-CDN';
+
+		var center = [116.4631201845521, 39.91980220492439];
+
+		var map = new minemap.Map({
+			container: 'map',
+			style: style,
+			center,
+			bearing: 1.231132343387515,
+			zoom: 18.620140000643016,
+			pitch: 71.69377362758019,
+			maxZoom: 22,
+			minZoom: 1,
+			projection: 'MERCATOR',
+			MSAASamples: 4,
+		});
+
+		map.repaint = true;
+		map.enableLight();
+
+		const modelOptions = [
+			{
+				key: "ModelWireframe",
+				data: "http://192.168.152.123:11187/demo-data/ModelWireframe/Infra-Landscaping.gltf",
+				modelFolder: "http://192.168.152.123:11187/demo-data/ModelWireframe/",
+				scale: [1, 1, 1],
+				generateWireframe: true
+			},
+			{
+				key: "Landscaping_creaseEdges",
+				data: "http://192.168.152.123:11187/demo-data/ModelWireframe/Infra-Landscaping_creaseEdges.gltf",
+				scale: [1, 1, 1],
+				generateWireframe: false
+			}
+		];
+
+		const wireframeState = {
+			showEmbeddedWireframe: true,
+			showGeneratedWireframe: true
+		};
+
+		initializeGUI();
+
+		map.on('load', function () {
+			map.addSource("IMAGERY_SOURCE", {
+				"type": "raster",
+				"tiles": ["http://192.168.152.227:18105/raster/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"],
+				"tileSize": 512,
+				"maxzoom": 15
+			});
+
+			map.addLayer({
+				"id": "IMAGERY",
+				"type": "raster",
+				"source": "IMAGERY_SOURCE",
+				"minzoom": 1,
+				"maxzoom": 23,
+			});
+
+			modelOptions.forEach(function (options) {
+				addModel(options);
+			});
+		});
+
+		function addModel(options) {
+			const bimModel = map.addSceneComponent({
+				id: options.key,
+				type: "3d-model",
+				data: options.data,
+				modelFolder: options.modelFolder,
+				scale: options.scale || [10, 10, 10],
+				rotation: [0, 0, 0],
+				position: [...center, 10],
+				lightingModel: minemap.LightingModelType.PBR,
+				showEmbeddedWireframe: wireframeState.showEmbeddedWireframe,
+				generateWireframe: !!options.generateWireframe,
+				showGeneratedWireframe: !!options.generateWireframe,
+				activeAnimation: true,
+				accurateBounding: true,
+				loaded: loaded
+			});
+
+			function loaded() {
+				loadedModels[options.key] = bimModel;
+				applyWireframeState();
+
+				var rootId = globalNodeId++;
+				var nodes = [];
+
+				nodes.push({
+					pid: -1,
+					id: rootId,
+					name: options.key,
+					open: false,
+					checked: true
+				});
+
+				modelTree[rootId] = bimModel;
+
+				if (bimModel._gltfJson && bimModel._gltfJson.scene && bimModel._gltfJson.scene.nodes) {
+					for (var j = 0; j < bimModel._gltfJson.scene.nodes.length; j++) {
+						var nodeP = bimModel._gltfJson.scene.nodes[j];
+						var nodeIdP = globalNodeId++;
+
+						nodes.push({
+							pid: rootId,
+							id: nodeIdP,
+							name: nodeP.properties.name || "Node",
+							open: false,
+							checked: true,
+							nocheck: !!nodeP.isJoint
+						});
+						modelTree[nodeIdP] = nodeP;
+						getNodeChildren(nodeP, nodeIdP, nodes);
+					}
+				}
+
+				zTreeObj.addNodes(null, nodes);
+			}
+		}
+
+		function applyWireframeState() {
+			Object.keys(loadedModels).forEach(function (modelId) {
+				const model = loadedModels[modelId];
+				if (!model) {
+					return;
+				}
+				model.showEmbeddedWireframe = wireframeState.showEmbeddedWireframe;
+				model.showGeneratedWireframe = wireframeState.showGeneratedWireframe;
+			});
+		}
+
+		function getNodeChildren(node, pid, nodes) {
+			if (!node.children) return;
+			for (var i = 0; i < node.children.length; i++) {
+				var nodeChild = node.children[i];
+				var nodeId = globalNodeId++;
+
+				nodes.push({
+					pid: pid,
+					id: nodeId,
+					name: nodeChild.properties.name || "Node",
+					open: false,
+					checked: true,
+					nocheck: !!nodeChild.isJoint
+				});
+
+				modelTree[nodeId] = nodeChild;
+				if (nodeChild.children && nodeChild.children.length > 0) {
+					getNodeChildren(nodeChild, nodeId, nodes);
+				}
+			}
+		}
+
+		map.on("click", function (e) {
+			const instance = map.getFeatureByGPUPick(e.point);
+			if (instance instanceof minemap.Primitive) {
+				selectPrimitive(instance);
+			}
+		});
+
+		function initializeGUI() {
+			const gui = new lil.GUI({ width: 300 });
+			const props = {
+				"部件名称": '',
+				"数据内置线框": '_wireframe / _crease_edge',
+				"引擎生成线框": '按 generateWireframe 配置'
+			};
+			controller = gui.add(props, "部件名称");
+
+			const introFolder = gui.addFolder("说明");
+			introFolder.add(props, "数据内置线框");
+			introFolder.add(props, "引擎生成线框");
+			introFolder.open();
+
+			wireframeFolder = gui.addFolder("线框控制");
+			wireframeFolder
+				.add(wireframeState, "showEmbeddedWireframe")
+				.name("显示内置线框(_wireframe/_crease_edge)")
+				.onChange(applyWireframeState);
+			wireframeFolder
+				.add(wireframeState, "showGeneratedWireframe")
+				.name("显示生成线框")
+				.onChange(applyWireframeState);
+		}
+
+
+		/**
+		 * 关于primitive的颜色设定说明；
+		 * 建议开发者直接和material进行交互而不是和primitive对象交互
+		 *
+		 * ## 1) 推荐原则
+		 *
+		 * ### 1. 颜色与透明统一走 `Material`
+		 * 推荐通过材质接口控制颜色和透明：
+		 * - `material.baseColor = ...`（只改颜色）
+		 * - `material.setBaseColorWithAlpha(..., { syncTransparencyByAlpha: true })`（颜色 alpha 同步透明渲染链路）
+		 *
+		 * > 不推荐直接操作私有字段（如 `primitive._material`、`baseColor.a = ...`）。
+		 *
+		 * ### 2. 旧接口 `primitive.color` 仅用于兼容
+		 * `primitive.color` 已废弃（deprecated），仅用于历史代码兼容。
+		 * 如果继续使用，建议尽快迁移到 `material` 接口。
+		 *
+		 * ### 3. 示例中高亮逻辑的做法
+		 * 示例采用“先备份、后高亮、再恢复”的稳定流程：
+		 * 1. 读取当前颜色并保存为纯数组 `[r,g,b,a]`
+		 * 2. 选中时设置高亮色
+		 * 3. 切换选中对象时恢复上一个对象颜色
+		 *
+		 * 该做法能规避颜色分量为 `0` 时的回设问题。
+		 *
+		 * ---
+		 *
+		 * ## 2) 代码示例
+		 *
+		 * ### 推荐写法（首选）
+		 *
+		 * ```js
+		 * const m = primitive.material;
+		 * m.setBaseColorWithAlpha([1.0, 0.0, 0.0, 0.4], {
+		 *   syncTransparencyByAlpha: true,
+		 *   restoreWhenOpaque: true
+		 * });
+		 * ```
+		 *
+		 * ### 仅改颜色（不改透明链路）
+		 *
+		 * ```js
+		 * primitive.material.baseColor = minemap.Color.parse([1.0, 0.0, 0.0, 1.0]);
+		 * ```
+		 *
+		 * ### 兼容写法（不推荐新增）
+		 *
+		 * ```js
+		 * primitive.color = [1.0, 0.0, 0.0, 0.4];
+		 * ```
+		 *
+		 * ---
+		 *
+		 * ## 3) 本示例精简点
+		 *
+		 * 已移除：
+		 * - 树节点内联透明度滑块
+		 * - 直接改私有材质字段的透明逻辑
+		 * - 与核心演示无关的冗余变量/分支
+		 *
+		 * 保留：
+		 * - 树点击与地图点击统一的“选中高亮”流程
+		 * - zTree 结构展示与显隐开关
+		 * - 最小必要 GUI 信息回显（部件名称）
+		 *
+		 * ---
+		 *
+		 * ## 4) 给开发者的迁移建议
+		 *
+		 * 1. 新增功能时，优先走 `material` API。
+		 * 2. 仅在历史代码中保留 `primitive.color`，并逐步替换。
+		 * 3. 任何“状态回滚”场景（高亮、临时闪烁、拾取反馈）都建议保存为纯值快照（如 RGBA 数组），避免对象引用导致的状态污染。
+		 */
+	</script>
+</body>
+
+</html>

@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>Extrusion-表达式</title>
+    <link rel="stylesheet" href="../style/demo.css" />
+    <link rel="stylesheet" href="https://minemap.minedata.cn/minemapapi/v4.0.0/minemap.css" />
+    <script src="../../dist/minemap-dev.js"></script>
+
+
+    <style>
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="map"></div>
+    <script>
+        /**
+         * 全局参数设置
+         */
+
+        minemap.domainUrl = "https://minemap.minedata.cn";
+        minemap.dataDomainUrl = "https://minemap.minedata.cn";
+        minemap.serverDomainUrl = "https://sd-data.minedata.cn";
+        minemap.spriteUrl =
+            "http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite";
+        minemap.serviceUrl = "https://service.minedata.cn/service";
+
+        minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+        minemap.solution = 12878;
+
+        // 定义空底图样式
+        var style = {
+            glyphs: "minemap://fonts/{fontstack}/{range}",
+            sprite: "minemap://sprite/sprite",
+            sources: {},
+            layers: [
+                {
+                    id: "background",
+                    type: "background",
+                    source: "",
+                    paint: {
+                        "background-color": "#F9F5ED"
+                    }
+                }
+            ],
+            version: 8
+        };
+
+        var map = new minemap.Map({
+            container: "map",
+            // style,
+            style: 'https://service.minedata.cn/map/solu/style/11001',
+            center: [116.46, 39.91],
+            zoom: 15,
+            pitch: 60,
+            maxZoom: 17,
+            minZoom: 3,
+            projection: "MERCATOR"
+        });
+
+        /**
+         * 创建地图对象后，开始加载地图资源，地图资源加载完成后触发load事件
+         */
+
+        map.on("load", function () {
+            // 增加自定义数据源、自定义图层
+            addSources();
+            addLayers();
+            map.on("click", () => {
+                // map.setPaintProperty(
+                //     "buildingLayer",
+                //     "extrusion-pattern",
+                //     "pattern_1"
+                // );
+                map.setPaintProperty(
+                    "buildingLayer",
+                    "extrusion-translate-anchor",
+                    "viewport"
+                );
+                map.setPaintProperty(
+                    "buildingLayer",
+                    "extrusion-translate",
+                    [80, 0]
+                );
+            });
+        });
+
+        function addSources() {
+            map.addSource("buildingSource", {
+                type: "vector",
+                tiles: [
+                    "cloudservice://mvt-layer/merge/{z}/{r}/{c}/{z}_{x}_{y}.pbf"
+                ]
+            });
+        }
+
+        function addLayers() {
+            map.addLayer({
+                layout: { visibility: "visible" },
+                maxzoom: 20,
+                paint: {
+                    "extrusion-height": {
+                        property: "levels",
+                        type: "identity"
+                    },
+                    // "extrusion-base": 0,
+                    // "extrusion-opacity": 1,
+                    // "extrusion-translate-anchor": "map",
+                    // "extrusion-translate": [0, 0],
+                    "extrusion-pattern": [
+                        'case',
+                        ['<=', ['get', 'levels'], 50], 'pattern_1',
+                        ['<=', ['get', 'levels'], 100], 'pattern_2',
+                        ['<=', ['get', 'levels'], 200], 'pattern_3',
+                        ['<=', ['get', 'levels'], 300], 'pattern_4',
+                        ['<=', ['get', 'levels'], 400], 'pattern_5',
+                        'pattern_1' // 默认值
+                    ],
+                    // "extrusion-pattern": "extrusion-wall",
+                    "extrusion-pattern-factor": [1, 3]//建筑物贴图重复次数
+                },
+                source: "buildingSource",
+                "source-layer": "building",
+                id: "buildingLayer",
+                type: "extrusion",
+                minzoom: 10
+            });
+        }
+    </script>
+</body>
+
+</html>

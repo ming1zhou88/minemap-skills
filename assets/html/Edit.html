@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8"/>
+	<title>编辑插件</title>
+
+	<link rel="stylesheet" href="https://minedata.cn/nce-static/support/demo/js-3d-ultra/zh/css/demo.css"/>
+	<script src="https://minedata.cn/nce-static/support/demo/js-3d-ultra/zh/js/demo.js"></script>
+	<link rel="stylesheet" href="../../dist/minemap.css"/>
+	<link rel="stylesheet" href="https://minedata.cn/nce-static/support/demo/js-api/zh/css/iconfont/iconfont.css"/>
+	<script src="../../dist/minemap-dev.js"></script>
+	<link rel="stylesheet" href="https://minedata.cn/minemapapi/v2.1.0/plugins/edit/minemap-edit.css"/>
+	<script src="http://192.168.152.123/minemapapi/minemap-plugins/edit/minemap-edit.js"></script>
+
+	<style>
+		#map {
+			width: 100%;
+			height: 100%;
+		}
+
+		.edit-ctrl-group {
+			position: absolute;
+			z-index: 300;
+			top: 10px;
+			right: 10px;
+			width: 32px;
+			overflow: hidden;
+		}
+
+		.edit-btn {
+			width: 30px;
+			height: 30px;
+			line-height: 30px;
+			font-size: 14px;
+			vertical-align: middle;
+			text-align: center;
+			cursor: pointer;
+			color: #111;
+			background-color: white;
+			border: 1px solid #ddd;
+		}
+
+		.edit-btn:hover {
+			background-color: #efefef;
+		}
+
+		.water-effects-panel {
+			position: absolute;
+			z-index: 300;
+			top: 10px;
+			left: 10px;
+			background: white;
+			padding: 12px;
+			border-radius: 4px;
+			box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+			min-width: 200px;
+		}
+
+		.effect-group {
+			margin-bottom: 15px;
+		}
+
+		.effect-group:last-child {
+			margin-bottom: 0;
+		}
+
+		.effect-title {
+			font-weight: bold;
+			margin-bottom: 8px;
+			color: #333;
+		}
+
+		.effect-items {
+			margin-left: 12px;
+		}
+
+		.effect-item {
+			display: flex;
+			align-items: center;
+			margin: 6px 0;
+		}
+
+		.effect-checkbox {
+			margin-right: 8px;
+		}
+
+		.effect-label {
+			color: #666;
+			font-size: 14px;
+			user-select: none;
+			cursor: pointer;
+		}
+	</style>
+</head>
+
+<body>
+<div id="map">
+	<!-- Edit Controls -->
+	<div class="edit-ctrl-group">
+		<div class="edit-btn" title="画点" onclick="onEditBtnClick('point')">
+			<span class="iconfont icon-draw-point"></span>
+		</div>
+		<div class="edit-btn" title="画线" onclick="onEditBtnClick('line')">
+			<span class="iconfont icon-draw-line"></span>
+		</div>
+		<div class="edit-btn" title="画圆弧" onclick="onEditBtnClick('arc')">
+			<span class="iconfont icon-draw-curve"></span>
+		</div>
+		<div class="edit-btn" title="画多边形" onclick="onEditBtnClick('polygon')">
+			<span class="iconfont icon-draw-polygon1"></span>
+		</div>
+		<div class="edit-btn" title="画矩形" onclick="onEditBtnClick('rectangle')">
+			<span class="iconfont icon-draw-square"></span>
+		</div>
+		<div class="edit-btn" title="画三角形" onclick="onEditBtnClick('triangle')">
+			<span class="iconfont icon-Triangle"></span>
+		</div>
+		<div class="edit-btn" title="画圆" onclick="onEditBtnClick('circle')">
+			<span class="iconfont icon-draw-circle"></span>
+		</div>
+		<div class="edit-btn" title="删除所选" onclick="onEditBtnClick('trash')">
+			<span class="iconfont icon-tool-delete"></span>
+		</div>
+		<div class="edit-btn" title="撤销上一步操作" onclick="onEditBtnClick('undo')">
+			<span class="iconfont icon-undo"></span>
+		</div>
+		<div class="edit-btn" title="重复上一步操作" onclick="onEditBtnClick('redo')">
+			<span class="iconfont icon-redo"></span>
+		</div>
+	</div>
+
+
+</div>
+
+<script>
+	minemap.domainUrl = 'https://minemap.minedata.cn';
+	minemap.dataDomainUrl = 'https://minemap.minedata.cn';
+	minemap.serverDomainUrl = 'https://sd-data.minedata.cn';
+	minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+	minemap.serviceUrl = 'https://service.minedata.cn/service';
+	minemap.key = '<您的 key>';
+	minemap.solution = 11001;
+
+	var map = new minemap.Map({
+		container: 'map',
+		style: 'https://service.minedata.cn/map/solu/style/11001',
+		center: [116.46, 39.92],
+		zoom: 14,
+		pitch: 0,
+		maxZoom: 17,
+		minZoom: 3,
+		projection: 'MERCATOR'
+	});
+
+	var edit;
+
+	function onEditBtnClick(mode) {
+		if (edit && mode) {
+			edit.onBtnCtrlActive(mode);
+		}
+	}
+
+	map.on('load', function() {
+		edit = new minemap.edit.init(map, {
+			boxSelect: true,
+			touchEnabled: true,
+			displayControlsDefault: true,
+			showButtons: false,
+			userStyles: {
+				inactive: {
+					fillColor: '#090ff3',
+					fillOutlineColor: '#090ff3',
+					lineColor: '#090ff3',
+					circleColor: '#090ff3',
+					circleBorderColor: '#ffffff'
+				},
+				active: {
+					fillColor: '#f00f0f',
+					fillOutlineColor: '#f00f0f',
+					lineColor: '#f00f0f',
+					circleColor: '#f00f0f',
+					circleBorderColor: '#ffffff'
+				}
+			}
+		});
+	});
+
+	function onEditRecordCreate(e) {
+		e.record;
+	}
+
+	map.on('edit.record.create', onEditRecordCreate);
+
+	window.onerror = function(errorMessage, scriptURI, lineNumber, columnNumber, errorObj) {
+		if (scriptURI.indexOf('minemap-edit') > -1) {
+			message.error(errorObj.message);
+		}
+	};
+</script>
+</body>
+</html>

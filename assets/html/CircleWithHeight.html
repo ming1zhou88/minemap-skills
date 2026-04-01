@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+    <title>带高度的circle</title>
+    <!-- demo样式文件 -->
+    <link rel="stylesheet" href="https://minedata.cn/nce-static/support/demo/js-3d-ultra/zh/css/demo.css">
+    <!-- 引入MineMap API插件 -->
+    <link rel="stylesheet" href="https://minemap.minedata.cn/minemapapi/v4.0.0/minemap.css">
+    <!-- 4.6.3 -->
+    <!-- <script src="https://minemap.minedata.cn/minemapapi/v4.0.0/minemap.js"></script> -->
+    <script src="../../dist/minemap-dev.js"></script>
+
+    <style>
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="map"></div>
+    <script>
+        /**
+         * 全局参数设置
+         */
+        minemap.domainUrl = 'https://minemap.minedata.cn';
+        minemap.dataDomainUrl = 'https://minemap.minedata.cn';
+        minemap.serverDomainUrl = 'https://sd-data.minedata.cn';
+        minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+        minemap.serviceUrl = 'https://service.minedata.cn/service';
+
+        minemap.key = '0c6ac62182404e5ebc7a789981f6db72';
+        minemap.solution = 11001;
+        window.minemapCDN = 'https://minemap.minedata.cn/minemapapi/minemap-CDN/'; // minemapCDN 配置
+
+        // 定义空底图样式
+        var style = {
+            "glyphs": "minemap://fonts/{fontstack}/{range}",
+            "sprite": "minemap://sprite/sprite",
+            "sources": {},
+            "layers": [],
+            "version": 8
+        };
+
+        var center = [119.61217976794497, 42.211612667025065];
+
+        /**
+         * 初始化地图实例
+         */
+        var map = new minemap.Map({
+            container: 'map',
+            style: style, /*球面矢量底图样式*/
+            center,
+            zoom: 13.337706039377428,
+            pitch: 30,
+            bearing: 30,
+            maxZoom: 22, //地图最大缩放级别限制
+            minZoom: 1, //地图最小缩放级别限制
+            projection: 'MERCATOR'
+        });
+
+		//开启大气透视
+		const skyAtmosphere = map.getSky();
+		skyAtmosphere.useAerialPerspective = true;
+
+        map.repaint = true;
+
+		let jsonData = {};
+        map.on('load', function () {
+            /*添加栅格图*/
+            map.addSource("3D_SOURCE", {
+                "type": "raster",//DEM的数据类型为"raster"
+                "tiles": ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+                "tileSize": 512,  //瓦片大小
+            });
+            map.addLayer({
+                "type": "raster",//DEM的图层类型为"raster"
+                "id": "3d-layer",
+                "source": "3D_SOURCE",
+                "minzoom": 1,
+                "maxzoom": 23,
+                "depth-test": true,
+                paint: {
+                    "raster-opacity": 1
+                }
+            });
+            map.setTerrain({
+                type: "terrain", //DEM的数据类型为"raster"
+                tiles: ["https://staticdata-b.minedata.cn:14434/dem/{z}/{r}/{c}/{z}_{x}_{y}.terrain"], //瓦片服务地址
+                tileSize: 512, //瓦片大小
+                maxzoom: 14, //dem最高切分zoom，30米一般是14级；12.5米一般是16级
+            });
+
+			const center = map.getCenter();
+
+			const url = "http://192.168.152.123:18801/service/terrain/altitude/getTerrainHeight";
+
+			const param = {
+				position: [
+					center.lng + 0.0003, center.lat + 0.0002,
+					center.lng + 0.0001, center.lat - 0.0003,
+					center.lng - 0.0006, center.lat - 0.0005
+				],
+				path: ["https://dem-data.minedata.cn/dem"]
+			};
+
+			// 调用后端服务查询dem高度
+			post(url, param).then((res) => {
+				jsonData = {
+					"type": "FeatureCollection",
+					"features": [
+						{
+							"type": "Feature",
+							"geometry": {
+								"type": "Point",
+								"coordinates": [center.lng + 0.0003, center.lat + 0.0002]
+							},
+							"properties": {
+								"title": "大学",
+								"kind": "school",
+								"height": res.data[0]
+							},
+						}, {
+							"type": "Feature",
+							"geometry": {
+								"type": "Point",
+								"coordinates": [center.lng + 0.0001, center.lat - 0.0003]
+							},
+							"properties": {
+								"title": "公园",
+								"kind": "park",
+								"height": res.data[1]
+							},
+						}, {
+							"type": "Feature",
+							"geometry": {
+								"type": "Point",
+								"coordinates": [center.lng - 0.0006, center.lat - 0.0005]
+							},
+							"properties": {
+								"title": "医院",
+								"kind": "hospital",
+								"height": res.data[2]
+							}
+						}
+					]
+				};
+				addSources();
+				addLayers();
+			});
+        })
+        function addSources() {
+            map.addSource("pointSource", {
+                "type": "geojson",
+                "data": jsonData,
+                maxzoom: 17
+            });
+        }
+        function addLayers() {
+            map.addLayer({
+                "id": "circleLayer",
+                "type": "circle",//图层类型为"circle"
+                "source": "pointSource",
+                "layout": {
+                    "visibility": "visible",
+					"circle-height-key": "height" // circle高度字段
+                },
+                "paint": {
+                    "circle-radius": 10,
+                    "circle-color": {
+                        "type": "categorical",
+                        "property": "kind",
+                        "stops": [["school", "#ff0000"], ["park", "#00ff00"], ["hospital", "#0000ff"]],
+                        "default": "#ff0000"
+                    },
+                    "circle-opacity": 0.8
+                },
+                "minzoom": 1,
+                "maxzoom": 22
+            });
+        }
+
+		function post(url, param) {
+			return new Promise((resolve, reject) => {
+				let httpRequest = new XMLHttpRequest(); //第一步：创建需要的对象
+				httpRequest.open("POST", url, true); //第二步：打开连接
+				httpRequest.setRequestHeader("Content-type", "application/json"); //设置请求头 注：post方式必须设置请求头（在建立连接后设置请求头）
+				httpRequest.send(JSON.stringify(param));
+				/**
+				 * 获取数据后的处理程序
+				 */
+				httpRequest.onreadystatechange = function () {
+					//请求后的回调接口，可将请求成功后要执行的程序写在其中，因为后端不定义，所以前端处理
+					if (httpRequest.readyState === 4 && httpRequest.status == 200) {
+						let json = JSON.parse(httpRequest.response); //获取到服务端返回的数据
+						resolve(json);
+					} else if (httpRequest.readyState === 4 && httpRequest.status != 200) {
+						// let json = JSON.parse(httpRequest.response); //获取到服务端返回的错误信息
+						reject(httpRequest.response);
+					}
+				};
+			});
+		}
+
+
+    </script>
+</body>

@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+		<title>交通路口动画</title>
+		<!-- demo样式文件 -->
+		<link rel="stylesheet" href="../style/demo.css" />
+		<!-- 引入MineMap API插件 -->
+		<link rel="stylesheet" href="../../dist/minemap.css" />
+		<!-- 最新 -->
+		<script src="../../dist/minemap-dev.js"></script>
+		<!-- 上次备份 -->
+		<!-- <script src="http://10.130.19.185/minetraffic/lib/minemapapi/v4.0.0/minemap.js"></script> -->
+		<style>
+			#map {
+				width: 100%;
+				height: 100%;
+			}
+		</style>
+	</head>
+
+	<body>
+		<div id="map"></div>
+		<script type="module">
+			import { VehicleTrackLayerHandler } from "http://10.130.19.90/minetraffic/lib/js/mt-core.js";
+			minemap.domainUrl = "https://minemap.minedata.cn";
+			minemap.dataDomainUrl = "https://minemap.minedata.cn";
+			minemap.serverDomainUrl = "https://sd-data.minedata.cn";
+			minemap.spriteUrl = "http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite";
+			minemap.serviceUrl = "https://service.minedata.cn/service";
+
+			minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+			minemap.solution = 11001;
+			window.minemapCDN = "https://minemap.minedata.cn/minemapapi/minemap-CDN/"; // minemapCDN 配置
+
+			// 定义空底图样式
+			var style = {
+				glyphs: "minemap://fonts/{fontstack}/{range}",
+				sprite: "minemap://sprite/sprite",
+				sources: {},
+				layers: [],
+				version: 8
+			};
+			/*初始化地图实例*/
+			var map = new minemap.Map({
+				container: "map",
+				style: style,
+				center: [103.79196089337775, 25.490240746339953],
+				zoom: 18.7,
+				bearing: 48.79886823923483,
+				pitch: 52.9589258790352,
+				maxZoom: 22, //地图最大缩放等级
+				minZoom: 1, //地图最小缩放等级
+				logarithmicDepthBuffer: false,
+				projection: "MERCATOR"
+			});
+
+			map.enableLight();
+			map.enableShadow();
+
+			map.repaint = true;
+			map.cameraController.enableCollisionDetection = false;
+
+			var _trackHandler = null;
+
+			map.on("load", function () {
+				/*添加栅格图*/
+				map.addSource("IMAGERY_SOURCE", {
+					type: "raster", //数据源类型：栅格数据源
+					tiles: ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+					tileSize: 512 //瓦片尺寸
+				});
+
+				map.addLayer({
+					id: "IMAGERY",
+					type: "raster", //图层类型为"raster"
+					source: "IMAGERY_SOURCE",
+					minzoom: 1,
+					maxzoom: 23,
+					paint: {
+						"raster-opacity": 1
+					}
+				});
+				addHDroad();
+			});
+			function initVehicleTrack() {
+				_trackHandler = new VehicleTrackLayerHandler(map);
+				const getModelPath = (modelId) => {
+					return `http://10.130.19.90/minetraffic/model/car/color/${modelId}.glb`;
+				};
+
+				const getModelId = (properties) => {
+					const objectType = properties.objectType || 3;
+					const t = properties.type || 0;
+					const c = properties.vehicleColor;
+					// objectType 1-行人，3-车, 4-非机动车
+					if (objectType === 4) return "t-non-vehicle1";
+					if (objectType === 1) return "t-pedestrian";
+					// t 1-小车,2-货车,3-面包车,4-客车,5-越野车,6-SUV,7-中型bus
+					const i = t < 1 || t > 7 ? 1 : t === 5 ? 6 : t === 7 ? 4 : t;
+					let colors = [];
+					if (t === 2) {
+						colors = [2, 4, 5, 6, 9];
+					} else if (t === 3) {
+						colors = [3, 2];
+					} else if (t === 4 || t === 7) {
+						colors = [2, 5, 6];
+					} else if (t === 6) {
+						colors = [2, 1, 3, 4, 5, 8, 9];
+					} else {
+						colors = [2, 1, 3, 4, 5, 6, 8];
+					}
+					return `car-t-${i}-${c && colors.includes(c) ? c : colors[0]}`;
+				};
+				const modelOptions = { getModelId, getModelPath, rotation: [0, 90, 90] };
+				const trackOptions = {
+					linkRotateField: "car_rotate",
+					getRotation: (angle) => [0, 0, 270 - angle || 0]
+				};
+				const options = {
+					wsUrl: `ws://minedata.cn/webSocket/C516EAE3ABC/trackdata`,
+					addedHeight: 0,
+					model: modelOptions,
+					track: trackOptions
+				};
+				const actions = {};
+				_trackHandler.init(options, actions);
+			}
+
+			function addHDroad() {
+				map.addSceneComponent({
+					id: "serve",
+					type: "3d-tiles",
+					url: "https://demo-data.minedata.cn/case-data/case-car-track/C516EAE3ABC/tileset.json", // 要加载的数据
+					translation: new minemap.Math.Vector3(0, 0, 0),
+					show: true,
+					sourceLoaded: (config) => {
+						// console.log(config._geoCenters[0]);
+						initVehicleTrack();
+					}
+				});
+			}
+		</script>
+	</body>
+</html>

@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<title>3d-model爆炸视图</title>
+	<!-- demo样式文件 -->
+	<link rel="stylesheet" href="../style/demo.css">
+	<!-- 引入MineMap API插件 -->
+	<link rel="stylesheet" href="../../dist/minemap.css">
+	<script src="../../dist/minemap-dev.js"></script>
+	<style>
+		#map {
+			width: 100%;
+			height: 100%;
+		}
+
+		.toolContainer {
+			position: absolute;
+			top: 0;
+			left: 0;
+			z-index: 999;
+		}
+
+		button {
+			border: 1px solid #985f0d;
+			background: #0f6674;
+			color: white;
+			line-height: 24px;
+			cursor: pointer;
+		}
+		button:hover{
+			background: #3f7674;
+			color: #ee9900;
+		}
+
+		#info-wrapper{
+			position: fixed;
+			top:0;
+			right: 0;
+			z-index: 999;
+		}
+		#info{
+			background: #0b2e13;
+			opacity: 0.9;
+			color: #985f0d;
+			line-height: 24px;
+			font-size: 14px;
+			border: 1px solid gray;
+			padding: 5px;
+		}
+	</style>
+</head>
+
+<body>
+<div id="info-wrapper">
+	<div id="info">1. 点击奥运主场馆的顶部开启或关闭爆炸视图，亦可以点击左边按钮进行开关控制<br>
+		2. 爆炸视图情况下，可以进行单个层级的模型抽出和送回<br/>
+		<span style="color: red;">3. 模型太大加载时间可能超过3分钟</span>
+	</div>
+	<button onclick="openModelToExplodedView()">开启爆炸动画</button>
+	<button onclick="closeModelToExplodedView()">关闭爆炸动画</button>
+</div>
+
+<div id="map"></div>
+<script>
+	/**
+	 * 全局参数设置
+	 */
+	minemap.domainUrl = 'https://minedata.cn';
+	minemap.dataDomainUrl = 'https://minedata.cn';
+	minemap.serverDomainUrl = 'https://minedata.cn';
+	minemap.spriteUrl = 'https://minedata.cn/minemapapi/v3.2.0/sprite/sprite';
+	minemap.serviceUrl = 'https://mineservice.minedata.cn/service/';
+
+	minemap.key = '0c6ac62182404e5ebc7a789981f6db72';
+	minemap.solution = 11001;
+
+	// 定义空底图样式
+	var style = {
+		"glyphs": "minemap://fonts/{fontstack}/{range}",
+		"sprite": "minemap://sprite/sprite",
+		"sources": {},
+		"layers": [],
+		"version": 8
+	};
+	/**
+	 * 初始化地图实例
+	 */
+	var map = new minemap.Map({
+		container: 'map',
+		style: style, /*球面矢量底图样式*/
+		position: [120.22631708113788, 30.224302177978053, 676.4209839536353],
+		pitch: 42.16320038407142,
+		bearing: 46.545848305325386,
+		maxZoom: 22, /*地图最大缩放等级*/
+		minZoom: 1,  /*地图最小缩放等级*/
+	});
+	map.repaint = true;
+
+	const models = {};
+	//场馆盖子，用于特殊交互用途
+	let topModel;
+
+	map.on('load', function () {
+		/*添加栅格图*/
+		map.addSource("IMAGERY_SOURCE", {
+			"type": "raster",//数据源类型：栅格数据源
+			"tiles": ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+			"tileSize": 256,//瓦片尺寸
+		});
+
+		map.addLayer({
+			"id": "IMAGERY",
+			"type": "raster", //图层类型为"raster"
+			"source": "IMAGERY_SOURCE",
+			"minzoom": 1,
+			"maxzoom": 23,
+		});
+
+		const l1 = map.addSceneComponent({
+			id: "glbModel1",
+			type: "3d-model", // 数据类型为“3d-model”
+			"data": "http://192.168.152.123/minemap-engine/EngineCanaryDemo/data/olympic-model/奥体中心_室外看台1层球场楼梯/奥体中心_室外看台1层球场楼梯.glb",// 要加载的gltf格式数据
+			"modelFolder": "http://192.168.152.123/minemap-engine/EngineCanaryDemo/data/olympic-model/奥体中心_室外看台1层球场楼梯/",// 该数据引用图片等资源的文件夹路径
+			scale: [1, 1, 1], // 在xyz轴方向上的缩放比例
+			rotation: [90, 0, 0], // 绕xyz轴方向上的旋转，单位为度
+			position: [120.22895925, 30.2290587, 0], // 锚点（模型局部坐标原点）的经纬度位置
+		});
+
+		models['l1'] = [l1];
+
+		const l2 = map.addSceneComponent({
+			id: "glbModel2",
+			type: "3d-model", // 数据类型为“3d-model”
+			"data": "http://192.168.152.123/minemap-engine/EngineCanaryDemo/data/olympic-model/奥体中心_室内1层/奥体中心_室内1层.glb",// 要加载的gltf格式数据
+			"modelFolder": "http://192.168.152.123/minemap-engine/EngineCanaryDemo/data/olympic-model/奥体中心_室内1层/",// 该数据引用图片等资源的文件夹路径
+			scale: [1, 1, 1], // 在xyz轴方向上的缩放比例
+			rotation: [90, 0, 0], // 绕xyz轴方向上的旋转，单位为度
+			position: [120.22895925, 30.2290587, 0], // 锚点（模型局部坐标原点）的经纬度位置
+		});
+		models['l2'] = [l2];
+		const l3 = map.addSceneComponent({
+			id: "glbModel3",
+			type: "3d-model", // 数据类型为“3d-model”
+			"data": "http://192.168.152.123/minemap-engine/EngineCanaryDemo/data/olympic-model/奥体中心_室内2层/奥体中心_室内2层.glb",// 要加载的gltf格式数据
+			"modelFolder": "http://192.168.152.123/minemap-engine/EngineCanaryDemo/data/olympic-model/奥体中心_室内2层/",// 该数据引用图片等资源的文件夹路径
+			scale: [1, 1, 1], // 在xyz轴方向上的缩放比例
+			rotation: [90, 0, 0], // 绕xyz轴方向上的旋转，单位为度
+			position: [120.22895925, 30.2290587, 0], // 锚点（模型局部坐标原点）的经纬度位置
+		});
+		models['l3'] = [l3];
+		const l4 = map.addSceneComponent({
+			id: "glbModel4",
+			type: "3d-model", // 数据类型为“3d-model”
+			"data": "http://192.168.152.123/minemap-engine/EngineCanaryDemo/data/olympic-model/奥体中心_室内3层/奥体中心_室内3层.glb",// 要加载的gltf格式数据
+			"modelFolder": "http://192.168.152.123/minemap-engine/EngineCanaryDemo/data/olympic-model/奥体中心_室内3层/",// 该数据引用图片等资源的文件夹路径
+			scale: [1, 1, 1], // 在xyz轴方向上的缩放比例
+			rotation: [90, 0, 0], // 绕xyz轴方向上的旋转，单位为度
+			position: [120.22895925, 30.2290587, 0], // 锚点（模型局部坐标原点）的经纬度位置
+		});
+		const l41 = map.addSceneComponent({
+			id: "glbModel5",
+			type: "3d-model", // 数据类型为“3d-model”
+			"data": "http://192.168.152.123/minemap-engine/EngineCanaryDemo/data/olympic-model/奥体中心_室外看台3层/奥体中心_室外看台3层.glb",// 要加载的gltf格式数据
+			"modelFolder": "http://192.168.152.123/minemap-engine/EngineCanaryDemo/data/olympic-model/奥体中心_室外看台3层/",// 该数据引用图片等资源的文件夹路径
+			scale: [1, 1, 1], // 在xyz轴方向上的缩放比例
+			rotation: [90, 0, 0], // 绕xyz轴方向上的旋转，单位为度
+			position: [120.22895925, 30.2290587, 0], // 锚点（模型局部坐标原点）的经纬度位置
+		});
+		models['l4'] = [l4, l41];
+		const l5 = map.addSceneComponent({
+			id: "glbModel6",
+			type: "3d-model", // 数据类型为“3d-model”
+			"data": "http://192.168.152.123/minemap-engine/EngineCanaryDemo/data/olympic-model/奥体中心_室内4层/奥体中心_室内4层.glb",// 要加载的gltf格式数据
+			"modelFolder": "http://192.168.152.123/minemap-engine/EngineCanaryDemo/data/olympic-model/奥体中心_室内4层/",// 该数据引用图片等资源的文件夹路径
+			scale: [1, 1, 1], // 在xyz轴方向上的缩放比例
+			rotation: [90, 0, 0], // 绕xyz轴方向上的旋转，单位为度
+			position: [120.22895925, 30.2290587, 0], // 锚点（模型局部坐标原点）的经纬度位置
+		});
+		models['l5'] = [l5];
+
+		// const l6 = map.addSceneComponent({
+		// 	id: "glbModel7",
+		// 	type: "3d-model", // 数据类型为“3d-model”
+		// 	"data": "http://192.168.152.123/minemap-engine/EngineCanaryDemo/data/olympic-model/奥体场馆_座椅/奥体场馆_座椅.glb",// 要加载的gltf格式数据
+		// 	"modelFolder": "http://192.168.152.123/minemap-engine/EngineCanaryDemo/data/olympic-model/奥体场馆_座椅/",// 该数据引用图片等资源的文件夹路径
+		// 	scale: [1, 1, 1], // 在xyz轴方向上的缩放比例
+		// 	rotation: [90, 0, 0], // 绕xyz轴方向上的旋转，单位为度
+		// 	position: [120.22895925, 30.2290587], // 锚点（模型局部坐标原点）的经纬度位置
+		// });
+		// models['l6'] = [l6];
+
+		// 添加glb
+		const l7 = map.addSceneComponent({
+			id: "glbModel8",
+			type: "3d-model", // 数据类型为“3d-model”
+			"data": "http://192.168.152.123/minemap-engine/EngineCanaryDemo/data/olympic-model/奥体中心_屋顶盖子_烘焙后/奥体中心_屋顶盖子_烘焙后.glb",// 要加载的gltf格式数据
+			"modelFolder": "http://192.168.152.123/minemap-engine/EngineCanaryDemo/data/olympic-model/奥体中心_屋顶盖子_烘焙后/",// 该数据引用图片等资源的文件夹路径
+			scale: [1, 1, 1], // 在xyz轴方向上的缩放比例
+			rotation: [90, 0, 0], // 绕xyz轴方向上的旋转，单位为度
+			position: [120.22895925, 30.2290587, 0], // 锚点（模型局部坐标原点）的经纬度位置
+		});
+
+		topModel = l7;
+
+		models['l7'] = [l7];
+
+		/***************************周边模型*********************************/
+		map.addSceneComponent({
+			id: "glbModelz1",
+			type: "3d-model", // 数据类型为“3d-model”
+			"data": "http://192.168.152.123/minemap-engine/EngineCanaryDemo/data/olympic-model/奥体精模gltf/奥体中心精模地形/奥体中心精模地形.glb",// 要加载的gltf格式数据
+			"modelFolder": "http://192.168.152.123/minemap-engine/EngineCanaryDemo/data/olympic-model/奥体精模gltf/奥体中心精模地形/",// 该数据引用图片等资源的文件夹路径
+			scale: [1, 1, 1], // 在xyz轴方向上的缩放比例
+			rotation: [90, 0, 0], // 绕xyz轴方向上的旋转，单位为度
+			position: [120.22895925, 30.2290587, 0], // 锚点（模型局部坐标原点）的经纬度位置
+		});
+		map.addSceneComponent({
+			id: "glbModelz2",
+			type: "3d-model", // 数据类型为“3d-model”
+			"data": "http://192.168.152.123/minemap-engine/EngineCanaryDemo/data/olympic-model/奥体精模gltf/奥体周边_精模建筑烘焙/奥体周边_精模建筑烘焙.glb",// 要加载的gltf格式数据
+			"modelFolder": "http://192.168.152.123/minemap-engine/EngineCanaryDemo/data/olympic-model/奥体精模gltf/奥体周边_精模建筑烘焙/",// 该数据引用图片等资源的文件夹路径
+			scale: [1, 1, 1], // 在xyz轴方向上的缩放比例
+			rotation: [90, 0, 0], // 绕xyz轴方向上的旋转，单位为度
+			position: [120.22895925, 30.2290587, 0], // 锚点（模型局部坐标原点）的经纬度位置
+		});
+	})
+
+	let timeStart;
+
+	const target = {
+		"l1": new minemap.Math.Vector3(0, 0, 30),
+		"l2": new minemap.Math.Vector3(0, 0, 60),
+		"l3": new minemap.Math.Vector3(0, 0, 90),
+		"l4": new minemap.Math.Vector3(0, 0, 120),
+		"l5": new minemap.Math.Vector3(0, 0, 150),
+		"l6": new minemap.Math.Vector3(0, 0, 180),
+		"l7": new minemap.Math.Vector3(0, 0, 210)
+	}
+
+	const positionMatrix = minemap.Transforms.cartographicToFixedFrame(new minemap.Math.Vector3(120.22895925, 30.2290587, 0));
+	const rotationMatrix = new minemap.Math.Matrix4();
+	rotationMatrix.rotateX(Math.PI / 2);
+
+	//动画总耗时
+	const duration = 2000;
+	//爆炸停止标志，必须是播放了启动动画
+	let isExploded = false;
+
+	//单独动画的计时器开始时间
+	let singleTimeStart;
+	let singleTimeDuration = 1000;
+
+	//帧动画id
+	let frameId;
+
+	//当前是否有正在进行的动画，如果有讲不会进行动画执行
+	let hasAnimation = false;
+
+	/**
+	 * 爆炸视图动画
+	 */
+	function openModelToExplodedView() {
+
+
+		if (!timeStart) {
+			timeStart = Date.now();
+		}
+
+		if (Date.now() - timeStart > duration) {
+			timeStart = undefined;
+			hasAnimation = false;
+			isExploded = true;
+			return;
+		}
+
+		hasAnimation = true;
+
+		processMovement("up");
+
+		if (frameId) {
+			cancelAnimationFrame(frameId);
+		}
+		frameId = requestAnimationFrame(openModelToExplodedView);
+
+	}
+
+	/**
+	 * 关闭爆炸视图
+	 */
+	function closeModelToExplodedView() {
+
+		resetAllToClosed();
+
+		if (!timeStart) {
+			timeStart = Date.now();
+		}
+
+		if (Date.now() - timeStart > duration) {
+			timeStart = undefined;
+			hasAnimation = false;
+			isExploded = false;
+			return;
+		}
+
+		processMovement("down");
+
+		hasAnimation = true;
+
+		if (frameId) {
+			cancelAnimationFrame(frameId);
+		}
+		frameId = requestAnimationFrame(closeModelToExplodedView);
+	}
+
+	/**
+	 * 处理爆炸和非爆炸的计算函数
+	 * @param {string} dir   "up"向上， "down"向下移动
+	 */
+	function processMovement(dir) {
+		for (let i = 1; i <= 7; i++) {
+			if (models["l" + i]) {
+				const ss = models['l' + i];
+				for (let m = 0; m < ss.length; m++) {
+					const model = ss[m];
+					let moveFactor;
+					if (dir == "up") {
+						moveFactor = (Date.now() - timeStart) / duration
+					} else {
+						moveFactor = 1.0 - (Date.now() - timeStart) / duration
+					}
+					const translation = target["l" + i].clone().multiplyByScalar(moveFactor);
+					const localTranslationMatrix = new minemap.Math.Matrix4();
+					localTranslationMatrix[12] = translation[0];
+					localTranslationMatrix[13] = translation[1];
+					localTranslationMatrix[14] = translation[2];
+
+					const finalMatrix = positionMatrix.clone().multiplyRight(localTranslationMatrix).multiplyRight(rotationMatrix);
+					model.setMatrix(finalMatrix);
+					model.updateMatrixWorld(true);
+
+				}
+			}
+		}
+	}
+
+	/**
+	 *
+	 * @param {SceneModel} model         glTF模型对象
+	 * @param {boolean}    open          是否为打开状态
+	 * @param {string}     levelName     层级名称
+	 */
+	function moveSingleFloor(model, open, levelName) {
+
+		if (!singleTimeStart) {
+			singleTimeStart = Date.now();
+		}
+
+		if (Date.now() - singleTimeStart > singleTimeDuration) {
+			singleTimeStart = 0;
+			model.opened = open;
+			hasAnimation = false;
+			return;
+		}
+
+		hasAnimation = true;
+
+		let moveFactor;
+		if (open) {
+			moveFactor = (Date.now() - singleTimeStart) / singleTimeDuration
+		} else {
+			moveFactor = 1.0 - (Date.now() - singleTimeStart) / singleTimeDuration
+		}
+		const translation = target[levelName].clone();
+		const localTranslationMatrix = new minemap.Math.Matrix4();
+		localTranslationMatrix[12] = 100 * moveFactor;
+		localTranslationMatrix[13] = translation[1];
+		localTranslationMatrix[14] = translation[2];
+
+		const finalMatrix = positionMatrix.clone().multiplyRight(localTranslationMatrix).multiplyRight(rotationMatrix);
+		model.setMatrix(finalMatrix);
+		model.updateMatrixWorld(true);
+
+		if (frameId) {
+			cancelAnimationFrame(frameId);
+		}
+		frameId = requestAnimationFrame(moveSingleFloor.bind(null, model, open, levelName));
+	}
+
+	/**
+	 * 将所有的模型标记为已经回归原位
+	 */
+	function resetAllToClosed(){
+		for (let i = 1; i <= 7; i++) {
+			if (models["l" + i]) {
+				const ss = models['l' + i];
+				for (let m = 0; m < ss.length; m++) {
+					const model = ss[m];
+					model.opened = false;
+				}
+			}
+		}
+	}
+
+
+	map.on('click', function (e) {
+		const feature = map.getFeatureByGPUPick(e.point);
+		console.log(feature);
+
+		if (feature) {
+
+
+
+			let parent = feature;
+			let id;
+			while (parent) {
+				if (parent.type == "3d-model") {
+					//如果非炸开的情况下，不允许层横向移动
+					if(!isExploded &&parent != topModel){
+						return
+					}
+					//非爆炸情况下，顶层用于触发炸开功能
+					if(!isExploded && parent == topModel){
+						openModelToExplodedView();
+						return;
+					}
+
+					//爆炸情况下，顶层用于触发关闭功能
+					if(isExploded && parent == topModel){
+						closeModelToExplodedView();
+						return;
+					}
+
+					//爆炸情况下，其它层用于横向移动
+					outer: for (const key in models) {
+						const ss = models[key];
+						for (let i = 0; i < ss.length; i++) {
+							if (ss[i] == parent) {
+								id = key;
+								break outer;
+							}
+						}
+					}
+
+					moveSingleFloor(parent, parent.opened?false: true, id)
+					break;
+				}
+				parent = parent.parent;
+			}
+		}
+	})
+
+
+</script>
+</body>

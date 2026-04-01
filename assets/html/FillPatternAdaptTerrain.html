@@ -1,0 +1,176 @@
+<!--
+ * @Author: Lee_90125
+ * @Date: 2023-08-09 15:48:55
+ * @LastEditTime: 2023-08-09 17:20:54
+ * @LastEditors: Lee_90125
+ * @Description:
+ * @FilePath: \MineMap3DEngine\demo\html\FillPattern.html
+-->
+
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+		<title>Fill面图层贴图贴地</title>
+		<!-- demo样式文件 -->
+		<link rel="stylesheet" href="../style/demo.css" />
+		<!-- 引入MineMap API插件 -->
+		<link rel="stylesheet" href="https://minemap.minedata.cn/minemapapi/v4.0.0/minemap.css" />
+  		<script src="https://minedata.cn/minemapapi/minemap-CDN/dat.gui/dat.gui.min.js"></script>
+  		<script src="../../dist/minemap-dev.js"></script>
+
+		<style>
+			#map {
+				width: 100%;
+				height: 100%;
+			}
+		</style>
+	</head>
+
+	<body>
+		<div id="map"></div>
+		<script>
+			/**
+			 * 全局参数设置
+			 */
+			minemap.domainUrl = "https://minemap.minedata.cn";
+			minemap.dataDomainUrl = "https://minemap.minedata.cn";
+			minemap.serverDomainUrl = "https://sd-data.minedata.cn";
+			minemap.spriteUrl = "http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite";
+			minemap.serviceUrl = "https://service.minedata.cn/service";
+
+			minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+			minemap.solution = 11001;
+
+			var style = {
+				glyphs: "minemap://fonts/{fontstack}/{range}",
+				sprite: "minemap://sprite/sprite",
+				sources: {},
+				layers: [],
+				version: 8
+			};
+
+			/**
+			 * 初始化地图实例
+			 */
+			var map = new minemap.Map({
+				container: "map",
+				// style: "https://service.minedata.cn/map/solu/style/11001",
+				style: style,
+				center: [116.46, 39.92] /*地图中心点*/,
+				zoom: 7 /*地图默认缩放等级*/,
+				pitch: 0 /*地图俯仰角度*/,
+				maxZoom: 22 /*地图最大缩放等级*/,
+				minZoom: 1 /*地图最小缩放等级*/,
+				projection: "MERCATOR"
+			});
+			//开启大气透视
+			const skyAtmosphere = map.getSky();
+			skyAtmosphere.useAerialPerspective = true;
+
+			map.setTerrain({
+				"tiles": ["https://staticdata-b.minedata.cn:14434/dem/{z}/{r}/{c}/{z}_{x}_{y}.terrain"], //瓦片服务地址
+				"tileSize": 512,  //瓦片大小
+			});
+
+			map.on("load", function () {
+				map.addSource("IMAGERY_SOURCE", {
+					type: "raster", //数据源类型：栅格数据源
+					tiles: ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+					tileSize: 512 //瓦片尺寸
+				});
+				map.addLayer({
+					id: "IMAGERY",
+					type: "raster", //图层类型为"raster"
+					source: "IMAGERY_SOURCE",
+					minzoom: 1,
+					maxzoom: 23
+				});
+
+				// 增加自定义数据源、自定义图层
+				const urls = ["../data/image/location.png"];
+				map.loadImages(urls, (error, images) => {
+					if (error) throw error;
+					map.addImage("location", images[urls[0]], { repeat: true });
+
+					addSources();
+					addLayers();
+				});
+			});
+
+			var gui = new dat.GUI();//外部UI
+			var fillPattern = gui.addFolder("Fill Pattern Para");
+			var fillPatternPara = {
+				offsetX: 0,
+				offsetY: 0,
+				rotation: 0,
+				scale: 1.0
+			};
+			fillPattern.add(fillPatternPara, "offsetX", -1, 1).step(0.1).onChange(function (value) {
+				map.setPaintProperty("fillLayer-111", "fill-offset", [value, fillPatternPara.offsetY]);
+			});
+			fillPattern.add(fillPatternPara, "offsetY", -1, 1).step(0.1).onChange(function (value) {
+				map.setPaintProperty("fillLayer-111", "fill-offset", [fillPatternPara.offsetX, value]);
+			});
+			fillPattern.add(fillPatternPara, "rotation", 0, 360).step(1).onChange(function (value) {
+				map.setPaintProperty("fillLayer-111", "fill-rotation", value);
+			});
+			fillPattern.add(fillPatternPara, "scale", 0, 2).step(0.1).onChange(function (value) {
+				map.setPaintProperty("fillLayer-111", "fill-scale", value);
+			});
+
+			function addSources() {
+				var center = map.getCenter();
+				var jsonData = {
+					type: "FeatureCollection",
+					features: [
+						{
+							type: "Feature",
+							geometry: {
+								type: "Polygon",
+								coordinates: [
+									[
+										[center.lng + 1, center.lat + 0.5],
+										[center.lng + 1, center.lat - 0.5],
+										[center.lng - 1, center.lat - 0.5],
+										[center.lng - 1, center.lat + 0.5],
+										[center.lng + 1, center.lat + 0.5]
+									]
+								]
+							}
+						}
+					]
+				};
+				map.addSource("fillSource", {
+					type: "geojson",
+					data: jsonData,
+					buffer: 0,
+					adaptTerrain: true
+				});
+			}
+
+			function addLayers() {
+				map.addLayer({
+					id: "fillLayer-111",
+					type: "fill", //图层类型为"fill"
+					source: "fillSource",
+					layout: {
+						visibility: "visible"
+					},
+					paint: {
+						"fill-color": "#00ff00",
+						"fill-opacity": 1.0,
+						// "fill-pattern": "poi_code_300001_18",
+						"fill-rotation": 45, //旋转角度,单位为度,顺时针方向为正
+						"fill-offset":[0,0],
+						"fill-scale":0.4,
+						"fill-pattern": "location"
+					},
+					minzoom: 1,
+					maxzoom: 17.5
+				});
+			}
+		</script>
+	</body>
+</html>

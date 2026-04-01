@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="zh-cn">
+<head>
+	<meta charset="UTF-8"/>
+	<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no"/>
+	<title>渲染后端切换调试</title>
+	<link rel="stylesheet" href="../style/demo.css"/>
+	<link rel="stylesheet" href="../../dist/minemap.css"/>
+	<script src="../../dist/minemap-dev.js"></script>
+	<style>
+		#map {
+			width: 100%;
+			height: 100%;
+		}
+
+		.panel {
+			position: absolute;
+			top: 16px;
+			left: 16px;
+			z-index: 9999;
+			background: rgba(20, 24, 32, 0.86);
+			color: #e8edf5;
+			padding: 12px 14px;
+			border-radius: 10px;
+			box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+			min-width: 260px;
+			font-family: "Segoe UI", -apple-system, sans-serif;
+		}
+
+		.panel label {
+			display: block;
+			margin-bottom: 6px;
+			font-size: 13px;
+			color: #9fb5d1;
+		}
+
+		.button-group {
+			display: grid;
+			grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
+			gap: 8px;
+			margin-bottom: 10px;
+		}
+
+		.button-group button {
+			border-radius: 10px;
+			border: 1px solid rgba(255, 255, 255, 0.12);
+			background: rgba(255, 255, 255, 0.05);
+			color: #e8edf5;
+			padding: 10px 8px;
+			outline: none;
+			cursor: pointer;
+			font-weight: 600;
+			transition: background 0.2s ease, border-color 0.2s ease, transform 0.08s ease;
+		}
+
+		.button-group button:hover {
+			background: rgba(255, 255, 255, 0.12);
+			border-color: rgba(255, 255, 255, 0.18);
+		}
+
+		.button-group button.active {
+			background: linear-gradient(135deg, #3d9bff, #6ad0ff);
+			color: #0d1a2a;
+			border-color: transparent;
+			box-shadow: 0 6px 18px rgba(58, 157, 255, 0.35);
+			transform: translateY(-1px);
+		}
+
+		.panel pre {
+			max-height: 220px;
+			overflow: auto;
+			background: rgba(0, 0, 0, 0.25);
+			padding: 8px;
+			border-radius: 8px;
+			font-size: 12px;
+			line-height: 1.4;
+			color: #dfe7f2;
+		}
+	</style>
+</head>
+<body>
+<div id="map"></div>
+<div class="panel">
+	<label>快速切换后端</label>
+	<div class="button-group" id="backend-buttons">
+		<button data-backend="webgpu">WebGPU</button>
+		<button data-backend="webgl2">WebGL2</button>
+		<button data-backend="webgl1">WebGL1</button>
+		<button data-backend="auto">Auto</button>
+	</div>
+	<label>当前后端 / 能力</label>
+	<pre id="info">-</pre>
+</div>
+
+<script>
+	// 基础配置，保持与现有 demo 一致
+	minemap.domainUrl = "https://minedata.cn";
+	minemap.dataDomainUrl = "https://minedata.cn";
+	minemap.serverDomainUrl = "https://minedata.cn";
+	minemap.spriteUrl = "https://minedata.cn/minemapapi/v3.2.0/sprite/sprite";
+	minemap.serviceUrl = "https://mineservice.minedata.cn/service/";
+	minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+	minemap.solution = 11001;
+
+	const emptyStyle = {
+		glyphs: "minemap://fonts/{fontstack}/{range}",
+		sprite: "minemap://sprite/sprite",
+		sources: {},
+		layers: [],
+		version: 8
+	};
+
+	let mapInstance = null;
+
+	function buildMap(backend) {
+		if (mapInstance && mapInstance.remove) {
+			mapInstance.remove();
+		}
+
+		mapInstance = new minemap.Map({
+			container: "map",
+			style: emptyStyle,
+			center: [116.38, 39.9],
+			zoom: 9,
+			pitch: 0,
+			bearing: 0,
+			renderBackend: backend,
+			// 若需要精细优先级，可传 renderBackendPreference
+			// renderBackendPreference: ["webgpu", "webgl2", "webgl1"],
+			logDepth: true
+		});
+
+		const infoBox = document.getElementById("info");
+
+		function updateInfo(extra) {
+			const caps = mapInstance.getRenderCapabilities();
+			const backendResolved = mapInstance.getRenderBackend();
+			infoBox.textContent = JSON.stringify({backend: backendResolved, caps, ...extra}, null, 2);
+		}
+
+		mapInstance.on("renderbackend", (e) => {
+			updateInfo({reasons: e?.reasons, preference: e?.preference});
+		});
+
+		mapInstance.on("load", () => {
+			updateInfo();
+		});
+	}
+
+	const backendButtons = Array.from(document.querySelectorAll("#backend-buttons button"));
+
+	function setActiveBackend(backend) {
+		backendButtons.forEach((btn) => {
+			btn.classList.toggle("active", btn.dataset.backend === backend);
+		});
+	}
+
+	backendButtons.forEach((btn) => {
+		btn.onclick = () => {
+			const backend = btn.dataset.backend;
+			setActiveBackend(backend);
+			buildMap(backend);
+		};
+	});
+
+	// 初始化
+	setActiveBackend("webgl1");
+	buildMap("webgl1");
+	// setActiveBackend("webgl2");
+	// buildMap("webgl2");
+</script>
+</body>
+</html>

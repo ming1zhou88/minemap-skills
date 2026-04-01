@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+		<title>glTF模型动画</title>
+		<!-- demo样式文件 -->
+		<link rel="stylesheet" href="../style/demo.css" />
+		<!-- 引入MineMap API插件 -->
+		<link rel="stylesheet" href="../../dist/minemap.css" />
+		<script src="../../dist/minemap-dev.js"></script>
+
+		<style>
+			#map {
+				width: 100%;
+				height: 100%;
+			}
+		</style>
+	</head>
+
+	<body>
+		<div id="map"></div>
+		<script>
+			minemap.domainUrl = "https://minemap.minedata.cn";
+			minemap.dataDomainUrl = "https://minemap.minedata.cn";
+			minemap.serverDomainUrl = "https://sd-data.minedata.cn";
+			minemap.spriteUrl = "http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite";
+			minemap.serviceUrl = "https://service.minedata.cn/service";
+
+			minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+			minemap.solution = 11001;
+			window.minemapCDN = "https://minemap.minedata.cn/minemapapi/minemap-CDN/"; // minemapCDN 配置
+
+			// 定义空底图样式
+			var style = {
+				glyphs: "minemap://fonts/{fontstack}/{range}",
+				sprite: "minemap://sprite/sprite",
+				sources: {},
+				layers: [],
+				version: 8
+			};
+
+			var center = [116.46, 39.92];
+
+			/**
+			 * 初始化地图实例
+			 */
+			var map = new minemap.Map({
+				container: "map",
+				style /*球面矢量底图样式*/,
+				center /*地图中心点*/,
+				bearing: 0,
+				zoom: 12 /*地图默认缩放等级*/,
+				pitch: 60 /*地图俯仰角度*/,
+				maxZoom: 22 /*地图最大缩放等级*/,
+				minZoom: 1 /*地图最小缩放等级*/,
+				projection: "MERCATOR",
+				logDepth: true
+			});
+
+			map.repaint = true;
+			map.enableLight();
+
+			map.on("load", function () {
+				/*添加栅格图*/
+				map.addSource("IMAGERY_SOURCE", {
+					type: "raster",
+					tiles: ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+					tileSize: 512 //瓦片尺寸
+				});
+
+				map.addLayer({
+					id: "IMAGERY",
+					type: "raster",
+					source: "IMAGERY_SOURCE",
+					minzoom: 1,
+					maxzoom: 23
+				});
+
+				map.addSceneComponent({
+					id: "modelId",
+					type: "3d-model",
+					data: "http://192.168.152.123:11187/demo-data/models/LittlestTokyo.glb",
+					modelFolder: "https://minedata.cn/nce-static/support/demo/js-3d-ultra/zh/assets/models",
+					scale: [10, 10, 10], // 在xyz轴方向上的缩放比例
+					rotation: [90, 0, 0], // 绕xyz轴方向上的旋转，单位为度
+					position: [...center, 2500], // 锚点（模型局部坐标原点）的经纬度位置
+					loaded: () => {
+						// 模型加载完成的回调函数
+					},
+					lightingModel: minemap.LightingModelType.PBR
+				});
+			});
+		</script>
+	</body>
+</html>

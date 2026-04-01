@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+	<title>GLTF模型实例化</title>
+	<link rel="stylesheet" href="../../dist/minemap.css" />
+	<script src="../../dist/minemap-dev.js"></script>
+	<script src="../js/lil-gui.umd.min.js"></script>
+	<style>
+		html,
+		body,
+		#map {
+			margin: 0;
+			padding: 0;
+			width: 100%;
+			height: 100%;
+		}
+	</style>
+</head>
+<body>
+<div id="map"></div>
+<script>
+	minemap.domainUrl = "https://minedata.cn";
+	minemap.serverDomainUrl = "https://sd-data.minedata.cn";
+	minemap.spriteUrl = "http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite";
+	window.minemapCDN = "https://minedata.cn/minemapapi/minemap-CDN";
+
+	minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+
+	const map = new minemap.Map({
+		container: "map",
+		style: "https://service.minedata.cn/map/solu/style/11001",
+		center: [112.97001022488271, 28.09121062861271],
+		zoom: 17.2,
+		bearing: 6.0057665645659455,
+		pitch: 68.09942929321734,
+		maxZoom: 22,
+		minZoom: 1
+	});
+
+	map.repaint = true;
+	map.enableLight();
+
+	map.on("load", function() {
+		// 初始化实例化数据
+		initializeData();
+		// 初始化实例化模型
+		initializeModel();
+		initializeMapEvent();
+		initializeGUI();
+	});
+
+	const operateParams = {
+		operate: "add",
+		color: "#ffffff",
+		rotationX: 0,
+		rotationY: 0,
+		rotationZ: 90
+	};
+
+	let positions = [];
+	let rotations = [];
+	let scales = [];
+	let instanceNames = [];
+	let colors = [];
+	let shows = [];
+	let index = 0;
+
+	function initializeData() {
+		const centerLongitude = 112.96968033433086;
+		const centerLatitude = 28.091158070186673;
+		const height = 0.0;
+		const count = 10;
+		let spacing = 0.0005;
+		const gridSize = Math.sqrt(count);
+		for (let y = 0; y < gridSize; ++y) {
+			for (let x = 0; x < gridSize; ++x) {
+				const longitude = centerLongitude + spacing * (x - gridSize / 2);
+				const latitude = centerLatitude + spacing * (y - gridSize / 2);
+				positions.push(new minemap.Math.Vector3([longitude, latitude, height]));
+				scales.push(new minemap.Math.Vector3([10, 10, 10]));
+				rotations.push(minemap.Math.HeadingPitchRoll.fromDegrees(0, 0, 90));
+				instanceNames.push("treeGltf" + index);
+				colors.push(new minemap.Color(0, 0, 0, 0));
+				shows.push(true);
+				index++;
+			}
+		}
+	}
+
+	function initializeModel() {
+		map.addSceneComponent({
+			id: "treeGltf",
+			positions: positions,
+			rotations: rotations,
+			scales: scales,
+			instanceNames: instanceNames,
+			colors: colors,
+			shows: shows,
+			type: "3d-model",
+			data: "../data/shu-max-003/shu13_new.glb",
+			modelFolder: "../data/shu-max-003/",
+			minimumPixelSize: 128
+		});
+	}
+
+	function addInstance(point) {
+		const instance = {
+			position: map.getPositionByGPUPick(point),
+			rotation: minemap.Math.HeadingPitchRoll.fromDegrees(0, 0, 90),
+			scale: new minemap.Math.Vector3(10, 10, 10),
+			color: new minemap.Color(0, 0, 0, 0),
+			show: true,
+			instanceName: "newAdded" + index
+		};
+		map.getSceneComponent("treeGltf").modelInstanceCollection.add(instance);
+		index++;
+	}
+
+	function removeInstance(point) {
+		const instance = map.getFeatureByGPUPick(point);
+		if (instance instanceof minemap.ModelInstance) {
+			map.getSceneComponent("treeGltf").modelInstanceCollection.remove(instance);
+		}
+	}
+
+	function editInstance(point) {
+		const instance = map.getFeatureByGPUPick(point);
+		if (instance instanceof minemap.ModelInstance) {
+			const { rotationX, rotationY, rotationZ, color } = operateParams;
+			instance.rotation = minemap.Math.HeadingPitchRoll.fromDegrees(rotationX, rotationY, rotationZ);
+			instance.color = minemap.Color.parse(color);
+		}
+	}
+
+	function initializeMapEvent() {
+		map.on("click", function(e) {
+			switch (operateParams.operate) {
+				case "add":
+					addInstance(e.point);
+					break;
+				case "remove":
+					removeInstance(e.point);
+					break;
+				case "edit":
+					editInstance(e.point);
+					break;
+			}
+		});
+	}
+
+	function initializeGUI()  {
+		const gui = new lil.GUI({ width: 300 });
+		const operateFolder = gui.addFolder("Operate");
+		const paramsFolder = gui.addFolder("Edit Params");
+		const optionMode = [
+			"add",
+			"remove",
+			"edit"
+		];
+
+		operateFolder.add(operateParams, "operate", optionMode);
+
+		paramsFolder.addColor(operateParams, "color");
+		paramsFolder.add(operateParams, "rotationX", -180, 180, 1);
+		paramsFolder.add(operateParams, "rotationY", -180, 180, 1);
+		paramsFolder.add(operateParams, "rotationZ", -180, 180, 1);
+	}
+</script>
+</body>
+
+</html>

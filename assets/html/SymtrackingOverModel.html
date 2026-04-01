@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+		<title>Symtracking图层贴模型</title>
+		<!-- 引入MineMap API插件 -->
+		<link rel="stylesheet" href="../../dist/minemap.css">
+		<script src="../../dist/minemap-dev.js"></script>
+		<script src="https://minemap.minedata.cn/minemapapi/minemap-plugins/template/template.js"></script>
+		<style>
+			html,
+			body,
+			#map {
+				margin: 0;
+				padding: 0;
+				width: 100%;
+				height: 100%;
+			}
+		</style>
+	</head>
+
+	<body>
+		<div id="map"></div>
+		<script>
+			minemap.domainUrl = "https://minedata.cn";
+			minemap.dataDomainUrl = "https://minedata.cn";
+			minemap.serverDomainUrl = "https://minedata.cn";
+			minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+			minemap.serviceUrl = "https://minedata.cn/service/";
+
+			minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+			minemap.solution = 11001;
+			window.minemapCDN = "https://minedata.cn/minemapapi/minemap-CDN"; // minemapCDN 配置
+			// window.minemapCDN = "http://192.168.152.123/minemap-engine/minemap-CDN/"; // minemapCDN 配置 http://192.168.152.123/
+
+			// 定义空底图样式
+			var style = {
+				glyphs: "minemap://fonts/{fontstack}/{range}",
+				sprite: "minemap://sprite/sprite",
+				sources: {},
+				layers: [],
+				version: 8
+			};
+			/**
+			 * 初始化地图实例
+			 */
+
+			var map = new minemap.Map({
+				container: "map",
+				style: style,
+				// style: "https://mineservice.minedata.cn/map/solu/style/11001" /*底图样式*/ /*球面矢量底图样式*/,
+				bearing: -87.18744098264303,
+				center: [108.94733550459136, 34.30940496948484],
+				pitch: 61.603551292866726,
+				zoom: 15.7,
+				maxZoom: 22 /*地图最大缩放等级*/,
+				minZoom: 1 /*地图最小缩放等级*/
+			});
+			map.repaint = true;
+			// map.enableLight();
+
+			map.on("load", function () {
+				/*添加栅格图*/
+				map.addSource("IMAGERY_SOURCE", {
+					type: "raster", //数据源类型：栅格数据源
+					tiles: ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+					tileSize: 512 //瓦片尺寸
+				});
+
+				map.addLayer({
+					id: "IMAGERY",
+					type: "raster", //图层类型为"raster"
+					source: "IMAGERY_SOURCE",
+					minzoom: 1,
+					maxzoom: 23,
+					"depth-test": true
+				});
+
+				// 3dtiles
+				const tileset = map.addSceneComponent({
+					id: "serve",
+					type: "3d-tiles",
+					show: true,
+					translation: new minemap.Math.Vector3(0, 0, 0), //在enu坐标系下的位置移动距离，顺序为[east, north, height]，单位为m，并且只用于3dtiles图层
+					minzoom: 12, //3d-tiles加载显示的最小层级
+					maxzoom: 22, //3d-tiles加载显示的最大层级
+					url: "https://staticdata-b.minedata.cn:14434/oblique/tileset.json",
+					skipLevelOfDetail: false, //跨层调度
+					maximumScreenSpaceError: 8,
+					sourceLoaded: (tileset) => {
+						// map.flyTo({
+						// 	target: tileset,
+						// 	bearing: 0,
+						// 	pitch: 0,
+						// 	duration: 2000,
+						// 	range: 1000
+						// });
+					},
+					/**
+					 * 飞行选择
+					 * index: 指定飞行目标(优先)
+					 * combine: 合并bounds为飞行目标
+					 */
+					geoBoundsOptions: {
+						index: 1,
+						combine: true
+					},
+					allowPick: true
+				});
+				window.tileset = tileset;
+
+				var center = map.getCenter();
+
+				const yellowPolygonHierarchy = {
+					positions: minemap.Math.Vector3.fromDegreesArray([
+						center.lng, center.lat, center.lng, center.lat + 0.1,
+						center.lng - 0.1, center.lat + 0.1
+					])
+				};
+
+				addPolygonPrimitive({
+					polygonHierarchy: yellowPolygonHierarchy,
+					arcType: minemap.ARCTYPE.GEODESIC,
+					color: "yellow"
+				});
+
+				const urls = [
+					"https://minedata.cn/nce-static/support/demo/js-3d-ultra/zh/images/car/n-vehicle.png"
+				];
+				let flag = false;
+				map.loadImages(urls, (error, images) => {
+					if(flag) return;
+					flag = true;
+					if (error) throw error;
+					map.addImage("n-vehicle-custom", images[urls[0]]);
+					addSources();
+					addLayers();
+				});
+			});
+			function addSources() {
+				var center = map.getCenter();
+				var route = [
+					[center.lng, center.lat], [center.lng, center.lat + 0.04],
+					[center.lng - 0.08, center.lat + 0.04],
+					[center.lng - 0.08, center.lat],
+					[center.lng, center.lat]];
+
+				map.addSource('lineSource', {
+					type: 'geojson',
+					data: {
+						"type": "Feature",
+						"properties": {},
+						"geometry": {
+							"type": "LineString",
+							"coordinates": route
+						}
+					}
+				});
+
+				/**
+				 * symtracking图层的geojson的方法，最关键的是生成的是线数据和包含link_seq这个属性
+				 * symtracking图层是能够展示沿着道路行走的图标展示图层
+				 *
+				 * @param data 数据样例 [[116.4066765, 39.9079326], [116.418049, 39.9081795], [116.4177486, 39.9155695], [116.4111611, 39.9154872], [116.4114186, 39.9105497]]
+				 * @param compatible 兼容模式，这个模式图标会丢失
+				 * @param segDistance 默认是10米一步，如果路径过长，请修改这个参数，避免卡顿
+				 * @returns {geojson}
+				 */
+				var jsonData = minemap.Template.util.pointArrayToSymtrackingGeoJson(route, false, 100);
+
+				map.addSource('symtrackingSource', {
+					type: 'geojson',
+					data: jsonData
+				});
+			}
+
+			function addLayers() {
+				map.addLayer({
+					"type": "line",
+					"source": 'lineSource',
+					"id": 'lineLayer',
+					"layout": {
+						"line-join": "round",
+						"line-cap": "round"
+					},
+					"paint": {
+						"line-width": 3,
+						"line-color": "#00ff00"
+					},
+					classificationType: minemap.ClassificationType.FORCE_VECTOR_OVER_MODEL,
+				});
+
+				map.addLayer({
+					"type": "symtracking",
+					"source": 'symtrackingSource',
+					"id": 'symtrackingLayer',
+					"layout": {
+						"icon-image": "n-vehicle-custom",
+						"icon-allow-overlap": true,
+						"icon-ignore-placement": true,
+						"icon-pitch-alignment": "map",
+						"icon-rotation-alignment": "map",
+						"symtracking-fps": 50,            //行动快慢，现在是1秒37帧
+						"symtracking-time-segment": 6,   //总共要运行多少秒
+						"compatible-mode": false          //notice  采用新的数据样式，保证运动图标不消失
+					},
+					"paint": {
+						"icon-color": "#ff0000",
+						"symtracking-delay": 0            //notice 小车更新延迟为零，保证小车能够循环播放，小车循环播放的条件是：此项为零 并且 symtracking-fps * symtracking-time-segment ≈ myGeojson.features.length
+					},
+					classificationType: minemap.ClassificationType.FORCE_VECTOR_OVER_MODEL,
+				});
+			}
+
+			function addPolygonPrimitive(options) {
+				const geometry = new minemap.Geometries.PolygonGeometry({
+					polygonHierarchy: options.polygonHierarchy,
+					extrudedHeight: options.extrudedHeight,
+					perPositionHeight: options.perPositionHeight,
+					height: options.height,
+					arcType: options.arcType
+				});
+
+				const material = minemap.StandardMaterial.fromType("Color", {
+					color: options.color,
+					doubleSided: true
+				});
+
+				const primitive = new minemap.Primitive({
+					geometry: geometry,
+					material: material,
+					adaptTerrain: true,
+				});
+
+				map.addPrimitive(primitive);
+			}
+		</script>
+	</body>
+</html>

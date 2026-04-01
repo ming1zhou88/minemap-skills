@@ -1,0 +1,199 @@
+<!--
+ * @Author: liwei
+ * @Date: 2023-03-01 17:40:37
+ * @LastEditTime: 2026-01-27 15:53:33
+ * @LastEditors: defineconst
+ * @Description:
+ * @FilePath: \MineMap3DEngine\demo\html\PointClusterInfo.html
+-->
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<title>点聚合显示详细信息</title>
+		<link rel="stylesheet" href="../style/demo.css" />
+		<script src="http://192.168.152.123:11187/demo-data/3d-ultra/js/demo.js"></script>
+		<!-- 引入MineMap API插件 -->
+		<link rel="stylesheet" href="https://minedata.cn/minemapapi/v3.2.0/minemap.css" />
+		<script src="../../dist/minemap-dev.js"></script>
+<!--		<link rel="stylesheet" href="https://minedata.cn/minemapapi/minemap-CDN/pretty-json/pretty-json.css" />-->
+<!--		<script src="https://minedata.cn/minemapapi/minemap-CDN/pretty-json/pretty-json.js"></script>-->
+		<style>
+			html, body, #map {
+				width: 100%;
+				height: 100%;
+			}
+		</style>
+	</head>
+	<body>
+		<div id="map"></div>
+		<script>
+			/**
+			 * 全局参数设置
+			 */
+			minemap.domainUrl = "https://minedata.cn";
+			minemap.dataDomainUrl = "https://minedata.cn";
+			minemap.serverDomainUrl = "https://minedata.cn";
+			minemap.spriteUrl = "http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite";
+			minemap.serviceUrl = "http://10.52.0.132:8006/service";
+			minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+			minemap.solution = 1080128025626443776;
+
+			minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+			minemap.solution = 11001;
+
+			var style = {
+				glyphs: "minemap://fonts/{fontstack}/{range}",
+				sprite: "minemap://sprite/sprite",
+				sources: {},
+				layers: [],
+				version: 8
+			};
+
+			var map = new minemap.Map({
+				container: "map",
+				style: style,
+				//style: 'http://10.52.0.132:8006/map/solu/style/11001',
+				center: [121.90154, 29.46968],
+				zoom: 11.8,
+				pitch: 0,
+				maxZoom: 17,
+				minZoom: 3,
+				// projection: "LATLON"
+			});
+
+			/**
+			 * 创建地图对象后，开始加载地图资源，地图资源加载完成后触发load事件
+			 */
+			map.on("load", function () {
+				// /*添加栅格图*/
+				map.addSource("IMAGERY_SOURCE", {
+					type: "raster", //数据源类型：栅格数据源
+					tiles: ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+					tileSize: 512 //瓦片尺寸
+				});
+
+				map.addLayer({
+					id: "IMAGERY",
+					type: "raster", //图层类型为"raster"
+					source: "IMAGERY_SOURCE",
+					minzoom: 1,
+					maxzoom: 23
+				});
+				// 增加自定义数据源、自定义图层
+				addSources();
+				addLayers();
+
+			});
+
+			function addSources() {
+				map.addSource("data-point", {
+					type: "geojson",
+					data: "https://minedata.cn/nce-static/support/demo/js-3d-ultra/zh/assets/poi_suzhou.json",
+					cluster: true,
+					clusterMaxZoom: 15 /* 最大聚合层级 */,
+					clusterRadius: 50 /* 聚合半径 */
+				});
+			}
+
+			function addLayers() {
+				//添加非聚合图层
+				map.addLayer({
+					id: "unclustered-points",
+					type: "symbol",
+					source: "data-point",
+					filter: ["!has", "point_count"],
+					layout: {
+						"icon-image": "star_12"
+					}
+				});
+
+				//添加聚合图层
+				var layers = [
+					[1000, "rgba(241, 128, 23, 0.6)"],
+					[100, "rgba(240, 194, 12, 0.6)"],
+					[0, "rgba(110, 204, 57, 0.6)"]
+				];
+
+				layers.forEach(function (layer, i) {
+					map.addLayer({
+						id: "cluster-" + i,
+						type: "circle",
+						source: "data-point",
+						paint: {
+							"circle-color": layer[1],
+							"circle-radius": 18
+						},
+						filter:
+							i === 0
+								? [">=", "point_count", layer[0]]
+								: ["all", [">=", "point_count", layer[0]], ["<", "point_count", layers[i - 1][0]]]
+					});
+				});
+				//添加数量图层
+				map.addLayer({
+					id: "cluster-count",
+					type: "symbol",
+					source: "data-point",
+					layout: {
+						"text-field": "{point_count}",
+						"text-size": 10
+					},
+					paint: {
+						"text-color": "rgba(0,0,0,.75)"
+					},
+					filter: ["has", "point_count"]
+				});
+			}
+
+			map.on("click", function (e) {
+				var features = map.queryRenderedFeatures(e.point, { layers: ["cluster-0", "cluster-1", "cluster-2"] });
+				var feature = features.length > 0 ? features[0] : null;
+
+				// 如果开启显示详细信息功能
+				// 将features数组详情信息存入properties.children中
+				var source = map.getSource("data-point");
+				features = features.map(function (f) {
+					if (feature.properties.cluster_id && feature.properties.point_count) {
+						/*  获取下一层级的children
+						 * @param cluster_id属性值
+						 * @param callback 回调函数 (`(error, features) => {}`)
+						 */
+						// source.getClusterChildren(feature.properties.cluster_id, function (err,res) {
+						//     /* res 返回下一层级的children信息 */
+						// });
+
+						/*  获取当前聚合点的所有children信息
+						 * @param cluster_id属性值
+						 * @param limit 返回数量限制，默认为10，
+						 * @param offset 分页显示起始值，默认为0
+						 * @param callback 回调函数 (`(error, features) => {}`)
+						 */
+						source.getClusterLeaves(
+							feature.properties.cluster_id,
+							feature.properties.point_count,
+							0,
+							function (err, res) {
+								f.properties.children = res;
+							}
+						);
+					}
+					return f;
+				});
+
+				var dataInfo = features.map(function (f) {
+					return {
+						type: f.type,
+						properties: f.properties,
+						layer: f.layer
+					};
+				});
+				// // 界面显示数据
+				// var node = new PrettyJSON.view.Node({
+				// 	el: document.querySelector("#result-info"),
+				// 	data: dataInfo
+				// });
+			});
+		</script>
+	</body>
+</html>

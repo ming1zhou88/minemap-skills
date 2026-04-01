@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>自定义样式点云（新）</title>
+    <!-- 引入MineMap API插件 -->
+    <link rel="stylesheet" href="../../dist/minemap.css" />
+
+    <script src="../../dist/minemap-dev.js"></script>
+
+    <style>
+        html,
+        body,
+        #map {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        .control-panel {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            z-index: 1;
+            background: white;
+            padding: 10px;
+            border-radius: 4px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .control-panel button {
+            margin: 5px;
+            padding: 8px 15px;
+            cursor: pointer;
+        }
+
+        .toolContainer {
+            position: absolute;
+            top: 200px;
+            left: 10px;
+            z-index: 999;
+            background-color: white;
+        }
+
+        table {
+            position: fixed;
+            top: 16px;
+            right: 14px;
+            z-index: 999;
+            background: #fff;
+            border: solid 1px #000000;
+            border-collapse: collapse;
+            padding: 2px 3px;
+            text-align: center;
+        }
+
+        tbody {
+            max-height: 600px;
+            max-width: 400px;
+            display: block;
+            overflow: auto;
+        }
+
+        td,
+        th {
+            border: solid 1px #000000;
+            border-collapse: collapse;
+            padding: 2px 3px;
+            text-align: center;
+        }
+
+        th {
+            font-weight: bold;
+        }
+
+
+
+        #text {
+            position: absolute;
+            z-index: 999;
+            top: 16px;
+            right: 14px;
+            background: #fff;
+            border-radius: 2px;
+        }
+
+        .text-content {
+            line-height: 38px;
+            padding: 0 16px 0 12px;
+        }
+
+        .minemap-popup-content {
+            font-size: 12px !important;
+            font-weight: 400;
+            position: relative;
+            padding: 0 !important;
+            background-color: transparent !important;
+        }
+
+        .minemap-popup-anchor-top-left .minemap-popup-tip {
+            border-bottom-color: rgba(255, 255, 255, 0) !important;
+        }
+
+        .minemap-popup-diy-jw {
+            line-height: 28px;
+            text-align: center;
+            height: 28px;
+            border-radius: 2px;
+            color: #e5f0ff;
+            display: inline-block;
+            background: rgba(43, 43, 51, 0.8);
+            padding: 0 10px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="control-panel">
+        <button onclick="toggleTileset1()">显示/隐藏V3-3dtiles-tool</button>
+        <button onclick="toggleTileset2()">显示/隐藏V3-3dtile-props</button>
+    </div>
+    <div class="toolContainer">
+        <input type="checkbox" onclick="enableAsync(this)">异步查询
+    </div>
+    <div id="map">
+        <div id="showTable"></div>
+    </div>
+    <div id="text"></div>
+
+    <script>
+        /**
+         * 全局参数设置
+         */
+        minemap.domainUrl = 'https://minedata.cn';
+        minemap.dataDomainUrl = 'https://minedata.cn';
+        minemap.serverDomainUrl = 'https://ol-data.minedata.cn';
+        minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+        minemap.serviceUrl = 'https://service.minedata.cn/service';
+
+        minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+        minemap.solution = 11001;
+        // window.minemapCDN = 'https://minedata.cn/minemapapi/minemap-CDN'; // minemapCDN 配置
+        window.minemapCDN = "http://192.168.152.123/minemap-engine/minemap-CDN/"; // minemapCDN 配置 http://192.168.152.123/
+
+        // 定义空底图样式
+        var style = {
+            glyphs: "minemap://fonts/{fontstack}/{range}",
+            sprite: "minemap://sprite/sprite",
+            sources: {},
+            layers: [],
+            version: 8
+        };
+        /**
+         * 初始化地图实例
+         */
+
+        var map = new minemap.Map({
+            container: "map",
+            style: style,
+            // style: "https://mineservice.minedata.cn/map/solu/style/11001" /*底图样式*/ /*球面矢量底图样式*/,
+            bearing: 0,
+            center: [120.44456030519608, 30.566524254979416],
+            pitch: 0,
+            zoom: 11.67362924133028,
+            maxZoom: 22 /*地图最大缩放等级*/,
+            minZoom: 1 /*地图最小缩放等级*/,
+            nearDetection: true
+        });
+        var tileset1, tileset;
+        map.on("load", function () {
+            /*添加栅格图*/
+            map.addSource("IMAGERY_SOURCE", {
+                "type": "raster",//数据源类型：栅格数据源
+                "tiles": ["https://ol-data.minedata.cn/service/data/satellite?x={x}&y={y}&z={z}"], //瓦片服务地址
+                "tileSize": 512,//瓦片尺寸
+            });
+
+            map.addLayer({
+                "id": "IMAGERY",
+                "type": "raster", //图层类型为"raster"
+                "source": "IMAGERY_SOURCE",
+                "minzoom": 1,
+                "maxzoom": 23,
+            });
+
+            let tileset1Visible = true;
+            let tileset2Visible = true;
+
+            window.toggleTileset1 = function () {
+                tileset1Visible = !tileset1Visible;
+                tileset1.show = tileset1Visible;
+            }
+
+            window.toggleTileset2 = function () {
+                tileset2Visible = !tileset2Visible;
+                tileset.show = tileset2Visible;
+            }
+
+            tileset1 = map.addSceneComponent({
+                id: "tileset1",
+                type: "3d-tiles",
+                visible: true,
+                translation: new minemap.Math.Vector3(0, 0, 0), //在enu坐标系下的位置移动距离，顺序为[east, north, height]，单位为m，并且只用于3dtiles图层
+                url: "../data/V3-3dtiles-tool/tileset.json",
+                log: false,
+                allowPick: true,
+                maximumScreenSpaceError: 1,
+                sourceLoaded: (tileset) => {
+                    // map.flyTo({
+                    //     target: tileset,
+                    //     bearing: 0,
+                    //     pitch: 0,
+                    //     duration: 2000,
+                    //     range: 200
+                    // });
+                },
+            });
+
+            tileset = map.addSceneComponent({
+                id: "tileset",
+                type: "3d-tiles",
+                visible: true,
+                translation: new minemap.Math.Vector3(400, -400, 0), //在enu坐标系下的位置移动距离，顺序为[east, north, height]，单位为m，并且只用于3dtiles图层
+                url: "../data/3dtile-props-1/tileset.json",
+                log: false,
+                maximumScreenSpaceError: 1,
+                allowPick: true,
+                sourceLoaded: (tileset) => {
+                    // map.flyTo({
+                    //     target: tileset,
+                    //     bearing: 0,
+                    //     pitch: 0,
+                    //     duration: 2000,
+                    //     range: 200
+                    // });
+                },
+                customizedColor: {
+                    "type": "exponential",
+                    "base": 1,
+                    "property": "height",
+                    "stops": [
+                        [-6.0, "rgb(0, 255, 255)"],      // 最低点：纯蓝色
+                        [-5.0, "rgb(0, 0, 255)"],      // 最低点：纯蓝色
+                        [-4.5, "rgb(0, 128, 255)"],    // 蓝色过渡到绿色
+                        [-4.0, "rgb(128, 244, 255)"],    // 蓝色过渡到绿色
+                        [-3.9, "rgb(168, 255, 255)"],    // 蓝色过渡到绿色
+                        [-3.8, "rgb(128, 0, 255)"],    // 蓝色过渡到绿色
+                        [-3.7, "rgb(128, 255, 255)"],    // 蓝色过渡到绿色
+                        [-3.6, "rgb(128, 128, 255)"],    // 蓝色过渡到绿色
+                        [-3.5, "rgb(255, 128, 255)"],    // 蓝色过渡到绿色
+                        [-3.4, "rgb(124, 128, 255)"],    // 蓝色过渡到绿色
+                        [-3.3, "rgb(43, 128, 255)"],    // 蓝色过渡到绿色
+                        [-3.2, "rgb(255, 128, 56)"],    // 蓝色过渡到绿色
+                        [-3.0, "rgb(0, 255, 128)"],    // 绿色为主
+                        [-2.0, "rgb(0, 255, 0)"],      // 纯绿色
+                        [-1.5, "rgb(128, 255, 0)"],    // 绿色过渡到黄色
+                        [-1.0, "rgb(255, 255, 0)"],    // 纯黄色
+                        [-0.5, "rgb(255, 128, 0)"],    // 黄色过渡到红色
+                        [0.05, "rgb(255, 255, 0)"],       // 纯红色
+                        [0.07, "rgb(99, 255, 255)"],       // 纯红色
+                        [0.09, "rgb(255, 8, 188)"],       // 纯红色
+                        [0.11, "rgb(0, 255, 0)"],       // 纯红色
+                        [0.16, "rgb(887, 100, 100)"],        // 保持红色
+                        [0.18, "rgb(26, 100, 80)"],        // 保持红色
+                        [0.2, "rgb(0, 0, 0)"]        // 保持红色
+                    ],
+                    "default": "rgba(255, 255, 255, 1.0)"
+                }
+                // customizedColor: {
+                //     "type": "exponential",               // 目前支持的类型有exponential/categorical/interval
+                //     "base": 1.05,                        // (可选) base仅在使用exponential插值时配合使用，为指数函数底数。默认为1.0，即线性插值
+                //     "property": "Intensity",             // 与颜色相关联的点云属性值
+                //     "stops": [                           // 属性值关键点及其对应颜色值，支持十六进制颜色值/rgb函数/rgba函数/Color类型包含的基本颜色。注意关键点值需递增排列
+                //         [400, "rgb(0, 145, 173)"],        // 400 < Intensity <= 450 时的颜色
+                //         [450, "rgb(23, 128, 161)"],       // 450 < Intensity < 500 时的颜色
+                //         [500, "rgb(46, 111, 149)"],       // ...
+                //         [550, "rgb(69, 94, 137)"],
+                //         [600, "rgb(92, 77, 125)"],
+                //         [650, "rgb(114, 60, 112)"],
+                //         [700, "rgb(137, 43, 100)"],
+                //         [750, "rgb(160, 26, 88)"],
+                //         [800, "rgb(183, 9, 76)"],
+                //         [850, "rgb(196, 4, 62)"],
+                //         [900, "rgb(211, 0, 45)"],        // Intensity > 900 时的颜色
+                //     ],
+                //     "default": "rgba(0, 172, 185, 1.0)" // (可选) 默认颜色，即不满足上述判断条件时的赋予点云的颜色，此例为Intensity<= 400。默认为黑色
+                // }
+            });
+
+
+
+        });
+
+        const popup = new minemap.Popup({ closeOnClick: false, closeButton: false, anchor: 'top-left', offset: [10, 5] })
+            .setHTML(`<div class="minemap-popup-diy-jw">点击获取当前位置高度</div>`)
+            .trackPointer() //此方法可以让popup跟随鼠标指针，使用此方法就不再需要使用setLngLat()方法
+            .addTo(map)
+        // 点击地图，获取位置点高度
+
+        let timeStart;
+        map.on("click", function (e) {
+
+            const point = map.getPositionByGPUPick(e.point)
+            document.getElementById('text').innerHTML = '<span class="text-content">获取高度为：' + point[2].toFixed(2) + '米</span>'
+
+
+            if (async) {
+                timeStart = Date.now();
+                map.getFeatureByGPUPickAsync(e.point).then((feature) => {
+                    console.log(`异步查询用时${Date.now() - timeStart}ms`);
+                    updateUI(feature);
+                })
+            } else {
+                timeStart = Date.now();
+                const feature = map.getFeatureByGPUPick(e.point);
+                console.log(`同步查询用时${Date.now() - timeStart}ms`);
+                updateUI(feature);
+            }
+        });
+
+        let prePrimitive;
+        let preColor;
+        function updateUI(feature) {
+            // 包含json文件时才解析
+            if (feature && feature._content && feature._content.json) {
+                if (prePrimitive) {
+                    prePrimitive.color = [0, 0, 0, 0];
+                }
+
+                prePrimitive = feature;
+                preColor = feature.color;
+
+                feature.color = [1.0, 1.0, 0.0, 1.0]; //选中部分，设置高亮颜色
+
+                // Create table.
+                const table = document.createElement("table");
+
+                // Create table header row using the extracted headers above.
+                let tr = table.insertRow(-1); // table row.
+                let th = document.createElement("th");
+                th.innerHTML = "BatchID";
+                tr.appendChild(th);
+                th = document.createElement("th");
+                th.innerHTML = feature._batchId;
+                tr.appendChild(th);
+
+                const json = feature._content.json;
+                const map = new Map(Object.entries(json));
+                // 遍历所有key值
+                for (let key of map.keys()) {
+                    tr = table.insertRow(-1);
+                    // 利用featureTable类型自带getProperty()函数得到属性
+                    let value = feature.getProperty(key);
+                    let tabCell = tr.insertCell(-1);
+                    tabCell.innerHTML = key;
+                    tabCell = tr.insertCell(-1);
+                    tabCell.innerHTML = value;
+                }
+
+                const divShowData = document.getElementById("showTable");
+                divShowData.innerHTML = "";
+                divShowData.appendChild(table);
+            } else {
+                if (prePrimitive) {
+                    prePrimitive.color = [0, 0, 0, 0];
+                }
+                // preColor = null;
+                const divShowData = document.getElementById("showTable");
+                divShowData.innerHTML = "";
+                console.log("未选中任何要素");
+            }
+        }
+
+        let async = false;
+        function enableAsync(e) {
+            if (e.checked) {
+                async = true;
+            } else {
+                async = false;
+            }
+        }
+
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,333 @@
+<!--
+ * @Author: liwei
+ * @Date: 2022-11-08 14:00:30
+ * @LastEditTime: 2024-05-30 20:29:56
+ * @LastEditors: liwei
+ * @Description:
+ * @FilePath: \MineMap3DEngine\demo\html\DiggingTerrainWithIgnoreClassification.html
+-->
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<title>地形挖坑-拒绝投影贴地</title>
+		<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+		<!-- 引入MineMap API插件 -->
+		<link rel="stylesheet" href="../../dist/minemap.css" />
+		<script src="../../dist/minemap-dev.js"></script>
+		<style>
+			html,
+			#map,
+			body {
+				margin: 0;
+				padding: 0;
+				width: 100%;
+				height: 100%;
+			}
+
+			.toolContainer {
+				position: absolute;
+				top: 0;
+				left: 0;
+				z-index: 999;
+			}
+		</style>
+	</head>
+	<div class="toolContainer">
+		<label>开挖深度(米) :</label>
+		<input id="depth" type="number" value="50" style="width: 50px" />
+		<label>顶点加密(米/个) :</label>
+		<input id="sample" type="number" value="5" style="width: 50px" />
+		<button onclick="drawDiggingArea()">挖坑</button>
+		<button onclick="enabled()">显示/隐藏</button>
+		<button onclick="sample()">顶点加密(1米/个)</button>
+		<button onclick="modifyPositions()">修改顶点</button>
+		<button onclick="depth()">修改深度(100米)</button>
+		<button onclick="remove()">移除</button>
+		<button onclick="removeAll()">清空</button>
+		<button onclick="addLayer()">添加图层</button>
+		<button onclick="removeLayer()">移除图层</button>
+	</div>
+
+	<body>
+		<div id="map"></div>
+		<script>
+			minemap.domainUrl = "https://minemap.minedata.cn";
+			minemap.dataDomainUrl = "https://minemap.minedata.cn";
+			minemap.serverDomainUrl = "https://sd-data.minedata.cn";
+			minemap.spriteUrl = "http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite";
+			minemap.serviceUrl = "https://service.minedata.cn/service";
+
+			minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+			minemap.solution = 11001;
+			window.minemapCDN = "https://minedata.cn/minemapapi/minemap-CDN";
+
+			// 定义空底图样式
+			var style = {
+				glyphs: "minemap://fonts/{fontstack}/{range}",
+				sprite: "minemap://sprite/sprite",
+				sources: {},
+				layers: [],
+				version: 8
+			};
+			var map = new minemap.Map({
+				container: "map",
+				style: style,
+				position: [108.96561344589637, 34.22121225332278, 648.5860281304795],
+				zoom: 16.5,
+				bearing: 0,
+				logDepth: true,
+				maxZoom: 22, //地图最大缩放级别限制
+				minZoom: 1 //地图最小缩放级别限制
+			});
+
+			//设置地形数据
+			map.setTerrain({
+				tiles: ["https://staticdata-b.minedata.cn:14434/dem/{z}/{r}/{c}/{z}_{x}_{y}.terrain"], //瓦片服务地址
+				tileSize: 512, //瓦片大小
+				maxzoom: 14 //dem最高切分zoom，30米一般是14级；12.5米一般是16级
+			});
+
+			map.repaint = true;
+
+			let polygonPrimitive,
+				polylinePrimitive,
+				primitive,
+				startDraw = false, //开始绘制
+				positions = [],
+				tempPoint = []; // polygon点
+			function drawDiggingArea() {
+				if (startDraw === true) {
+					return;
+				}
+				positions = [];
+				startDraw = true;
+				const polygonMat = minemap.StandardMaterial.fromType("Color", {
+					color: "red",
+					doubleSided: true
+				});
+				polygonMat.depthTest = false;
+				polygonPrimitive = new minemap.Primitive({
+					geometry: new minemap.Geometries.PolygonGeometry({
+						polygonHierarchy: {
+							positions: function () {
+								const results = positions.concat(tempPoint);
+								// 判断是否自相交，如果自相交则该点不进入数组内
+								if (
+									results.length > 3 &&
+									minemap.Geometries.PolygonGeometry.isSelfIntersection(results, true)
+								) {
+									return positions;
+								} else {
+									return results;
+								}
+							}
+						},
+						perPositionHeight: true
+					}),
+					material: polygonMat
+				});
+				map.addPrimitive(polygonPrimitive);
+
+				polylinePrimitive = new minemap.Primitive({
+					geometry: new minemap.Geometries.PolylineGeometry({
+						positions: function () {
+							return positions.concat(tempPoint);
+						},
+						width: 2,
+						arcType: minemap.ARCTYPE.GEODESIC
+					}),
+					material: new minemap.PolylineMaterial({
+						color: "red"
+					}),
+					name: "polyline"
+				});
+
+				map.addPrimitive(polylinePrimitive);
+			}
+
+			// leftClick
+			map.on("click", function (e) {
+				if (startDraw) {
+					const point = map.painter.getPositionByGPUPick(e.point);
+					positions.push(minemap.Math.Vector3.fromDegrees(point.x, point.y, point.z));
+					if (positions.length > 1 && polylinePrimitive !== undefined) {
+						map.removePrimitive(polylinePrimitive);
+						polylinePrimitive = undefined;
+					}
+				}
+			});
+
+			// mouseMove
+			map.on("mousemove", function (e) {
+				if (startDraw) {
+					tempPoint = [];
+					const point = map.painter.getPositionByGPUPick(e.point);
+					tempPoint.push(minemap.Math.Vector3.fromDegrees(point.x, point.y, point.z));
+				}
+			});
+
+			// rightClick
+			map.on("contextmenu", function (e) {
+				if (startDraw) {
+					startDraw = false;
+					map.removePrimitive(polygonPrimitive);
+					if (polylinePrimitive !== undefined) {
+						map.removePrimitive(polylinePrimitive);
+						polylinePrimitive = undefined;
+					}
+					drawExcavation();
+				}
+			});
+
+			function drawExcavation() {
+				const excavation = new minemap.Excavation({
+					positions: positions,
+					depth: parseFloat(document.getElementById("depth").value),
+					sampleDistance: parseFloat(document.getElementById("sample").value),
+					enabled: true
+				});
+				map.analysis.excavationCollection.add(excavation);
+			}
+
+			function enabled() {
+				map.analysis.excavationCollection.getByIndex(map.analysis.excavationCollection.length - 1).enabled =
+					!map.analysis.excavationCollection.getByIndex(map.analysis.excavationCollection.length - 1).enabled;
+			}
+
+			function sample() {
+				map.analysis.excavationCollection.getByIndex(
+					map.analysis.excavationCollection.length - 1
+				).sampleDistance = 1;
+			}
+
+			function modifyPositions() {
+				map.analysis.excavationCollection.getByIndex(map.analysis.excavationCollection.length - 1).positions =
+					minemap.Math.Vector3.fromDegreesArrayHeights([
+						108.96462798089243, 34.219070120750324, 377.5518959059644, 108.96457814492656,
+						34.217864529053436, 373.497602389596, 108.9662727804116, 34.21782900501772, 376.0355021292822,
+						108.96629746352075, 34.21898053119609, 376.0076777020192
+					]);
+			}
+
+			function depth() {
+				map.analysis.excavationCollection.getByIndex(map.analysis.excavationCollection.length - 1).depth = 100;
+			}
+
+			function remove() {
+				const excavation = map.analysis.excavationCollection.getByIndex(
+					map.analysis.excavationCollection.length - 1
+				);
+				map.analysis.excavationCollection.remove(excavation);
+				excavation.destroy();
+			}
+
+			function removeAll() {
+				map.analysis.excavationCollection.removeAll();
+			}
+
+			function addLayer() {
+				map.addLayer({
+					id: "IMAGERY",
+					type: "raster", //图层类型为"raster"
+					source: "IMAGERY_SOURCE",
+					minzoom: 1,
+					maxzoom: 23,
+					"depth-test": true,
+					paint: {
+						"raster-opacity": 1
+					}
+				});
+			}
+
+			function removeLayer() {
+				map.removeLayer("IMAGERY");
+			}
+
+			map.on("load", function () {
+				/*添加栅格图*/
+				map.addSource("IMAGERY_SOURCE", {
+					type: "raster", //数据源类型：栅格数据源
+					tiles: ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+					tileSize: 512 //瓦片尺寸
+				});
+
+				map.addLayer({
+					id: "IMAGERY",
+					type: "raster", //图层类型为"raster"
+					source: "IMAGERY_SOURCE",
+					minzoom: 1,
+					maxzoom: 23,
+					"depth-test": true,
+					paint: {
+						"raster-opacity": 1
+					}
+				});
+
+				addPrimitives();
+			});
+
+			var center = [108.965014, 34.220905];
+
+			function addPrimitives() {
+				const height = 500;
+				const linePosition = [
+					center[0] - 0.6,
+					center[1] - 0.6,
+					height,
+					center[0] - 0.1,
+					center[1] + 0.1,
+					height,
+					center[0] + 0.2,
+					center[1] + 0.2,
+					height,
+					center[0] - 0.1,
+					center[1] - 0.1,
+					height
+				];
+				const polygonPosition = [
+					...center,
+					center[0],
+					center[1] + 0.006,
+					center[0] + 0.006,
+					center[1],
+					...center
+				];
+				const lineGeometry = new minemap.Geometries.PolylineGeometry({
+					positions: minemap.Math.Vector3.fromDegreesArrayHeights(linePosition),
+					width: 10
+				});
+				const lineMaterial = new minemap.PolylineMaterial({
+					color: new minemap.Color(1, 0, 0, 0.5),
+					dashed: false
+				});
+				const redPolylinePrimitive = new minemap.Primitive({
+					geometry: lineGeometry,
+					material: lineMaterial,
+					name: "polyline",
+					adaptTerrain: true, //贴合三维场景，单体化操作
+					allowPick: true
+				});
+				map.addPrimitive(redPolylinePrimitive);
+				window.line = redPolylinePrimitive;
+				const polygonGeometry = new minemap.Geometries.PolygonGeometry({
+					polygonHierarchy: {
+						positions: minemap.Math.Vector3.fromDegreesArray(polygonPosition)
+					},
+					height: 10
+				});
+				const polygonMaterial = minemap.StandardMaterial.fromType("Color", {
+					color: new minemap.Color(1, 0, 0, 0.5),
+					doubleSided: true
+				});
+				const polygonPrimitive = new minemap.Primitive({
+					geometry: polygonGeometry,
+					material: polygonMaterial,
+					adaptTerrain: true, //贴合三维场景，单体化操作
+					allowPick: true
+				});
+				map.addPrimitive(polygonPrimitive);
+			}
+		</script>
+	</body>
+</html>

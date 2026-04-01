@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+		<title>Ambient Light</title>
+		<link rel="stylesheet" href="../../dist/minemap.css" />
+		<script src="../../dist/minemap-dev.js"></script>
+		<script src="../js/lil-gui.umd.min.js"></script>
+		<style>
+			html,
+			body,
+			#map {
+				margin: 0;
+				padding: 0;
+				width: 100%;
+				height: 100%;
+			}
+		</style>
+	</head>
+	<body>
+		<div id="map"></div>
+		<script>
+			minemap.domainUrl = "https://minedata.cn";
+			minemap.serverDomainUrl = "https://minedata.cn";
+			minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+			window.minemapCDN = "https://minedata.cn/minemapapi/minemap-CDN";
+
+			minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+
+			const style = {
+				glyphs: "minemap://fonts/{fontstack}/{range}",
+				sprite: "minemap://sprite/sprite",
+				sources: {},
+				layers: [],
+				version: 8
+			};
+
+			const map = new minemap.Map({
+				container: "map",
+				style: style,
+				center: [116.26531978613971, 40.05753009943292],
+				pitch: 51.694,
+				bearing: -177.317,
+				zoom: 14,
+				maxZoom: 22,
+				minZoom: 1
+			});
+
+			map.repaint = true;
+
+			map.on("load", function () {
+				initializeGUI();
+				addRasterLayer();
+				addSceneModel();
+			});
+
+			// 开启光照
+			map.enableLight();
+
+			// 光照参数
+			const commonParams = {
+				enableLight: true
+			};
+
+			const ambientParams = {
+				intensity: 1,
+				color: "#ffffff"
+			};
+
+			function initializeGUI() {
+				const gui = new lil.GUI({ width: 300 });
+				const common = gui.addFolder("Common");
+				const ambient = gui.addFolder("Ambient Light");
+
+				common.open();
+				common.add(commonParams, "enableLight").onChange((value) => {
+					if (value) map.enableLight();
+					else map.disableLight();
+				});
+
+				ambient.open();
+				ambient
+					.add(ambientParams, "intensity")
+					.min(0)
+					.max(5)
+					.step(0.1)
+					.onChange((value) => {
+						map.getLights().ambientLight.intensity = value;
+					});
+				ambient.addColor(ambientParams, "color").onChange((value) => {
+					map.getLights().ambientLight.color = value;
+				});
+			}
+
+			function addRasterLayer() {
+				map.addSource("IMAGERY_SOURCE", {
+					type: "raster",
+					tiles: ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"],
+					tileSize: 256
+				});
+
+				map.addLayer({
+					id: "IMAGERY",
+					type: "raster",
+					source: "IMAGERY_SOURCE",
+					minzoom: 1,
+					maxzoom: 23
+				});
+			}
+
+			function addSceneModel() {
+				map.addSceneComponent({
+					id: "modelA",
+					type: "3d-model",
+					data: "http://192.168.152.123:11187/demo-data/bim/only-building.gltf",
+					modelFolder: "http://192.168.152.123:11187/demo-data/bim/",
+					scale: new minemap.Math.Vector3([10, 10, 10]),
+					rotation: new minemap.Math.Vector3([90, 65, 0]),
+					position: new minemap.Math.Vector3([116.22544236500333, 40.03454296210216, 0.0]),
+					loaded: () => {},
+					castShadow: true,
+					receiveShadow: true
+				});
+
+				map.addSceneComponent({
+					id: "modelB",
+					type: "3d-model",
+					data: "http://192.168.152.123:11187/demo-data/models/LittlestTokyo.glb",
+					modelFolder: "http://192.168.152.123:11187/demo-data/models/",
+					scale: new minemap.Math.Vector3([1, 1, 1]),
+					rotation: new minemap.Math.Vector3([90, 0, 0]),
+					position: new minemap.Math.Vector3([116.28544236500333, 40.06454296210216, 200]),
+					castShadow: true,
+					receiveShadow: true
+				});
+			}
+		</script>
+	</body>
+</html>

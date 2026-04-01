@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>城市发展趋势折线图 - 简化版 (基于 ECharts Layer)</title>
+    <link rel="stylesheet" href="../../dist/minemap.css">
+	<script src="../../dist/minemap-dev.js"></script>
+    <style>
+        body, html { 
+            width: 100%; 
+            height: 100%; 
+            margin: 0; 
+            padding: 0; 
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+        }
+        #map { 
+            width: 100%; 
+            height: 100%; 
+            position: relative;
+        }
+        .info-panel {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.85);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            z-index: 1000;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            max-width: 350px;
+        }
+        .info-panel h3 {
+            margin: 0 0 15px 0;
+            font-size: 18px;
+            font-weight: bold;
+            color: #FFD700;
+            text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+        }
+        .info-panel .subtitle {
+            margin: 0 0 15px 0;
+            font-size: 12px;
+            color: #ccc;
+            font-style: italic;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin: 15px 0;
+        }
+        .stat-item {
+            text-align: center;
+            padding: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 5px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .stat-number {
+            font-size: 20px;
+            font-weight: bold;
+            color: #4CAF50;
+            display: block;
+        }
+        .stat-label {
+            font-size: 10px;
+            color: #ccc;
+            margin-top: 2px;
+        }
+        .description {
+            font-size: 11px;
+            line-height: 1.4;
+            color: #ddd;
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .tech-stack {
+            margin-top: 10px;
+            font-size: 10px;
+            color: #999;
+        }
+        .tech-stack span {
+            display: inline-block;
+            background: rgba(33, 150, 243, 0.2);
+            color: #2196F3;
+            padding: 2px 6px;
+            border-radius: 3px;
+            margin: 2px 2px 0 0;
+            border: 1px solid rgba(33, 150, 243, 0.3);
+        }
+        .chart-overlay {
+            position: absolute;
+            top: 50%;
+            right: 30px;
+            transform: translateY(-50%);
+            width: 400px;
+            height: 300px;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 10px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(10px);
+            z-index: 1500;
+            pointer-events: auto;
+        }
+        .chart-header {
+            padding: 15px 20px 10px;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 10px 10px 0 0;
+        }
+        .chart-title {
+            font-size: 16px;
+            font-weight: bold;
+            margin: 0;
+        }
+        .chart-subtitle {
+            font-size: 12px;
+            opacity: 0.9;
+            margin: 5px 0 0;
+        }
+        #trend-chart {
+            width: 100%;
+            height: 240px;
+        }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+    
+    <div class="info-panel">
+        <h3>城市发展趋势分析</h3>
+        <div class="subtitle">时间序列折线图可视化</div>
+        
+        <div class="stats">
+            <div class="stat-item">
+                <span class="stat-number">6</span>
+                <div class="stat-label">主要城市</div>
+            </div>
+            <div class="stat-item">
+                <span class="stat-number">10</span>
+                <div class="stat-label">年度数据</div>
+            </div>
+        </div>
+        
+        <div class="description">
+            本示例展示了如何在地图上叠加时间序列折线图，分析各城市GDP发展趋势。点击地图上的城市标记可查看详细的发展曲线图。
+        </div>
+        
+        <div class="tech-stack">
+            <span>MineMap</span>
+            <span>ECharts Layer</span>
+            <span>折线图</span>
+            <span>时间序列</span>
+        </div>
+    </div>
+
+    <div class="chart-overlay">
+        <div class="chart-header">
+            <div class="chart-title">城市GDP发展趋势对比</div>
+            <div class="chart-subtitle">2014-2023年度数据（万亿元）</div>
+        </div>
+        <div id="trend-chart"></div>
+    </div>
+
+
+    <script src="https://minedata.cn/minemapapi/minemap-CDN/echarts/echarts.3.8.5.min.js"></script>
+    <script src="../js/minemap-echarts-layer.js"></script>
+    <script>
+        // MineMap 配置
+        minemap.domainUrl = "https://minedata.cn";
+        minemap.dataDomainUrl = "https://minedata.cn";
+        minemap.serverDomainUrl = "https://minedata.cn";
+        minemap.spriteUrl = "http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite";
+        minemap.serviceUrl = "https://service.minedata.cn/service";
+        minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+        minemap.solution = 11001;
+
+        // 初始化地图
+        const map = new minemap.Map({
+            container: "map",
+            style: "https://service.minedata.cn/map/solu/style/11001",
+            center: [108, 34],
+            zoom: 4,
+            pitch: 0,
+            maxZoom: 17,
+            minZoom: 3
+        });
+
+        // 城市趋势数据 - 包含GDP时间序列
+        const cityTrendData = [
+            {
+                name: '北京',
+                coord: [116.4074, 39.9042],
+                color: '#FF6B6B',
+                gdpData: [2.13, 2.30, 2.49, 2.80, 3.01, 3.32, 3.61, 3.61, 3.61, 4.03]
+            },
+            {
+                name: '上海',
+                coord: [121.4737, 31.2304],
+                color: '#4ECDC4',
+                gdpData: [2.36, 2.50, 2.75, 3.01, 3.27, 3.27, 3.82, 3.87, 3.87, 4.32]
+            },
+            {
+                name: '深圳',
+                coord: [114.0579, 22.5431],
+                color: '#45B7D1',
+                gdpData: [1.60, 1.75, 1.95, 2.20, 2.42, 2.42, 2.69, 2.77, 2.77, 3.24]
+            },
+            {
+                name: '广州',
+                coord: [113.2644, 23.1291],
+                color: '#96CEB4',
+                gdpData: [1.67, 1.81, 1.96, 2.05, 2.23, 2.23, 2.50, 2.50, 2.50, 2.82]
+            },
+            {
+                name: '杭州',
+                coord: [120.1551, 30.2741],
+                color: '#FFEAA7',
+                gdpData: [0.92, 1.01, 1.11, 1.26, 1.35, 1.35, 1.61, 1.68, 1.68, 1.81]
+            },
+            {
+                name: '成都',
+                coord: [104.0665, 30.5723],
+                color: '#DDA0DD',
+                gdpData: [1.01, 1.08, 1.22, 1.39, 1.53, 1.53, 1.77, 1.99, 1.99, 2.08]
+            }
+        ];
+
+        // 年份数组
+        const years = ['2014', '2015', '2016', '2017', '2018', '2019', '2020', '2021', '2022', '2023'];
+
+        let mapLayer, trendChartInstance;
+
+        // 地图加载完成后初始化
+        map.on('load', function () {
+            initMapLayer();
+            initTrendChart();
+        });
+
+        // 初始化地图图层 - 使用 ECharts Layer
+        function initMapLayer() {
+            // 生成城市间连接线数据
+            const connectionData = [];
+            for (let i = 0; i < cityTrendData.length - 1; i++) {
+                connectionData.push({
+                    coords: [cityTrendData[i].coord, cityTrendData[i + 1].coord]
+                });
+            }
+
+            const option = {
+                tooltip: {
+                    trigger: 'item',
+                    formatter: function(params) {
+                        if (params.seriesType === 'scatter') {
+                            const cityData = cityTrendData.find(city => city.name === params.name);
+                            const latestGDP = cityData.gdpData[cityData.gdpData.length - 1];
+                            const growth = ((latestGDP - cityData.gdpData[0]) / cityData.gdpData[0] * 100).toFixed(1);
+                            return `<strong>${params.name}</strong><br/>
+                                    2023年GDP: ${latestGDP}万亿元<br/>
+                                    十年增长: ${growth}%<br/>
+                                    <em>点击查看详细趋势</em>`;
+                        } else if (params.seriesType === 'lines') {
+                            return '城市连接线';
+                        }
+                    },
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    borderColor: '#777',
+                    borderWidth: 1,
+                    textStyle: {
+                        color: '#fff'
+                    }
+                },
+                series: [
+                    // 城市连接线
+                    {
+                        name: '城市连接',
+                        type: 'lines',
+                        coordinateSystem: 'minemap',
+                        data: connectionData,
+                        lineStyle: {
+                            color: 'rgba(70, 130, 180, 0.3)',
+                            width: 2,
+                            type: 'dashed'
+                        },
+                        effect: {
+                            show: true,
+                            period: 8,
+                            trailLength: 0.1,
+                            color: '#4682B4',
+                            symbolSize: 4
+                        },
+                        zlevel: 1
+                    },
+                    // 城市标记点
+                    {
+                        name: '城市标记',
+                        type: 'scatter',
+                        coordinateSystem: 'minemap',
+                        data: cityTrendData.map(city => ({
+                            name: city.name,
+                            value: city.coord,
+                            itemStyle: {
+                                color: city.color,
+                                borderColor: '#fff',
+                                borderWidth: 3,
+                                shadowBlur: 10,
+                                shadowColor: city.color
+                            },
+                            cityData: city
+                        })),
+                        symbolSize: 25,
+                        label: {
+                            show: true,
+                            position: 'bottom',
+                            formatter: '{b}',
+                            fontSize: 12,
+                            fontWeight: 'bold',
+                            color: '#333',
+                            backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                            borderColor: '#ddd',
+                            borderWidth: 1,
+                            borderRadius: 4,
+                            padding: [2, 6],
+                            offset: [0, 10]
+                        },
+                        emphasis: {
+                            scale: true,
+                            scaleSize: 8,
+                            itemStyle: {
+                                shadowBlur: 20,
+                                shadowColor: 'rgba(0, 0, 0, 0.5)'
+                            }
+                        },
+                        zlevel: 2
+                    }
+                ]
+            };
+
+            // 创建地图图层
+            mapLayer = new MinemapEChartsLayer(map, option);
+            
+            // 绑定点击事件
+            const chartInstance = mapLayer.getEChartsInstance();
+            chartInstance.on('click', function(params) {
+                if (params.seriesType === 'scatter' && params.data.cityData) {
+                    updateTrendChart(params.data.cityData);
+                }
+            });
+        }
+
+        // 初始化趋势图表
+        function initTrendChart() {
+            const container = document.getElementById('trend-chart');
+            trendChartInstance = echarts.init(container);
+            
+            // 显示所有城市的趋势对比
+            updateTrendChart();
+        }
+
+        // 更新趋势图表
+        function updateTrendChart(selectedCity = null) {
+            const option = {
+                grid: {
+                    left: '10%',
+                    right: '10%',
+                    top: '15%',
+                    bottom: '15%'
+                },
+                xAxis: {
+                    type: 'category',
+                    data: years,
+                    axisLine: {
+                        lineStyle: {
+                            color: '#666'
+                        }
+                    },
+                    axisLabel: {
+                        color: '#666',
+                        fontSize: 10
+                    }
+                },
+                yAxis: {
+                    type: 'value',
+                    name: 'GDP (万亿元)',
+                    nameTextStyle: {
+                        color: '#666',
+                        fontSize: 10
+                    },
+                    axisLine: {
+                        lineStyle: {
+                            color: '#666'
+                        }
+                    },
+                    axisLabel: {
+                        color: '#666',
+                        fontSize: 10
+                    },
+                    splitLine: {
+                        lineStyle: {
+                            color: '#eee',
+                            type: 'dashed'
+                        }
+                    }
+                },
+                tooltip: {
+                    trigger: 'axis',
+                    axisPointer: {
+                        type: 'cross',
+                        label: {
+                            backgroundColor: '#6a7985'
+                        }
+                    },
+                    formatter: function(params) {
+                        let result = `<strong>${params[0].axisValue}年</strong><br/>`;
+                        params.forEach(param => {
+                            result += `${param.marker}${param.seriesName}: ${param.value}万亿元<br/>`;
+                        });
+                        return result;
+                    }
+                },
+                legend: {
+                    data: selectedCity ? [selectedCity.name] : cityTrendData.map(city => city.name),
+                    top: 5,
+                    textStyle: {
+                        fontSize: 10,
+                        color: '#666'
+                    }
+                },
+                series: selectedCity ? 
+                    // 显示单个城市
+                    [{
+                        name: selectedCity.name,
+                        type: 'line',
+                        data: selectedCity.gdpData,
+                        lineStyle: {
+                            color: selectedCity.color,
+                            width: 3
+                        },
+                        itemStyle: {
+                            color: selectedCity.color,
+                            borderColor: '#fff',
+                            borderWidth: 2
+                        },
+                        symbol: 'circle',
+                        symbolSize: 6,
+                        smooth: true,
+                        emphasis: {
+                            focus: 'series'
+                        },
+                        markPoint: {
+                            data: [
+                                {type: 'max', name: '最大值'},
+                                {type: 'min', name: '最小值'}
+                            ],
+                            itemStyle: {
+                                color: selectedCity.color
+                            }
+                        },
+                        markLine: {
+                            data: [
+                                {type: 'average', name: '平均值'}
+                            ],
+                            lineStyle: {
+                                color: selectedCity.color,
+                                type: 'dashed'
+                            }
+                        }
+                    }] :
+                    // 显示所有城市对比
+                    cityTrendData.map(city => ({
+                        name: city.name,
+                        type: 'line',
+                        data: city.gdpData,
+                        lineStyle: {
+                            color: city.color,
+                            width: 2
+                        },
+                        itemStyle: {
+                            color: city.color,
+                            borderColor: '#fff',
+                            borderWidth: 1
+                        },
+                        symbol: 'circle',
+                        symbolSize: 4,
+                        smooth: true,
+                        emphasis: {
+                            focus: 'series'
+                        }
+                    }))
+            };
+
+            trendChartInstance.setOption(option, true);
+        }
+
+        // 窗口大小变化处理
+        window.addEventListener('resize', function() {
+            if (trendChartInstance) {
+                trendChartInstance.resize();
+            }
+        });
+
+        // 清理函数
+        window.addEventListener('beforeunload', function() {
+            if (mapLayer) {
+                mapLayer.dispose();
+            }
+            if (trendChartInstance) {
+                trendChartInstance.dispose();
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,254 @@
+<!--
+ * @Author: Lee_90125
+ * @Date: 2023-07-11 14:17:30
+ * @LastEditTime: 2023-07-11 14:17:30
+ * @LastEditors: Lee_90125
+ * @Description:
+ * @FilePath: MineMap3DEngine\demo\html\LanguageSupport.html
+*/
+-->
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+	<title>柬埔寨高棉语支持</title>
+	<link rel="stylesheet" href="../style/demo.css">
+	<!-- 引入MineMap API插件 -->
+	<!-- <link rel="stylesheet" href="https://minemap.minedata.cn/minemapapi/v2.1.1/minemap.css"> -->
+	<link rel="stylesheet" href="https://minemap.minedata.cn/minemapapi/v4.0.0/minemap.css" />
+
+	<script src="../../dist/minemap-dev.js"></script>
+	<style>
+		#map {
+			width: 100%;
+			height: 100%;
+		}
+	</style>
+</head>
+
+<body>
+	<div class="card-panel card-panel-top-right toolContainer">
+		<div class="card-item">
+			<p>点击点或线获取属性信息</p>
+		</div>
+	</div>
+	<div id="map"></div>
+	<script>
+		/**
+		 * 全局参数设置
+		 */
+		minemap.domainUrl = 'https://minemap.minedata.cn';
+		minemap.dataDomainUrl = 'https://minemap.minedata.cn';
+		minemap.serverDomainUrl = 'https://sd-data.minedata.cn';
+		// minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+		minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite'; 
+		minemap.serviceUrl = 'https://service.minedata.cn/service';
+
+		minemap.key = '0c6ac62182404e5ebc7a789981f6db72';
+		minemap.solution = 11001;
+
+		var style = {
+			// glyphs: "http://192.168.152.123/minemap-engine/v4.0.0/fonts/{fontstack}/{range}.pbf",
+			glyphs: "minemap://fonts/{fontstack}/{range}",
+			sprite: "minemap://sprite/sprite",
+			sources: {},
+			layers: [],
+			version: 8
+		};
+
+		var map = new minemap.Map({
+			container: 'map',
+			// style: 'https://service.minedata.cn/map/solu/style/11001',
+			style: style,
+			position: [117.20433023777578, 39.230033241556775, 81691.35346227555],
+			pitch: 60.669971289835125,
+			bearing: -44.330378500412145,
+			maxZoom: 17,
+			minZoom: 3,
+			projection: 'MERCATOR',
+			// localIdeographFontFamily: "PingFang SC,Microsoft YaHei,微软雅黑,Arial,sans-serif,黑体",
+		});
+
+		/**
+		 * 创建地图对象后，开始加载地图资源，地图资源加载完成后触发load事件
+		 */
+		map.on('load', function () {
+			/*添加栅格图*/
+			map.addSource("IMAGERY_SOURCE", {
+				"type": "raster",//数据源类型：栅格数据源
+				"tiles": ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+				"tileSize": 512,//瓦片尺寸
+			});
+
+			map.addLayer({
+				"id": "IMAGERY",
+				"type": "raster", //图层类型为"raster"
+				"source": "IMAGERY_SOURCE",
+				"minzoom": 1,
+				"maxzoom": 23,
+			})
+
+			// 增加自定义数据源、自定义图层
+			addSources();
+			addLayers();
+		});
+
+		var popup = new minemap.Popup({
+			closeButton: false,
+			closeOnClick: false
+		});
+
+		// map.on('mousemove', onMouseMove);
+		map.on('click', onMouseClick);
+
+		function addSources() {
+			var center = map.getCenter();
+			var jsonData = {
+				"type": "FeatureCollection",
+				"features": [
+					{
+						"type": "Feature",
+						"geometry": {
+							"type": "Point",
+							"coordinates": [center.lng - 0.005, center.lat - 0.006]
+						},
+						"properties": {
+							"title": "大学សាកលវិទ្យាល័យSchool",
+							"kind": "school"
+						},
+					}, {
+						"type": "Feature",
+						"geometry": {
+							"type": "Point",
+							"coordinates": [center.lng + 0.002, center.lat - 0.002]
+						},
+						"properties": {
+							"title": "公园សួនPark",
+							"kind": "park"
+						},
+					},
+					{
+						"type": "Feature",
+						"geometry": {
+							"type": "LineString",
+							"coordinates": [[center.lng - 0.005, center.lat + 0.005], [center.lng - 0.005, center.lat - 0.005]]
+						},
+						"properties": {
+							"title": "路线一",
+							"kind": 1
+						},
+					}, {
+						"type": "Feature",
+						"geometry": {
+							"type": "LineString",
+							"coordinates": [[center.lng - 0.004, center.lat], [center.lng, center.lat], [center.lng + 0.008, center.lat]]
+						},
+						"properties": {
+							"title": "路线二",
+							"kind": 2
+						},
+					}
+				]
+			};
+			map.addSource("customSource", {
+				"type": "geojson",
+				"data": jsonData
+			});
+		}
+
+		function addLayers() {
+			map.addLayer({
+				"id": "lineLayer",
+				"type": "line",
+				"source": "customSource",
+				"layout": {
+					"line-join": "round",
+					"line-cap": "round"
+				},
+				"paint": {
+					"line-width": 6,
+					"line-color": {
+						"type": "categorical",
+						"property": "kind",
+						"stops": [[1, "#ff0000"], [2, "#00ff00"]],
+						"default": "#ff0000"
+					}
+				},
+				"minzoom": 7,
+				"maxzoom": 17.5
+			});
+
+			map.addLayer({
+				"id": "pointLayer",
+				"type": "symbol",
+				"source": "customSource",
+				"layout": {
+					"visibility": "visible",
+					"icon-image": "star_12",
+					"text-field": "{title}",
+					"text-offset": [0, 0.6],
+					"text-anchor": "top",
+					"text-size": 25,
+					"icon-allow-overlap": true,  //图标允许压盖
+					"text-allow-overlap": true,   //图标覆盖文字允许压盖
+					"text-font": ["LeelawadeeUI"] //高棉语字体，小语种字体需要在此处设置，可能会出现其他语言（例如：日语）不显示的情况
+				},
+				"paint": {
+					"icon-color": {
+						"type": "categorical",
+						"property": "kind",
+						"stops": [["school", "#ff0000"], ["park", "#00ff00"]],
+						"default": "#ff0000"
+					},
+					"text-color": {
+						"type": "categorical",
+						"property": "kind",
+						"stops": [["school", "#ff0000"], ["park", "#00ff00"]],
+						"default": "#ff0000"
+					},
+					"text-halo-color": "#000000",
+					"text-halo-width": 0.5,
+				},
+				"minzoom": 7,
+				"maxzoom": 17.5,
+				"filter": ['in', '$type', 'Point']
+			});
+		}
+
+		/* queryRenderedFeatures方法，根据图层获取地图上可视范围内的feature信息 */
+
+		function onMouseMove(e) {
+			var features = map.queryRenderedFeatures(e.point, { layers: ['pointLayer', 'lineLayer'] });
+			map.getCanvas().style.cursor = (features.length) ? 'pointer' : '';
+		}
+
+		function onMouseClick(e) {
+			var features = map.queryRenderedFeatures(e.point, { layers: ['pointLayer', 'lineLayer'] });
+
+			if (!features.length) {
+				popup.remove();
+				return;
+			}
+
+			var feature = features[0];
+
+			var coord = null;
+
+			if (feature.layer.id == "pointLayer") {
+				coord = feature.geometry.coordinates;
+			} else if (feature.layer.id == "lineLayer") {
+				coord = feature.geometry.coordinates[0];
+			}
+
+			if (coord) {
+				popup.setLngLat(coord)
+					.setHTML(feature.properties.title + "经纬度为：" + coord[0].toFixed(6) + "," + coord[1].toFixed(6))
+					.addTo(map);
+			}
+		}
+
+	</script>
+</body>

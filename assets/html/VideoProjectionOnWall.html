@@ -1,0 +1,484 @@
+<html lang="en">
+<head>
+	<meta charset="UTF-8" />
+	<meta
+		name="viewport"
+		content="initial-scale=1,maximum-scale=1,user-scalable=no"
+	/>
+	<title>视频立面投射-相机定基操作</title>
+	<link
+		rel="stylesheet"
+		href="../style/demo.css"
+	/>
+	<!-- 引入MineMap API插件 -->
+	<link
+		rel="stylesheet"
+		href="https://minemap.minedata.cn/minemapapi/v4.0.0/minemap.css"
+	/>
+	<script src="../../dist/minemap-dev.js"></script>
+	<style>
+		#map {
+			width: 100%;
+			height: 100%;
+		}
+		.toolContainer{
+			position:fixed;
+			top:0;
+			left:0;
+			z-index:1000;
+		}
+	</style>
+</head>
+<body>
+<!-- 工具 -->
+<div class="toolContainer">
+	<select onchange="gotoVideoProjection(this)">
+		<option value="v1">杨庙南龙大桥1</option>
+		<option value="v2">杨庙南龙大桥2</option>
+	</select>
+	<button onclick="adjustHeading(1)">Heading+（航向）</button>
+	<button onclick="adjustHeading(-1)">Heading-（航向）</button>
+	<button onclick="adjustPitch(1)">Pitch+（俯仰）</button>
+	<button onclick="adjustPitch(-1)">Pitch-（俯仰）</button>
+	<button onclick="adjustRoll(1)">Roll+（横滚）</button>
+	<button onclick="adjustRoll(-1)">Roll-（横滚）</button>
+	<button onclick="adjustHeight(1)">高度+</button>
+	<button onclick="adjustHeight(-1)">高度-</button>
+	<button onclick="toggleCameraFixedFlag()" id="camera-fixed" style="background: #f01010;">取消相机位置锁定</button>
+
+</div>
+<div id="map"></div>
+<script>
+
+	/**
+	 * 相机固定情况下的操作采用鼠标右键
+	 * 相机配准原则，主要是改下面的videoObjectMap对象中，每写一个注册一个字段
+	 * 关键确定相机的position和altitude，确定好了就可以用界面上的控件调节
+	 * 获取正确的参数，采用map.getCameraPosition(); map.getCameraPitch(); map.getCameraBearing(); 这个用于存到mapInitPos
+	 */
+
+	/**
+	 * 全局参数设置
+	 */
+	minemap.domainUrl = "https://minemap.minedata.cn";
+	minemap.dataDomainUrl = "https://minemap.minedata.cn";
+	minemap.serverDomainUrl = "https://sd-data.minedata.cn";
+	minemap.spriteUrl =
+		"https://minemap.minedata.cn/minemapapi/v3.4.0/sprite/sprite";
+	minemap.serviceUrl = "https://service.minedata.cn/service";
+
+	minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+	minemap.solution = 11001;
+
+	window.minemapCDN = 'https://minedata.cn/minemapapi/minemap-CDN'; // minemapCDN 配置
+
+	var style = {
+		glyphs: "minemap://fonts/{fontstack}/{range}",
+		sprite: "minemap://sprite/sprite",
+		sources: {},
+		layers: [],
+		version: 8
+	};
+
+	var map = new minemap.Map({
+		container: "map",
+		style: style,
+		position: [120.82771342923509, 30.829346966655667, 15.365014573197685],
+		bearing: -141.09417330338403,
+		pitch: 88.27610488301208,
+		projection: "MERCATOR",
+		maxZoom: 10000
+	});
+	map.repaint = true;
+
+	let currentVideoName = "v1";
+
+	let videoObjectMap = {
+		v1: {
+			location: [120.82772507742004, 30.82934316787796],
+			altitude: 14.895156,
+			aspect: 1920 / 1080,
+			fov: 42,
+			alpha: 1.0,
+			heading: 50 + 180,
+			pitch: 90,
+			roll: 1,
+			near: 14.99,
+			far: 15,
+			mapInitPos: {
+				position: [120.82771342923509, 30.829346966655667, 15.365014573197685],
+				bearing: -141.09417330338403,
+				pitch: 88.27610488301208,
+
+
+			},
+			videoUrl: "http://192.168.152.123/minemap-engine/EngineCanaryDemo-develop/data/video/2杨庙南龙大桥/DJI_202310161402_003/DJI_20231016141103_0003_S.MP4"
+
+		},
+		v2: {
+			location: [120.825845241442, 30.8286136330226],
+			altitude: 14.895156,
+			aspect: 1920 / 1080,
+			fov: 42,
+			alpha: 1.0,
+			heading: 50 + 180,
+			pitch: 90,
+			roll: 1,
+			near: 14.99,
+			far: 15,
+			mapInitPos: {
+
+				position: [120.82593317912486, 30.828786632101025, 17.34250602609027],
+				bearing: -143.06354932396155,
+				pitch: 84.2312101513094,
+
+			},
+			videoUrl: "http://210.22.101.138:65002/html/video/20220201/杭申线荷花池码头监控点_2158524.mp4"
+
+		},
+	};
+
+	/**
+	 * 跳转到视频投影位置
+	 * @param {HTMLOptionElement}  e
+	 */
+	function gotoVideoProjection(e) {
+		//先清空，再添加，避免有些primitive不生效的问题
+		map.videoManager.removeAll();
+
+		const version = e.value;
+		addVideo(videoObjectMap[version])
+		currentVideoName = version;
+		map.jumpTo({
+			target: videoObjectMap[version].mapInitPos.position,
+			bearing: videoObjectMap[version].mapInitPos.bearing,
+			pitch: videoObjectMap[version].mapInitPos.pitch,
+		})
+	}
+
+
+	var cameraFixedFlag = true;
+
+	map.cameraController.enableCameraFixed = cameraFixedFlag;
+
+	/**
+	 * 创建地图对象后，开始加载地图资源，地图资源加载完成后触发load事件
+	 */
+	map.on("load", function () {
+
+		/*添加栅格图*/
+		map.addSource("IMAGERY_SOURCE", {
+			"type": "raster",//数据源类型：栅格数据源
+			"tiles": ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+			"tileSize": 512,//瓦片尺寸
+		});
+
+		map.addLayer({
+			"id": "IMAGERY",
+			"type": "raster", //图层类型为"raster"
+			"source": "IMAGERY_SOURCE",
+			"minzoom": 1,
+			"maxzoom": 23,
+			"depth-test": true,
+		});
+
+		// 3dtiles
+		const tileset = map.addSceneComponent({
+			id: "serve",
+			type: "3d-tiles",
+			urls: [
+				{
+					url: "http://210.22.101.138:65002/jky-3dtileswai2/tileset.json",
+					name: "航道图"
+				}
+			],
+			skipLevelOfDetail: false, //跨层调度
+			maximumScreenSpaceError: 8,
+			allowPick: true,
+			lightingModel: minemap.LightingModelType.NONE,
+		});
+
+		addVideo(videoObjectMap.v1)
+	});
+
+	map.on("click", function (e) {
+		const position = map.getPositionByGPUPick(e.point);
+		const val = minemap.Transforms.cartographicToCartesian3(position);
+		console.log(position);
+	});
+
+	/**
+	 * 添加视频投影
+	 * @param {{
+	 *     location: Array<number,2>,
+	 * 	   altitude: number,
+	 * 	   aspect: number,
+	 * 	   fov: number,
+	 * 	   alpha: number,
+	 * 	   heading: number,
+	 * 	   pitch: number,
+	 * 	   roll: number,
+	 * 	   near: number,
+	 * 	   far: number,
+	 * 	   mapInitPos: {
+	 * 	   	position: Array<number,3>,
+	 * 	   	bearing: number,
+	 * 	   	pitch: number
+	 * 	   },
+	 * 	   videoUrl: string }}                                 videoParam    视频投影参数
+	 */
+	function addVideo(videoParam) {
+
+		if (videoParam.videoProjection) {
+			map.videoManager.add(videoParam.videoProjection);
+			return
+		}
+
+		const videoPlayer = createPlayer(
+			videoParam.videoUrl
+		);
+		/**
+		 * @description:创建播放器
+		 */
+		// 参考https://github.com/video-dev/hls.js
+		function createPlayer(url) {
+
+			// 通过id获取这个div元素
+			const retrievedDiv = document.getElementById("video-player");
+
+			// 检查是否成功获取了元素
+			if (retrievedDiv) {
+				// 从文档中删除这个div元素
+				document.body.removeChild(retrievedDiv);
+			}
+
+			// 通过id获取这个div元素
+			const retrievedDiv2 = document.getElementById("video-player-video");
+
+			// 检查是否成功获取了元素
+			if (retrievedDiv2) {
+				// 从文档中删除这个div元素
+				document.body.removeChild(retrievedDiv2);
+			}
+
+			// 创建div,并添加到body中
+			const div = document.createElement("div");
+			div.id = "video-player";
+			div.style.position = "fixed";
+			div.style.left = "10px";
+			div.style.top = "10px";
+			div.style.visibility = "hidden";
+			document.body.appendChild(div);
+
+			// 创建video,并添加到div中
+			let video = document.createElement("video");
+			video.id = "video-player-video";
+			video.autoplay = true;
+			video.muted = true;
+			video.loop = true;
+			video.setAttribute("src", url);
+			video.crossOrigin = "anonymous";
+			div.appendChild(video);
+
+			// 返回video实例化对象
+			return video;
+		}
+
+		const videoProjection = new minemap.VideoProjection({
+			...videoParam,
+			used3DModel: false, // 是否投影到gltf模型
+			used3DTiles: false, // 是否投影到3dtiles模型
+			usedRaster: false, // 是否投影到栅格图层
+			usedPolygon: true, // 是否投影到面图层
+			customOptions: {}, // 自定义选项
+			videoTextureFun: () => {
+				return videoPlayer;
+			},
+			callback: callbackFunction
+		});
+
+		map.videoManager.add(videoProjection);
+
+		const res = calcProjPlane(videoParam);
+		videoParam.frustumPrimitive = res.frustumPrimitive;
+		videoParam.frustumOutlinePrimitive = res.frustumOutlinePrimitive;
+		videoParam.videoProjection = videoProjection;
+	}
+
+	function callbackFunction(result) {
+		const visible = result.target.visible;
+		if (visible) {
+			// do something
+		} else {
+			// do something
+		}
+	}
+
+	let planeId = "plane";
+	let outlineId = "outline";
+
+	/**
+	 * 计算视频投影的接收 ’平面‘
+	 * @param {{
+	 *     location: Array<number,2>,
+	 * 	   altitude: number,
+	 * 	   aspect: number,
+	 * 	   fov: number,
+	 * 	   alpha: number,
+	 * 	   heading: number,
+	 * 	   pitch: number,
+	 * 	   roll: number,
+	 * 	   near: number,
+	 * 	   far: number,
+	 * 	   mapInitPos: {
+	 * 	   	position: Array<number,3>,
+	 * 	   	bearing: number,
+	 * 	   	pitch: number
+	 * 	   },
+	 * 	   videoUrl: string }}  param   视频投影参数
+	 * @return {{frustumOutlinePrimitive, frustumPrimitive}}
+	 */
+	function calcProjPlane(param) {
+
+		if (param.frustumPrimitive) {
+			param.frustumPrimitive.show = true;
+			param.frustumOutlinePrimitive.show = true;
+			return;
+		}
+
+		planeId = "plane" +Math.random();
+		outlineId = "outline" +Math.random();
+
+		let cameraPosition = minemap.Math.Vector3.fromDegrees(
+			param.location[0],
+			param.location[1],
+			param.altitude); //投影相机位置
+		// 计算相机矩阵
+		let camTransformMatrix = minemap.Transforms.headingPitchRollToFixedFrame(
+			cameraPosition,
+			new minemap.Math.HeadingPitchRoll(
+				minemap.Math.toRadians(param.heading),
+				minemap.Math.toRadians(param.pitch),
+				minemap.Math.toRadians(param.roll)
+			)
+		);
+
+		let camera = new minemap.PerspectiveCamera(param.fov, param.aspect, param.near, param.far); // fov aspect near far 14.99, 15
+
+		const frustumPrimitive = new minemap.Primitive({
+			id: planeId,
+			geometry: new minemap.Geometries.FrustumGeometry(camera),
+			material: minemap.StandardMaterial.fromType("Color", {
+				color: new minemap.Color(0.0, 1.0, 1.0, 0.0),
+				doubleSided: true
+			}),
+			modelMatrix: camTransformMatrix,
+			usedVideoProjection: true
+		});
+		map.addPrimitive(frustumPrimitive);
+
+		const frustumOutlinePrimitive = new minemap.Primitive({
+			id: outlineId,
+			geometry: new minemap.Geometries.FrustumOutlineGeometry(camera),
+			material: minemap.StandardMaterial.fromType("Color", {
+				color: new minemap.Color(1.0, 0.0, 0.0, 1)
+			}),
+			modelMatrix: camTransformMatrix
+		});
+		map.addPrimitive(frustumOutlinePrimitive);
+
+		return { frustumPrimitive, frustumOutlinePrimitive };
+	}
+
+	/**
+	 * 调节视频的航向角
+	 * @param {number} flag  正负移动的标志
+	 */
+	function adjustHeading(flag) {
+		if(videoObjectMap[currentVideoName].videoProjection){
+			videoObjectMap[currentVideoName].heading += 0.5 * flag;
+			videoObjectMap[currentVideoName].videoProjection.heading = videoObjectMap[currentVideoName].heading;
+			adjustHeadingPitchRoll();
+		}
+
+	}
+
+	/**
+	 * 调节视频的俯仰角
+	 * @param {number} flag  正负移动的标志
+	 */
+	function adjustPitch(flag) {
+		if(videoObjectMap[currentVideoName].videoProjection) {
+			videoObjectMap[currentVideoName].pitch += 5 * flag;
+			videoObjectMap[currentVideoName].videoProjection.pitch = videoObjectMap[currentVideoName].pitch;
+			adjustHeadingPitchRoll();
+		}
+	}
+
+	/**
+	 * 调节视频的横滚角
+	 * @param {number} flag  正负移动的标志
+	 */
+	function adjustRoll(flag) {
+		if(videoObjectMap[currentVideoName].videoProjection) {
+			videoObjectMap[currentVideoName].roll += 5 * flag;
+			videoObjectMap[currentVideoName].videoProjection.roll = videoObjectMap[currentVideoName].roll;
+			adjustHeadingPitchRoll();
+		}
+	}
+
+	/**
+	 * 调节投影视频的高度
+	 * @param {number}   flag     高度正负移动的标志
+	 */
+	function adjustHeight(flag) {
+		if(videoObjectMap[currentVideoName].videoProjection) {
+			videoObjectMap[currentVideoName].altitude += 10 * flag;
+			videoObjectMap[currentVideoName].videoProjection.altitude = videoObjectMap[currentVideoName].altitude;
+			adjustHeadingPitchRoll();
+		}
+	}
+
+	/**
+	 * 视频投影接收对象的heading、pitch、roll调整，依据当前选定的视频投影的参数。
+	 */
+	function adjustHeadingPitchRoll() {
+		if (!videoObjectMap[currentVideoName].frustumPrimitive || !videoObjectMap[currentVideoName].frustumOutlinePrimitive) {
+			return;
+		}
+
+		const cameraPosition = minemap.Math.Vector3.fromDegrees(videoObjectMap[currentVideoName].location[0],
+			videoObjectMap[currentVideoName].location[1], videoObjectMap[currentVideoName].altitude);
+
+		const camTransformMatrix = minemap.Transforms.headingPitchRollToFixedFrame(
+			cameraPosition,
+			new minemap.Math.HeadingPitchRoll(
+				minemap.Math.toRadians(videoObjectMap[currentVideoName].heading),
+				minemap.Math.toRadians(videoObjectMap[currentVideoName].pitch),
+				minemap.Math.toRadians(videoObjectMap[currentVideoName].roll)
+			)
+		);
+
+		videoObjectMap[currentVideoName].frustumPrimitive.setMatrix(camTransformMatrix);
+		videoObjectMap[currentVideoName].frustumPrimitive.updateMatrixWorld(true);
+		videoObjectMap[currentVideoName].frustumOutlinePrimitive.setMatrix(camTransformMatrix);
+		videoObjectMap[currentVideoName].frustumOutlinePrimitive.updateMatrixWorld(true);
+	}
+
+	function toggleCameraFixedFlag() {
+		cameraFixedFlag = !cameraFixedFlag;
+		map.cameraController.enableCameraFixed = cameraFixedFlag;
+
+		const item = document.getElementById("camera-fixed");
+		if (cameraFixedFlag) {
+			item.innerText = "取消相机位置锁定";
+			item.style.background = "#f01010";
+		} else {
+			item.innerText = "设置相机位置锁定";
+			item.style.background = "#00f000";
+		}
+	}
+</script>
+</body>
+
+</html>

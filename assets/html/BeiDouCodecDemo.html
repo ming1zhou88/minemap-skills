@@ -1,0 +1,1386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8"/>
+	<title>BeiDou网格编码演示</title>
+	<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no"/>
+	<!-- demo样式文件 -->
+	<link rel="stylesheet" href="../style/demo.css"/>
+	<!-- 引入MineMap API插件 -->
+	<link rel="stylesheet" href="../../dist/minemap.css"/>
+	<script src="../../dist/minemap-dev.js"></script>
+	<script src="../js/lil-gui.umd.min.js"></script>
+	<style>
+		html,
+		#map,
+		body {
+			margin: 0;
+			padding: 0;
+			width: 100%;
+			height: 100%;
+		}
+
+		.control-panel {
+			position: absolute;
+			top: 10px;
+			left: 10px;
+			background: rgba(255, 255, 255, 0.9);
+			padding: 15px;
+			border-radius: 5px;
+			box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+			z-index: 1000;
+			max-width: 350px;
+		}
+
+		.control-group {
+			margin-bottom: 15px;
+		}
+
+		.control-group label {
+			display: block;
+			margin-bottom: 5px;
+			font-weight: bold;
+			color: #333;
+		}
+
+		.control-group input,
+		.control-group select {
+			width: 100%;
+			padding: 8px;
+			border: 1px solid #ddd;
+			border-radius: 3px;
+			box-sizing: border-box;
+		}
+
+		.control-group button {
+			width: 100%;
+			padding: 10px;
+			background: #007cba;
+			color: white;
+			border: none;
+			border-radius: 3px;
+			cursor: pointer;
+			font-size: 14px;
+		}
+
+		.control-group button:hover {
+			background: #005a87;
+		}
+
+		.result-display {
+			background: #f5f5f5;
+			padding: 10px;
+			border-radius: 3px;
+			margin-top: 10px;
+			font-family: monospace;
+			font-size: 12px;
+			max-height: 200px;
+			overflow-y: auto;
+		}
+
+		.coordinate-inputs {
+			display: grid;
+			grid-template-columns: 1fr 1fr;
+			gap: 10px;
+		}
+
+		.coordinate-inputs.three-d {
+			grid-template-columns: 1fr 1fr 1fr;
+		}
+
+		.tab-buttons {
+			display: flex;
+			margin-bottom: 15px;
+		}
+
+		.tab-button {
+			flex: 1;
+			padding: 10px;
+			background: #f0f0f0;
+			border: 1px solid #ddd;
+			cursor: pointer;
+			text-align: center;
+		}
+
+		.tab-button.active {
+			background: #007cba;
+			color: white;
+		}
+
+		.tab-content {
+			display: none;
+		}
+
+		.tab-content.active {
+			display: block;
+		}
+
+		#level2d, #level3d {
+			padding: 0 8px;
+			height: 32px;
+			line-height: 32px;
+		}
+	</style>
+</head>
+
+<body>
+<div id="map"></div>
+
+<div class="control-panel">
+	<h3>BeiDou网格编码演示</h3>
+
+	<div class="tab-buttons">
+		<div class="tab-button active" onclick="switchTab('2d')">2D编码</div>
+		<div class="tab-button" onclick="switchTab('3d')">3D编码</div>
+	</div>
+
+	<!-- 2D编码面板 -->
+	<div id="tab-2d" class="tab-content active">
+		<div class="control-group">
+			<label>坐标输入:</label>
+			<div class="coordinate-inputs">
+				<input type="number" id="lng2d" placeholder="经度" value="116.404" step="0.000001">
+				<input type="number" id="lat2d" placeholder="纬度" value="39.915" step="0.000001">
+			</div>
+		</div>
+
+		<div class="control-group">
+			<label>编码级别:</label>
+			<select id="level2d">
+				<option value="1">1级</option>
+				<option value="2">2级</option>
+				<option value="3">3级</option>
+				<option value="4">4级</option>
+				<option value="5">5级</option>
+				<option value="6">6级</option>
+				<option value="7" selected>7级</option>
+				<option value="8">8级</option>
+				<option value="9">9级</option>
+				<option value="10">10级</option>
+			</select>
+		</div>
+
+		<div class="control-group">
+			<button onclick="encode2D()">编码</button>
+		</div>
+
+		<div class="control-group">
+			<label>编码结果:</label>
+			<input type="text" id="code2d" placeholder="输入编码进行解码">
+		</div>
+
+		<div class="control-group">
+			<button onclick="decode2D()">解码</button>
+		</div>
+
+		<div class="result-display" id="result2d">
+			点击编码或解码按钮查看结果
+		</div>
+	</div>
+
+	<!-- 3D编码面板 -->
+	<div id="tab-3d" class="tab-content">
+		<div class="control-group">
+			<label>坐标输入:</label>
+			<div class="coordinate-inputs three-d">
+				<input type="number" id="lng3d" placeholder="经度" value="116.404" step="0.000001">
+				<input type="number" id="lat3d" placeholder="纬度" value="39.915" step="0.000001">
+				<input type="number" id="elevation3d" placeholder="高程(米)" value="100" step="0.1">
+			</div>
+		</div>
+
+		<div class="control-group">
+			<label>编码级别:</label>
+			<select id="level3d">
+				<option value="1">1级</option>
+				<option value="2">2级</option>
+				<option value="3">3级</option>
+				<option value="4">4级</option>
+				<option value="5">5级</option>
+				<option value="6">6级</option>
+				<option value="7" selected>7级</option>
+				<option value="8">8级</option>
+				<option value="9">9级</option>
+				<option value="10">10级</option>
+			</select>
+		</div>
+
+		<div class="control-group">
+			<button onclick="encode3D()">编码</button>
+		</div>
+
+		<div class="control-group">
+			<label>编码结果:</label>
+			<input type="text" id="code3d" placeholder="输入编码进行解码">
+		</div>
+
+		<div class="control-group">
+			<button onclick="decode3D()">解码</button>
+		</div>
+
+		<div class="result-display" id="result3d">
+			点击编码或解码按钮查看结果
+		</div>
+	</div>
+
+	<div class="control-group">
+		<button onclick="clearAll()" style="background-color: #dc3545; color: white;">清除标记和网格</button>
+	</div>
+</div>
+
+<script>
+	/**
+	 * 全局参数设置
+	 */
+	minemap.domainUrl = "https://minedata.cn";
+	minemap.dataDomainUrl = "https://minedata.cn";
+	minemap.serverDomainUrl = "https://minedata.cn";
+	minemap.spriteUrl = "https://minedata.cn/minemapapi/sprite/latest/sprite";
+	minemap.serviceUrl = "https://minedata.cn/service/";
+
+	minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+	minemap.solution = 11001;
+	window.minemapCDN = "https://minedata.cn/minemapapi/minemap-CDN";
+
+	// 定义空底图样式
+	var style = {
+		glyphs: "minemap://fonts/{fontstack}/{range}",
+		sprite: "minemap://sprite/sprite",
+		sources: {},
+		layers: [],
+		version: 8
+	};
+
+	/**
+	 * 初始化地图实例
+	 */
+	var map = new minemap.Map({
+		container: "map",
+		style: style,
+		position: [116.404, 39.915, 50000], // 北京坐标
+		bearing: 0,
+		pitch: 0,
+		maxZoom: 22,
+		minZoom: 1,
+		projection: "MERCATOR",
+		logDepth: true,
+		OIT: true
+	});
+	map.repaint = true;
+
+	// 存储标记和网格的数组
+	let markers = [];
+	let grids = [];
+	let beiDouGridComponents = []; // 存储多个BeiDou网格组件
+	let popup = null;
+
+	map.on("load", function () {
+		// 添加栅格底图
+		map.addSource("IMAGERY_SOURCE", {
+			type: "raster",
+			tiles: ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"],
+			tileSize: 256
+		});
+
+		map.addLayer({
+			id: "IMAGERY",
+			type: "raster",
+			source: "IMAGERY_SOURCE",
+			minzoom: 1,
+			maxzoom: 23,
+			"depth-test": true,
+			paint: {
+				"raster-opacity": 1
+			}
+		});
+
+		// 初始化弹窗
+		popup = new minemap.Popup({
+			closeOnClick: false,
+			closeButton: true,
+			anchor: "bottom-left",
+			offset: [10, -10]
+		});
+
+		// 地图点击事件
+		map.on("click", onMapClick);
+
+		// 添加输入框实时验证事件监听器
+		setupInputValidation();
+	});
+
+	/**
+	 * 设置输入框实时验证
+	 */
+	function setupInputValidation() {
+		// 2D输入框验证
+		const lng2dInput = document.getElementById('lng2d');
+		const lat2dInput = document.getElementById('lat2d');
+
+		// 3D输入框验证
+		const lng3dInput = document.getElementById('lng3d');
+		const lat3dInput = document.getElementById('lat3d');
+		const elevation3dInput = document.getElementById('elevation3d');
+
+		// 为2D经度输入框添加验证
+		lng2dInput.addEventListener('blur', function () {
+			validateInputField(this, CoordinateValidator.validateLongitude, '经度');
+		});
+
+		lng2dInput.addEventListener('input', function () {
+			clearInputError(this);
+		});
+
+		// 为2D纬度输入框添加验证
+		lat2dInput.addEventListener('blur', function () {
+			validateInputField(this, CoordinateValidator.validateLatitude, '纬度');
+		});
+
+		lat2dInput.addEventListener('input', function () {
+			clearInputError(this);
+		});
+
+		// 为3D经度输入框添加验证
+		lng3dInput.addEventListener('blur', function () {
+			validateInputField(this, CoordinateValidator.validateLongitude, '经度');
+		});
+
+		lng3dInput.addEventListener('input', function () {
+			clearInputError(this);
+		});
+
+		// 为3D纬度输入框添加验证
+		lat3dInput.addEventListener('blur', function () {
+			validateInputField(this, CoordinateValidator.validateLatitude, '纬度');
+		});
+
+		lat3dInput.addEventListener('input', function () {
+			clearInputError(this);
+		});
+
+		// 为3D高程输入框添加验证
+		elevation3dInput.addEventListener('blur', function () {
+			validateInputField(this, CoordinateValidator.validateElevation, '高程');
+		});
+
+		elevation3dInput.addEventListener('input', function () {
+			clearInputError(this);
+		});
+
+		// 为编码输入框添加验证
+		const code2dInput = document.getElementById('code2d');
+		const code3dInput = document.getElementById('code3d');
+
+		code2dInput.addEventListener('input', function () {
+			clearInputError(this);
+			validateCodeInput(this);
+		});
+
+		code3dInput.addEventListener('input', function () {
+			clearInputError(this);
+			validateCodeInput(this);
+		});
+	}
+
+	/**
+	 * 验证单个输入字段
+	 * @param {HTMLElement} inputElement - 输入框元素
+	 * @param {Function} validatorFunction - 验证函数
+	 * @param {string} fieldName - 字段名称
+	 */
+	function validateInputField(inputElement, validatorFunction, fieldName) {
+		const value = inputElement.value.trim();
+
+		if (value === '') {
+			clearInputError(inputElement);
+			return;
+		}
+
+		const validation = validatorFunction(value);
+
+		if (!validation.isValid) {
+			showInputError(inputElement, validation.message);
+		} else {
+			clearInputError(inputElement);
+			showInputSuccess(inputElement);
+		}
+	}
+
+	/**
+	 * 验证编码输入
+	 * @param {HTMLElement} inputElement - 编码输入框元素
+	 */
+	function validateCodeInput(inputElement) {
+		const value = inputElement.value.trim();
+
+		if (value === '') {
+			clearInputError(inputElement);
+			return;
+		}
+
+		// 基本格式验证
+		if (!/^[A-Z0-9]*$/.test(value)) {
+			showInputError(inputElement, '编码只能包含大写字母和数字');
+		} else {
+			clearInputError(inputElement);
+		}
+	}
+
+	/**
+	 * 显示输入框错误状态
+	 * @param {HTMLElement} inputElement - 输入框元素
+	 * @param {string} message - 错误信息
+	 */
+	function showInputError(inputElement, message) {
+		inputElement.style.borderColor = '#f56565';
+		inputElement.style.backgroundColor = '#fed7d7';
+		inputElement.title = message;
+
+		// 移除成功状态
+		inputElement.classList.remove('input-success');
+		inputElement.classList.add('input-error');
+	}
+
+	/**
+	 * 显示输入框成功状态
+	 * @param {HTMLElement} inputElement - 输入框元素
+	 */
+	function showInputSuccess(inputElement) {
+		inputElement.style.borderColor = '#48bb78';
+		inputElement.style.backgroundColor = '#c6f6d5';
+		inputElement.title = '输入有效';
+
+		// 移除错误状态
+		inputElement.classList.remove('input-error');
+		inputElement.classList.add('input-success');
+	}
+
+	/**
+	 * 清除输入框错误状态
+	 * @param {HTMLElement} inputElement - 输入框元素
+	 */
+	function clearInputError(inputElement) {
+		inputElement.style.borderColor = '#ddd';
+		inputElement.style.backgroundColor = 'white';
+		inputElement.title = '';
+
+		// 移除所有状态类
+		inputElement.classList.remove('input-error', 'input-success');
+	}
+
+	/**
+	 * 坐标验证工具类
+	 */
+	const CoordinateValidator = {
+		/**
+		 * 验证经度值
+		 * @param {any} lng - 经度值
+		 * @returns {Object} 验证结果 {isValid: boolean, message: string, value: number}
+		 */
+		validateLongitude: function (lng) {
+			// 检查是否为空或未定义
+			if (lng === null || lng === undefined || lng === '') {
+				return {
+					isValid: false,
+					message: '经度不能为空',
+					value: null
+				};
+			}
+
+			// 转换为数字
+			const numLng = parseFloat(lng);
+
+			// 检查是否为有效数字
+			if (isNaN(numLng)) {
+				return {
+					isValid: false,
+					message: '经度必须是有效的数字',
+					value: null
+				};
+			}
+
+			// 检查数值范围 (-180 到 180)
+			if (numLng < -180 || numLng > 180) {
+				return {
+					isValid: false,
+					message: '经度值必须在 -180° 到 180° 之间',
+					value: numLng
+				};
+			}
+
+			return {
+				isValid: true,
+				message: '经度值有效',
+				value: numLng
+			};
+		},
+
+		/**
+		 * 验证纬度值
+		 * @param {any} lat - 纬度值
+		 * @returns {Object} 验证结果 {isValid: boolean, message: string, value: number}
+		 */
+		validateLatitude: function (lat) {
+			// 检查是否为空或未定义
+			if (lat === null || lat === undefined || lat === '') {
+				return {
+					isValid: false,
+					message: '纬度不能为空',
+					value: null
+				};
+			}
+
+			// 转换为数字
+			const numLat = parseFloat(lat);
+
+			// 检查是否为有效数字
+			if (isNaN(numLat)) {
+				return {
+					isValid: false,
+					message: '纬度必须是有效的数字',
+					value: null
+				};
+			}
+
+			// 检查数值范围 (-90 到 90)
+			if (numLat < -90 || numLat > 90) {
+				return {
+					isValid: false,
+					message: '纬度值必须在 -90° 到 90° 之间',
+					value: numLat
+				};
+			}
+
+			return {
+				isValid: true,
+				message: '纬度值有效',
+				value: numLat
+			};
+		},
+
+		/**
+		 * 验证高程值
+		 * @param {any} elevation - 高程值
+		 * @returns {Object} 验证结果 {isValid: boolean, message: string, value: number}
+		 */
+		validateElevation: function (elevation) {
+			// 检查是否为空或未定义
+			if (elevation === null || elevation === undefined || elevation === '') {
+				return {
+					isValid: false,
+					message: '高程不能为空',
+					value: null
+				};
+			}
+
+			// 转换为数字
+			const numElevation = parseFloat(elevation);
+
+			// 检查是否为有效数字
+			if (isNaN(numElevation)) {
+				return {
+					isValid: false,
+					message: '高程必须是有效的数字',
+					value: null
+				};
+			}
+
+			// 检查数值范围（-11000米到10000米，覆盖海沟到高山）
+			if (numElevation < -11000 || numElevation > 10000) {
+				return {
+					isValid: false,
+					message: '高程值必须在 -11000米 到 10000米 之间',
+					value: numElevation
+				};
+			}
+
+			return {
+				isValid: true,
+				message: '高程值有效',
+				value: numElevation
+			};
+		},
+
+		/**
+		 * 验证编码级别
+		 * @param {any} level - 编码级别
+		 * @returns {Object} 验证结果 {isValid: boolean, message: string, value: number}
+		 */
+		validateLevel: function (level) {
+			const numLevel = parseInt(level);
+
+			if (isNaN(numLevel)) {
+				return {
+					isValid: false,
+					message: '编码级别必须是有效的整数',
+					value: null
+				};
+			}
+
+			if (numLevel < 1 || numLevel > 10) {
+				return {
+					isValid: false,
+					message: '编码级别必须在 1 到 10 之间',
+					value: numLevel
+				};
+			}
+
+			return {
+				isValid: true,
+				message: '编码级别有效',
+				value: numLevel
+			};
+		}
+	};
+
+	/**
+	 * 用户友好的告警系统
+	 */
+	const AlertSystem = {
+		/**
+		 * 显示错误提示
+		 * @param {string} message - 错误信息
+		 * @param {string} title - 标题（可选）
+		 */
+		showError: function (message, title = '输入错误') {
+			this.showAlert(message, title, 'error');
+		},
+
+		/**
+		 * 显示警告提示
+		 * @param {string} message - 警告信息
+		 * @param {string} title - 标题（可选）
+		 */
+		showWarning: function (message, title = '输入警告') {
+			this.showAlert(message, title, 'warning');
+		},
+
+		/**
+		 * 显示成功提示
+		 * @param {string} message - 成功信息
+		 * @param {string} title - 标题（可选）
+		 */
+		showSuccess: function (message, title = '操作成功') {
+			this.showAlert(message, title, 'success');
+		},
+
+		/**
+		 * 显示通用提示框
+		 * @param {string} message - 提示信息
+		 * @param {string} title - 标题
+		 * @param {string} type - 类型：error, warning, success, info
+		 */
+		showAlert: function (message, title, type = 'info') {
+			// 移除已存在的提示框
+			const existingAlert = document.querySelector('.coordinate-alert');
+			if (existingAlert) {
+				existingAlert.remove();
+			}
+
+			// 创建提示框元素
+			const alertDiv = document.createElement('div');
+			alertDiv.className = `coordinate-alert coordinate-alert-${type}`;
+
+			// 根据类型设置图标
+			let icon = '';
+			switch (type) {
+				case 'error':
+					icon = '❌';
+					break;
+				case 'warning':
+					icon = '⚠️';
+					break;
+				case 'success':
+					icon = '✅';
+					break;
+				default:
+					icon = 'ℹ️';
+			}
+
+			alertDiv.innerHTML = `
+					<div class="alert-content">
+						<div class="alert-header">
+							<span class="alert-icon">${icon}</span>
+							<span class="alert-title">${title}</span>
+							<button class="alert-close" onclick="this.parentElement.parentElement.parentElement.remove()">×</button>
+						</div>
+						<div class="alert-message">${message}</div>
+					</div>
+				`;
+
+			// 添加样式
+			alertDiv.style.cssText = `
+					position: fixed;
+					top: 20px;
+					right: 20px;
+					min-width: 300px;
+					max-width: 400px;
+					background: white;
+					border-radius: 8px;
+					box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+					z-index: 10000;
+					animation: slideInRight 0.3s ease-out;
+					border-left: 4px solid ${this.getTypeColor(type)};
+				`;
+
+			// 添加内部样式
+			const style = document.createElement('style');
+			style.textContent = `
+					@keyframes slideInRight {
+						from { transform: translateX(100%); opacity: 0; }
+						to { transform: translateX(0); opacity: 1; }
+					}
+					.coordinate-alert .alert-content {
+						padding: 16px;
+					}
+					.coordinate-alert .alert-header {
+						display: flex;
+						align-items: center;
+						margin-bottom: 8px;
+					}
+					.coordinate-alert .alert-icon {
+						margin-right: 8px;
+						font-size: 16px;
+					}
+					.coordinate-alert .alert-title {
+						font-weight: bold;
+						color: #333;
+						flex: 1;
+					}
+					.coordinate-alert .alert-close {
+						background: none;
+						border: none;
+						font-size: 20px;
+						cursor: pointer;
+						color: #999;
+						padding: 0;
+						width: 24px;
+						height: 24px;
+						display: flex;
+						align-items: center;
+						justify-content: center;
+					}
+					.coordinate-alert .alert-close:hover {
+						color: #666;
+					}
+					.coordinate-alert .alert-message {
+						color: #666;
+						line-height: 1.4;
+						font-size: 14px;
+					}
+				`;
+
+			// 添加到页面
+			document.head.appendChild(style);
+			document.body.appendChild(alertDiv);
+
+			// 3秒后自动消失
+			setTimeout(() => {
+				if (alertDiv.parentNode) {
+					alertDiv.style.animation = 'slideInRight 0.3s ease-out reverse';
+					setTimeout(() => {
+						if (alertDiv.parentNode) {
+							alertDiv.remove();
+						}
+					}, 300);
+				}
+			}, 3000);
+		},
+
+		/**
+		 * 获取类型对应的颜色
+		 * @param {string} type - 类型
+		 * @returns {string} 颜色值
+		 */
+		getTypeColor: function (type) {
+			switch (type) {
+				case 'error':
+					return '#f56565';
+				case 'warning':
+					return '#ed8936';
+				case 'success':
+					return '#48bb78';
+				default:
+					return '#4299e1';
+			}
+		}
+	};
+
+	/**
+	 * 切换标签页
+	 */
+	function switchTab(tabName) {
+		// 隐藏所有标签内容
+		document.querySelectorAll('.tab-content').forEach(content => {
+			content.classList.remove('active');
+		});
+
+		// 移除所有按钮的激活状态
+		document.querySelectorAll('.tab-button').forEach(button => {
+			button.classList.remove('active');
+		});
+
+		// 显示选中的标签内容
+		document.getElementById('tab-' + tabName).classList.add('active');
+
+		// 激活对应的按钮
+		event.target.classList.add('active');
+	}
+
+	/**
+	 * 2D编码功能（带输入验证）
+	 */
+	function encode2D() {
+		try {
+			// 获取输入值
+			const lngInput = document.getElementById('lng2d').value;
+			const latInput = document.getElementById('lat2d').value;
+			const levelInput = document.getElementById('level2d').value;
+
+			// 验证经度
+			const lngValidation = CoordinateValidator.validateLongitude(lngInput);
+			if (!lngValidation.isValid) {
+				AlertSystem.showError(lngValidation.message, '经度输入错误');
+				document.getElementById('lng2d').focus();
+				return;
+			}
+
+			// 验证纬度
+			const latValidation = CoordinateValidator.validateLatitude(latInput);
+			if (!latValidation.isValid) {
+				AlertSystem.showError(latValidation.message, '纬度输入错误');
+				document.getElementById('lat2d').focus();
+				return;
+			}
+
+			// 验证编码级别
+			const levelValidation = CoordinateValidator.validateLevel(levelInput);
+			if (!levelValidation.isValid) {
+				AlertSystem.showError(levelValidation.message, '编码级别错误');
+				return;
+			}
+
+			const lng = lngValidation.value;
+			const lat = latValidation.value;
+			const level = levelValidation.value;
+
+			// 使用BeiDouCodec2D进行编码
+			const code = minemap.BeiDouCodec2D.encode({
+				lngDegree: lng,
+				latDegree: lat
+			}, level);
+
+			document.getElementById('code2d').value = code;
+
+			// 显示结果
+			const resultDiv = document.getElementById('result2d');
+			resultDiv.innerHTML = `
+					<strong>编码结果:</strong><br>
+					编码: ${code}<br>
+					坐标: [${lng}, ${lat}]<br>
+					级别: ${level}<br>
+					编码长度: ${code.length}
+				`;
+
+			// 在地图上添加标记
+			addMarker(lng, lat, code, '2D编码点');
+
+			// 获取并显示网格边界
+			showGrid2D(code);
+
+			// 显示成功提示
+			AlertSystem.showSuccess(`2D编码成功！编码结果：${code}`, '编码完成');
+
+		} catch (error) {
+			const errorMessage = `编码过程中发生错误：${error.message}`;
+			document.getElementById('result2d').innerHTML = `<span style="color: red;">错误: ${errorMessage}</span>`;
+			AlertSystem.showError(errorMessage, '编码失败');
+		}
+	}
+
+	/**
+	 * 2D解码功能（带输入验证）
+	 */
+	function decode2D() {
+		try {
+			const code = document.getElementById('code2d').value.trim();
+
+			if (!code) {
+				AlertSystem.showError('请输入有效的编码字符串', '编码输入错误');
+				document.getElementById('code2d').focus();
+				return;
+			}
+
+			// 基本编码格式验证
+			if (!/^[A-Z0-9]+$/.test(code)) {
+				AlertSystem.showError('编码只能包含大写字母和数字', '编码格式错误');
+				document.getElementById('code2d').focus();
+				return;
+			}
+
+			// 使用BeiDouCodec2D进行解码
+			const result = minemap.BeiDouCodec2D.decode(code);
+
+			// 验证解码结果
+			const lngValidation = CoordinateValidator.validateLongitude(result.lngDegree);
+			const latValidation = CoordinateValidator.validateLatitude(result.latDegree);
+
+			if (!lngValidation.isValid || !latValidation.isValid) {
+				throw new Error('解码结果包含无效的坐标值');
+			}
+
+			// 显示结果
+			const resultDiv = document.getElementById('result2d');
+			resultDiv.innerHTML = `
+					<strong>解码结果:</strong><br>
+					编码: ${code}<br>
+					经度: ${result.lngDegree.toFixed(6)}<br>
+					纬度: ${result.latDegree.toFixed(6)}<br>
+					级别: ${minemap.BeiDouCodec2D.getCodeLevel(code)}
+				`;
+
+			// 在地图上添加标记
+			addMarker(result.lngDegree, result.latDegree, code, '2D解码点');
+
+			// 获取并显示网格边界
+			showGrid2D(code);
+
+			// 显示成功提示
+			AlertSystem.showSuccess(`2D解码成功！坐标：[${result.lngDegree.toFixed(6)}, ${result.latDegree.toFixed(6)}]`, '解码完成');
+
+		} catch (error) {
+			const errorMessage = `解码失败：${error.message}`;
+			document.getElementById('result2d').innerHTML = `<span style="color: red;">错误: ${errorMessage}</span>`;
+			AlertSystem.showError(errorMessage, '解码失败');
+		}
+	}
+
+	/**
+	 * 3D编码功能（带输入验证）
+	 */
+	function encode3D() {
+		try {
+			// 获取输入值
+			const lngInput = document.getElementById('lng3d').value;
+			const latInput = document.getElementById('lat3d').value;
+			const elevationInput = document.getElementById('elevation3d').value;
+			const levelInput = document.getElementById('level3d').value;
+
+			// 验证经度
+			const lngValidation = CoordinateValidator.validateLongitude(lngInput);
+			if (!lngValidation.isValid) {
+				AlertSystem.showError(lngValidation.message, '经度输入错误');
+				document.getElementById('lng3d').focus();
+				return;
+			}
+
+			// 验证纬度
+			const latValidation = CoordinateValidator.validateLatitude(latInput);
+			if (!latValidation.isValid) {
+				AlertSystem.showError(latValidation.message, '纬度输入错误');
+				document.getElementById('lat3d').focus();
+				return;
+			}
+
+			// 验证高程
+			const elevationValidation = CoordinateValidator.validateElevation(elevationInput);
+			if (!elevationValidation.isValid) {
+				AlertSystem.showError(elevationValidation.message, '高程输入错误');
+				document.getElementById('elevation3d').focus();
+				return;
+			}
+
+			// 验证编码级别
+			const levelValidation = CoordinateValidator.validateLevel(levelInput);
+			if (!levelValidation.isValid) {
+				AlertSystem.showError(levelValidation.message, '编码级别错误');
+				return;
+			}
+
+			const lng = lngValidation.value;
+			const lat = latValidation.value;
+			const elevation = elevationValidation.value;
+			const level = levelValidation.value;
+
+			// 使用BeiDouCodec3D进行编码
+			const code = minemap.BeiDouCodec3D.encode({
+				lngDegree: lng,
+				latDegree: lat,
+				elevation: elevation
+			}, minemap.BeiDouCodec3D.R, level);
+
+			document.getElementById('code3d').value = code;
+
+			// 显示结果
+			const resultDiv = document.getElementById('result3d');
+			resultDiv.innerHTML = `
+					<strong>编码结果:</strong><br>
+					编码: ${code}<br>
+					坐标: [${lng}, ${lat}, ${elevation}]<br>
+					级别: ${level}<br>
+					编码长度: ${code.length}
+				`;
+
+			// 在地图上添加标记
+			addMarker(lng, lat, code, '3D编码点', elevation);
+
+			// 获取并显示网格边界
+			showGrid3D(code);
+
+			// 显示成功提示
+			AlertSystem.showSuccess(`3D编码成功！编码结果：${code}`, '编码完成');
+
+		} catch (error) {
+			const errorMessage = `编码过程中发生错误：${error.message}`;
+			document.getElementById('result3d').innerHTML = `<span style="color: red;">错误: ${errorMessage}</span>`;
+			AlertSystem.showError(errorMessage, '编码失败');
+		}
+	}
+
+	/**
+	 * 3D解码功能（带输入验证）
+	 */
+	function decode3D() {
+		try {
+			let code = document.getElementById('code3d').value.trim();
+
+			if (!code) {
+				AlertSystem.showError('请输入有效的编码字符串', '编码输入错误');
+				document.getElementById('code3d').focus();
+				return;
+			}
+
+			// 基本编码格式验证
+			if (!/^[A-Z0-9]+$/.test(code)) {
+				AlertSystem.showError('编码只能包含大写字母和数字', '编码格式错误');
+				document.getElementById('code3d').focus();
+				return;
+			}
+
+			// 使用BeiDouCodec3D进行解码
+			const result = minemap.BeiDouCodec3D.decode(code);
+
+			// 验证解码结果
+			const lngValidation = CoordinateValidator.validateLongitude(result.lngDegree);
+			const latValidation = CoordinateValidator.validateLatitude(result.latDegree);
+			const elevationValidation = CoordinateValidator.validateElevation(result.elevation);
+
+			if (!lngValidation.isValid || !latValidation.isValid || !elevationValidation.isValid) {
+				throw new Error('解码结果包含无效的坐标或高程值');
+			}
+
+			// 显示结果
+			const resultDiv = document.getElementById('result3d');
+			resultDiv.innerHTML = `
+					<strong>解码结果:</strong><br>
+					编码: ${code}<br>
+					经度: ${result.lngDegree.toFixed(6)}<br>
+					纬度: ${result.latDegree.toFixed(6)}<br>
+					高程: ${result.elevation.toFixed(2)}米<br>
+					级别: ${minemap.BeiDouCodec3D.getCodeLevel(code)}
+				`;
+
+			// 在地图上添加标记
+			addMarker(result.lngDegree, result.latDegree, code, '3D解码点', result.elevation);
+
+			// 获取并显示网格边界
+			showGrid3D(code);
+
+			// 显示成功提示
+			AlertSystem.showSuccess(`3D解码成功！坐标：[${result.lngDegree.toFixed(6)}, ${result.latDegree.toFixed(6)}, ${result.elevation.toFixed(2)}]`, '解码完成');
+
+		} catch (error) {
+			const errorMessage = `解码失败：${error.message}`;
+			document.getElementById('result3d').innerHTML = `<span style="color: red;">错误: ${errorMessage}</span>`;
+			AlertSystem.showError(errorMessage, '解码失败');
+		}
+	}
+
+	/**
+	 * 在地图上添加标记
+	 */
+	function addMarker(lng, lat, code, title, elevation = 0) {
+		// 创建标记
+		const marker = new minemap.Marker({
+			color: '#ff0000'
+		})
+			.setLngLat([lng, lat])
+			.setAltitude(elevation)
+			.addTo(map);
+
+		// 创建弹窗内容
+		const popupContent = `
+				<div>
+					<strong>${title}</strong><br>
+					经度: ${lng.toFixed(6)}<br>
+					纬度: ${lat.toFixed(6)}<br>
+					${elevation > 0 ? `高程: ${elevation.toFixed(2)}m<br>` : ''}
+					编码: ${code}
+				</div>
+			`;
+
+		// 为标记设置弹窗
+		const markerPopup = new minemap.Popup({
+			closeOnClick: false,
+			closeButton: true,
+			anchor: "bottom-left",
+			offset: [10, -10]
+		}).setHTML(popupContent).setAltitude(elevation);
+
+		marker.setPopup(markerPopup);
+		markers.push(marker);
+
+		// 飞行到标记位置
+		map.flyTo({
+			center: [lng, lat],
+			zoom: Math.max(map.getZoom(), 14),
+			duration: 1000
+		});
+	}
+
+	/**
+	 * 显示2D网格
+	 */
+	function showGrid2D(code) {
+		try {
+			// 获取网格边界点
+			const points = minemap.BeiDouCodec2D.getPointsFromCode2d(code);
+
+			if (points && points.length >= 4) {
+				// 创建多边形显示网格
+				const coordinates = points.map(point => [point[0], point[1]]);
+				coordinates.push(coordinates[0]); // 闭合多边形
+
+				// 为每个网格创建唯一的ID
+				const timestamp = Date.now();
+				const sourceId = `grid-source-${timestamp}`;
+				const fillId = `grid-fill-${timestamp}`;
+				const lineId = `grid-line-${timestamp}`;
+
+				// 添加数据源
+				map.addSource(sourceId, {
+					type: 'geojson',
+					data: {
+						type: 'Feature',
+						geometry: {
+							type: 'Polygon',
+							coordinates: [coordinates]
+						},
+						properties: {
+							code: code
+						}
+					}
+				});
+
+				// 添加填充图层
+				map.addLayer({
+					id: fillId,
+					type: 'fill',
+					source: sourceId,
+					paint: {
+						'fill-color': `rgba(${Math.round(Math.random() * 255)}, ${Math.round(Math.random() * 255)}, ${Math.round(Math.random() * 255)},1.0)`,
+						'fill-opacity': 0.3
+					}
+				});
+
+				// 添加边界图层
+				map.addLayer({
+					id: lineId,
+					type: 'line',
+					source: sourceId,
+					paint: {
+						'line-color': '#007cba',
+						'line-width': 2
+					}
+				});
+
+				console.log('2D网格添加成功:', {
+					code: code,
+					sourceId: sourceId,
+					fillId: fillId,
+					lineId: lineId
+				});
+			}
+		} catch (error) {
+			console.error('显示2D网格失败:', error);
+		}
+	}
+
+	/**
+	 * 显示3D网格
+	 */
+	function showGrid3D(code) {
+		try {
+			// 获取3D网格的8个角点
+			const points = minemap.BeiDouCodec3D.getPointsFromCode3d(code);
+
+			if (points && points.length >= 8) {
+				// 使用BeiDouGrid.convertCodeToPoint方法转换编码为空间坐标点
+				const cartesianCorners = minemap.BeiDouGrid.convertCodeToPoint(code);
+
+				const colorStr = `${Math.round(Math.random() * 255)}, ${Math.round(Math.random() * 255)}, ${Math.round(Math.random() * 255)}`;
+				// 创建网格数据
+				const gridData = [{
+					id: code,
+					cartesianCorners: cartesianCorners,
+					color: minemap.Color.parse(`rgba(${colorStr}, 0.3)`), // 随机颜色半透明
+					outlineColor: minemap.Color.parse(`rgba(${colorStr}, 0.8)`) // 随机颜色边框
+				}];
+
+				// 创建BeiDou网格组件
+				const beiDouGridComponent = new minemap.BeiDouGrid({
+					autoGenerateGridData: false,
+					gridData: gridData
+				});
+
+				// 添加到地图
+				map.addSceneComponent(beiDouGridComponent);
+
+				// 将组件添加到数组中进行管理
+				beiDouGridComponents.push(beiDouGridComponent);
+
+				console.log('3D网格显示成功:', {
+					code: code,
+					points: points,
+					cartesianCorners: cartesianCorners,
+					componentId: beiDouGridComponent.id,
+					totalComponents: beiDouGridComponents.length
+				});
+			}
+		} catch (error) {
+			console.error('显示3D网格失败:', error);
+		}
+	}
+
+	/**
+	 * 地图点击事件处理
+	 */
+	function onMapClick(e) {
+		const lng = e.lngLat.lng;
+		const lat = e.lngLat.lat;
+
+		// 根据当前激活的标签页更新坐标
+		const activeTab = document.querySelector('.tab-content.active').id;
+
+		if (activeTab === 'tab-2d') {
+			document.getElementById('lng2d').value = lng.toFixed(6);
+			document.getElementById('lat2d').value = lat.toFixed(6);
+		} else if (activeTab === 'tab-3d') {
+			document.getElementById('lng3d').value = lng.toFixed(6);
+			document.getElementById('lat3d').value = lat.toFixed(6);
+		}
+
+		// 显示点击位置信息
+		popup.setLngLat([lng, lat])
+			.setHTML(`
+					<div>
+						<strong>点击位置:</strong><br>
+						经度: ${lng.toFixed(6)}<br>
+						纬度: ${lat.toFixed(6)}<br>
+						<small>坐标已自动填入输入框</small>
+					</div>
+				`)
+			.addTo(map);
+	}
+
+	/**
+	 * 清除所有标记
+	 */
+	function clearMarkers() {
+		markers.forEach(marker => {
+			// 移除标记的弹窗
+			if (marker.getPopup()) {
+				marker.getPopup().remove();
+			}
+			// 移除标记本身
+			marker.remove();
+		});
+		markers = [];
+	}
+
+	/**
+	 * 清除所有二维网格图层
+	 */
+	function clearGrids() {
+		// 收集需要删除的图层ID和数据源ID
+		const layersToRemove = [];
+		const sourcesToRemove = [];
+
+		// 清除所有2D网格图层（遍历所有可能的图层）
+		const style = map.getStyle();
+		if (style && style.layers) {
+			style.layers.forEach(layer => {
+				if (layer.id.startsWith('grid-fill-') || layer.id.startsWith('grid-line-')) {
+					layersToRemove.push(layer.id);
+				}
+			});
+
+			// 删除图层
+			layersToRemove.forEach(layerId => {
+				if (map.getLayer(layerId)) {
+					map.removeLayer(layerId);
+				}
+			});
+
+			// 收集需要删除的数据源
+			Object.keys(style.sources || {}).forEach(sourceId => {
+				if (sourceId.startsWith('grid-source-')) {
+					sourcesToRemove.push(sourceId);
+				}
+			});
+
+			// 删除数据源
+			sourcesToRemove.forEach(sourceId => {
+				if (map.getSource(sourceId)) {
+					map.removeSource(sourceId);
+				}
+			});
+		}
+
+		// 清除所有3D BeiDou网格组件
+		const removed3DCount = beiDouGridComponents.length;
+		beiDouGridComponents.forEach(component => {
+			if (component && component.id) {
+				map.removeSceneComponent(component.id);
+			}
+		});
+		beiDouGridComponents = [];
+
+		console.log('已清除所有网格:', {
+			removedLayers: layersToRemove.length,
+			removedSources: sourcesToRemove.length,
+			removed3DComponents: removed3DCount
+		});
+	}
+
+	/**
+	 * 清除标记和网格
+	 */
+	function clearAll() {
+		// 清除所有标记
+		clearMarkers();
+
+		// 清除所有3D BeiDou网格组件
+		const removedCount = beiDouGridComponents.length;
+		beiDouGridComponents.forEach(component => {
+			if (component && component.id) {
+				map.removeSceneComponent(component.id);
+			}
+		});
+		beiDouGridComponents = [];
+
+		clearGrids();
+		if (popup) {
+			popup.remove();
+		}
+
+		// 清除3D结果显示
+		document.getElementById('result3d').innerHTML = '点击编码或解码按钮查看结果';
+
+		// 显示成功提示
+		AlertSystem.showSuccess(`已清除所有标记和网格 (${removedCount}个网格组件)`, '清除完成');
+	}
+
+</script>
+</body>
+</html>

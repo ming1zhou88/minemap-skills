@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<title>圆柱几何更新</title>
+		<!-- 引入MineMap API插件 -->
+		<link rel="stylesheet" href="../../dist/minemap.css" />
+		<script src="../../dist/minemap-dev.js"></script>
+		<script src="../js/lil-gui.umd.min.js"></script>
+		<style>
+			html,
+			body,
+			#map {
+				margin: 0;
+				padding: 0;
+				width: 100%;
+				height: 100%;
+			}
+		</style>
+	</head>
+
+	<body>
+		<div id="map"></div>
+		<script>
+			/**
+			 * 全局参数设置
+			 */
+			minemap.domainUrl = "https://minedata.cn";
+			minemap.dataDomainUrl = "https://minedata.cn";
+			minemap.serverDomainUrl = "https://minedata.cn";
+			minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+			minemap.serviceUrl = "https://minedata.cn/service/";
+
+			minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+			minemap.solution = 11001;
+
+			// 定义空底图样式
+			var style = {
+				glyphs: "minemap://fonts/{fontstack}/{range}",
+				sprite: "minemap://sprite/sprite",
+				sources: {},
+				layers: [],
+				version: 8
+			};
+
+			/**
+			 * 初始化地图实例
+			 */
+			var map = new minemap.Map({
+				container: "map",
+				style: style /*底图样式*/,
+				center: [116.24578817496112, 40.072866389620614] /*地图中心点*/,
+				zoom: 14 /*地图默认缩放等级*/,
+				pitch: 40 /*地图俯仰角度*/,
+				maxZoom: 22 /*地图最大缩放等级*/,
+				minZoom: 1 /*地图最小缩放等级*/,
+				projection: "MERCATOR"
+			});
+
+			//切换材质函数
+			let stdColorMaterial;
+			let stdTexMaterial;
+			let texMRDefault;
+
+			//更换材质的响应函数
+			function changeMatPara() {
+				//更新材质颜色类型
+				//stdColorMaterial.updateProperty({color:"#FF00FF"});
+
+				//更新材质纹理图片
+				texMRDefault = minemap.TextureLoader.load({ map, texUrl: "../image/Default_metalRoughness.jpg" });
+				stdTexMaterial.updateProperty({ baseColorMap: texMRDefault });
+			}
+
+			map.on("load", function () {
+				/*添加栅格图*/
+				map.addSource("IMAGERY_SOURCE", {
+					type: "raster", //数据源类型：栅格数据源
+					tiles: ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+					tileSize: 512 //瓦片尺寸
+				});
+
+				map.addLayer({
+					id: "IMAGERY",
+					type: "raster", //图层类型为"raster"
+					source: "IMAGERY_SOURCE",
+					minzoom: 1,
+					maxzoom: 23,
+					paint: {
+						"raster-opacity": 1
+					}
+				});
+
+				const cartographic = new minemap.Math.Vector3([116.24544236500333, 40.07254296210216, 0]);
+				const matrix = minemap.Transforms.cartographicToFixedFrame(cartographic);
+
+				const rotX = new minemap.Math.Matrix4().rotateX(Math.PI / 2);
+				matrix.multiplyRight(rotX);
+
+				const texDefault = minemap.TextureLoader.load({ map, texUrl: "../data/image/uv.jpg" });
+
+				stdTexMaterial = minemap.StandardMaterial.fromType("Texture", {
+					baseColorMap: texDefault,
+					opacity: 1.0,
+					doubleSided: false
+				});
+
+				const geometry = new minemap.Geometries.CylinderGeometry({
+					radiusTop: 60,
+					radiusBottom: 60,
+					height: 100,
+					radialSegments: 36,
+					heightSegments: 1,
+					openEnded: false,
+					thetaStart: 0,
+					thetaLength: Math.PI * 2
+				});
+				const primitive = new minemap.Primitive({
+					modelMatrix: matrix,
+					geometry: geometry,
+					material: stdTexMaterial
+				});
+
+				map.addPrimitive(primitive);
+
+				let eventObj = {
+					changeMatPara: changeMatPara
+				};
+				const gui = new lil.GUI({ title: "参数调节面板" });
+				gui.add(eventObj, "changeMatPara").name("实时更换材质");
+
+				setTimeout(() => {
+					map.repaint = true;
+					geometry.setData({
+						radiusTop: 200,
+						radiusBottom: 600,
+						height: 3000,
+						radialSegments: 36,
+						heightSegments: 1,
+						openEnded: false,
+						thetaStart: 0,
+						thetaLength: Math.PI * 2
+					});
+				}, 3000);
+			});
+		</script>
+	</body>
+</html>

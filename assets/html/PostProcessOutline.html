@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+		<title>Outline 描边示例</title>
+		<!-- lil-gui 用于实时调试描边参数 -->
+		<script src="../js/lil-gui.umd.min.js"></script>
+		<!-- MineMap 样式与核心库 -->
+		<link rel="stylesheet" href="../../dist/minemap.css" />
+		<script src="../../dist/minemap-dev.js"></script>
+		<style>
+			html,
+			body,
+			#map {
+				margin: 0;
+				padding: 0;
+				width: 100%;
+				height: 100%;
+			}
+		</style>
+	</head>
+	<body>
+		<!-- 地图容器 -->
+		<div id="map"></div>
+		<script>
+			// 基础服务配置，可替换为自己的域名与密钥
+			minemap.domainUrl = "https://minemap.minedata.cn";
+			minemap.dataDomainUrl = "https://minemap.minedata.cn";
+			minemap.serverDomainUrl = "https://sd-data.minedata.cn";
+			minemap.spriteUrl = "http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite";
+			minemap.serviceUrl = "https://service.minedata.cn/service";
+			minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+			minemap.solution = 11001;
+			window.minemapCDN = "http://192.168.152.123/minemap-engine/minemap-CDN/";
+
+			// 空样式：示例直接添加影像与自定义几何
+			const style = {
+				glyphs: "minemap://fonts/{fontstack}/{range}",
+				sprite: "minemap://sprite/sprite",
+				sources: {},
+				layers: [],
+				version: 8
+			};
+
+			// 创建地图实例
+			const map = new minemap.Map({
+				container: "map",
+				style: style,
+				center: [117.07345793078674, 31.655248159116724],
+				bearing: 0,
+				zoom: 15,
+				pitch: 70,
+				maxZoom: 22,
+				minZoom: 1,
+				projection: "MERCATOR"
+			});
+			// 开启连续重绘，便于后处理实时更新
+			map.repaint = true;
+
+			// 演示用实体与描边阶段实例
+			let greenBox, redLine, sceneModel, tileset, outlineStage;
+
+			// 描边可调参数（可通过 GUI 互动修改）
+			const outlineParams = {
+				enabled: true,
+				color: "#00d4ff",
+				occludedColor: "#ff9a00",
+				width: 3.0
+			};
+
+			// 地图加载完毕后初始化场景、实体与描边后处理
+			map.on("load", function () {
+				// 影像底图
+				map.addSource("IMAGERY_SOURCE", {
+					type: "raster",
+					tiles: ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"],
+					tileSize: 512
+				});
+
+				map.addLayer({
+					id: "IMAGERY",
+					type: "raster",
+					source: "IMAGERY_SOURCE",
+					minzoom: 0,
+					maxzoom: 23
+				});
+
+				// 绿色立方体：演示遮挡与无遮挡
+				const cartographicForGreen = new minemap.Math.Vector3([117.07545, 31.6562, 100]);
+				const matrixForGreen = minemap.Transforms.cartographicToFixedFrame(cartographicForGreen);
+				const rotX = new minemap.Math.Matrix4().rotateX(Math.PI / 2);
+				matrixForGreen.multiplyRight(rotX);
+
+				const greenBoxGeometry = new minemap.Geometries.BoxGeometry({
+					width: 100,
+					height: 100,
+					depth: 100
+				});
+				greenBox = new minemap.Primitive({
+					modelMatrix: matrixForGreen,
+					geometry: greenBoxGeometry,
+					material: minemap.StandardMaterial.fromType("Color", {
+						color: "green",
+						opacity: 1.0,
+						doubleSided: false,
+						hasNormal: false
+					}),
+					allowPick: true
+				});
+				map.addPrimitive(greenBox);
+
+				// 红色折线：演示线要素的描边
+				const polylineGeometry = new minemap.Geometries.PolylineGeometry({
+					positions: minemap.Math.Vector3.fromDegreesArrayHeights([
+						117.07345,
+						31.6572,
+						10,
+						117.07445,
+						31.6572,
+						10,
+						117.07445,
+						31.6582,
+						10
+					]),
+					width: 10,
+					arcType: minemap.ARCTYPE.GEODESIC
+				});
+
+				redLine = new minemap.Primitive({
+					geometry: polylineGeometry,
+					material: minemap.PolylineMaterial.fromType("Color", {
+						color: "red"
+					}),
+					name: "polyline",
+					allowPick: true
+				});
+				map.addPrimitive(redLine);
+
+				// glTF 模型
+				sceneModel = map.addSceneComponent({
+					id: "glbModel",
+					type: "3d-model",
+					data: "../data/test-gltf/GroundVehicle.glb",
+					modelFolder: "",
+					scale: [50, 50, 50],
+					rotation: [90, 0, 0],
+					position: [117.07345793078674, 31.655248159116724],
+					allowPick: true
+				});
+
+				// 3D Tiles 场景
+				tileset = map.addSceneComponent({
+					id: "serve",
+					type: "3d-tiles",
+					show: true,
+					translation: new minemap.Math.Vector3(0, 0, 0),
+					url: "../data/3dtiles-next/tileset.json",
+					skipLevelOfDetail: true,
+					maximumScreenSpaceError: 8,
+					backCulling: false,
+					lightingModel: minemap.LightingModelType.PBR,
+					sourceLoaded: (tileset) => {
+						// 资源加载后飞入查看
+						map.flyTo({
+							target: tileset,
+							bearing: 0,
+							pitch: 0,
+							duration: 2000,
+							range: 1000
+						});
+					},
+					geoBoundsOptions: {
+						index: 0,
+						combine: false
+					},
+					allowPick: true
+				});
+
+				// 创建描边后处理：支持遮挡/无遮挡分色与可调线宽
+				outlineStage = minemap.PostProcessStageLibrary.createOutlineStage(map.painter, outlineParams);
+				map.postProcessStages.add(outlineStage);
+
+				// 点击拾取：将被选要素推入描边阶段
+				map.on("click", function (e) {
+					const selected = {
+						primitives: [],
+						tileFeatures: [],
+						tileset: tileset
+					};
+					const feature = map.getFeatureByGPUPick(e.point);
+					if (feature) {
+						// Tiles 内容与普通 Primitive 做区分
+						if (feature._content) {
+							selected.tileFeatures.push(feature);
+						} else {
+							selected.primitives.push(feature);
+						}
+						outlineStage.setSelected(selected);
+					}
+					applyOutlineParams();
+					map.repaint = true;
+				});
+
+				setupGUI();
+			});
+
+			// 将 outlineParams 同步到后处理 stage
+			function applyOutlineParams() {
+				if (!outlineStage) return;
+				outlineStage.enabled = outlineParams.enabled;
+				outlineStage.uniforms.color = outlineParams.color;
+				outlineStage.uniforms.occludedColor = outlineParams.occludedColor;
+				outlineStage.uniforms.width = outlineParams.width;
+			}
+
+			// GUI 控制：开关 / 颜色 / 线宽
+			function setupGUI() {
+				const gui = new lil.GUI({ width: 300 });
+				const folder = gui.addFolder("Outline");
+				folder.open();
+
+				folder.add(outlineParams, "enabled").name("开启描边").onChange((value) => {
+					outlineParams.enabled = value;
+					applyOutlineParams();
+					map.repaint = true;
+				});
+
+				folder.addColor(outlineParams, "color").name("可见颜色").onChange((value) => {
+					outlineParams.color = value;
+					applyOutlineParams();
+					map.repaint = true;
+				});
+
+				folder.addColor(outlineParams, "occludedColor").name("遮挡颜色").onChange((value) => {
+					outlineParams.occludedColor = value;
+					applyOutlineParams();
+					map.repaint = true;
+				});
+
+				folder
+					.add(outlineParams, "width")
+					.min(0.5)
+					.max(10)
+					.step(0.1)
+					.name("线宽(px)")
+					.onChange((value) => {
+						outlineParams.width = value;
+						applyOutlineParams();
+						map.repaint = true;
+					});
+
+				applyOutlineParams();
+			}
+		</script>
+	</body>
+</html>

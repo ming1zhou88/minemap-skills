@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+		<title>GLFT模型材质更新</title>
+		<!-- demo样式文件 -->
+		<link rel="stylesheet" href="../style/demo.css" />
+		<!-- 引入MineMap API插件 -->
+		<link rel="stylesheet" href="../../dist/minemap.css" />
+		<script src="../../dist/minemap-dev.js"></script>
+		<script type="text/javascript" src="../js/lil-gui.umd.min.js"></script>
+		<style>
+			#map {
+				width: 100%;
+				height: 100%;
+			}
+		</style>
+	</head>
+	<body>
+		<div id="map"></div>
+		<script>
+			/**
+			 * 全局参数设置
+			 */
+			minemap.domainUrl = "https://minemap.minedata.cn";
+			minemap.dataDomainUrl = "https://minemap.minedata.cn";
+			minemap.serverDomainUrl = "https://sd-data.minedata.cn";
+			minemap.spriteUrl = "http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite";
+			minemap.serviceUrl = "https://service.minedata.cn/service";
+
+			minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+			minemap.solution = 11001;
+
+			// 定义空底图样式
+			var style = {
+				glyphs: "minemap://fonts/{fontstack}/{range}",
+				sprite: "minemap://sprite/sprite",
+				sources: {},
+				layers: [],
+				version: 8
+			};
+			/**
+			 * 初始化地图实例
+			 */
+			var map = new minemap.Map({
+				container: "map",
+				style: style /*球面矢量底图样式*/,
+				center: [116.3875, 39.9867] /*地图中心点*/,
+				bearing: 0,
+				zoom: 16 /*地图默认缩放等级*/,
+				pitch: 60 /*地图俯仰角度*/,
+				maxZoom: 22 /*地图最大缩放等级*/,
+				minZoom: 1 /*地图最小缩放等级*/,
+				projection: "MERCATOR"
+			});
+
+			map.repaint = true;
+			map.enableLight();
+
+			map.on("load", function () {
+				/*添加栅格图*/
+				map.addSource("IMAGERY_SOURCE", {
+					type: "raster", //数据源类型：栅格数据源
+					tiles: ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+					tileSize: 512 //瓦片尺寸
+				});
+
+				map.addLayer({
+					id: "IMAGERY",
+					type: "raster", //图层类型为"raster"
+					source: "IMAGERY_SOURCE",
+					minzoom: 1,
+					maxzoom: 23
+				});
+
+				// 添加gltf
+				map.addSceneComponent({
+					id: "trafficScene",
+					type: "3d-model",
+					data: "../data/traffic/scene.gltf", // 要加载的gltf格式数据
+					modelFolder: "../data/traffic/", // 该数据引用图片等资源的文件夹路径
+					scale: [30, 30, 30], // 在xyz轴方向上的缩放比例
+					rotation: [90, 90, 0], // 绕xyz轴方向上的旋转，单位为度
+					position: [116.3875, 39.9867, 40], // 锚点（模型局部坐标原点）的经纬度位置
+					minzoom: 13, //gltf加载显示的最小层级
+					maxzoom: 18, //gtlf加载显示的最大层级
+					allowPick: true,
+					loaded: () => {
+						// 模型加载完成的回调函数
+					}
+				});
+
+				initializeGUI();
+			});
+
+			const params = {
+				当前选中模型: "请点击选中模型",
+				材质类型: "纹理",
+				纹理: "brick_diffuse",
+				颜色: "#00FF00"
+			};
+
+			const textureUrls = [
+				"../image/brick_diffuse.jpg",
+				"../image/brick_roughness.jpg",
+				"../image/Default_metalRoughness.jpg",
+				"https://minedata.cn/nce-static/support/demo/js-3d-ultra/zh/images/meadow.jpg"
+			];
+
+			let selectFolder, materialTypeFolder, textureFolder, colorFolder, selectedFeature;
+			function initializeGUI() {
+				const gui = new lil.GUI({ title: "更新GLTF材质", width: 300 });
+				gui.onChange((event) => {
+					params[event.property] = event.value;
+				});
+
+				selectFolder = gui.add(params, "当前选中模型");
+				materialFolder = gui.addFolder("参数设置");
+
+				materialTypeFolder = materialFolder
+					.add(params, "材质类型")
+					.options(["纹理", "颜色"])
+					.onChange(function (value) {
+						if (value === "纹理") {
+							colorFolder.hide();
+							textureFolder.show();
+							textureFolder._onChange(textureFolder.getValue());
+						} else {
+							colorFolder.show();
+							colorFolder._onChange(colorFolder.getValue());
+							textureFolder.hide();
+						}
+					});
+
+				textureFolder = materialFolder
+					.add(params, "纹理")
+					.options(["brick_diffuse", "brick_roughness", "Default_metalRoughness", "meadow"])
+					.onChange(function (value) {
+						let texUrl;
+						if (value == "brick_diffuse") {
+							texUrl = textureUrls[0];
+						} else if (value == "brick_roughness") {
+							texUrl = textureUrls[1];
+						} else if (value == "Default_metalRoughness") {
+							texUrl = textureUrls[2];
+						} else {
+							texUrl = textureUrls[3];
+						}
+
+						if (selectedFeature !== undefined) {
+							selectedFeature.color = [1.0, 1.0, 1.0, 0.0];
+							minemap.TextureLoader.load({
+								map,
+								texUrl: texUrl,
+								loaded: (texture) => {
+									selectedFeature.material.setOptions({
+										baseColorMap: texture
+									});
+								}
+							});
+						}
+					});
+
+				colorFolder = materialFolder.addColor(params, "颜色").onChange((value) => {
+					if (selectedFeature !== undefined) {
+						selectedFeature.material.setOptions({
+							baseColor: value
+						});
+					}
+				});
+				colorFolder.hide();
+			}
+
+			map.on("click", function (e) {
+				if (selectedFeature !== undefined) {
+					selectedFeature = undefined;
+				}
+
+				const feature = map.getFeatureByGPUPick(e.point);
+				if (feature) {
+					selectedFeature = feature;
+					preColor = JSON.parse(JSON.stringify(feature.material.baseColor));
+					selectFolder.setValue(feature.name);
+					if (!colorFolder._hidden) {
+						colorFolder._onChange(colorFolder.getValue());
+					} else {
+						textureFolder._onChange(textureFolder.getValue());
+					}
+				} else {
+					selectFolder.setValue("请点击选中模型");
+				}
+			});
+		</script>
+	</body>
+</html>

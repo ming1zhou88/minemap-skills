@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+	<title>批量添加模型实例工具</title>
+	<link rel="stylesheet" href="../../dist/minemap.css" />
+	<script src="../../dist/minemap-dev.js"></script>
+	<script src="../js/lil-gui.umd.min.js"></script>
+	<style>
+		html,
+		body,
+		#map {
+			margin: 0;
+			padding: 0;
+			width: 100%;
+			height: 100%;
+		}
+		.lil-gui.autoPlace {
+			right: 400px;
+		}
+	</style>
+</head>
+<body>
+<div id="map"></div>
+<script>
+	minemap.domainUrl = "https://minedata.cn";
+	minemap.serverDomainUrl = "https://sd-data.minedata.cn";
+	minemap.spriteUrl = "http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite";
+	window.minemapCDN = "https://minedata.cn/minemapapi/minemap-CDN";
+
+	minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+
+	const map = new minemap.Map({
+		container: "map",
+		style: {
+			glyphs: "minemap://fonts/{fontstack}/{range}",
+			sprite: "minemap://sprite/sprite",
+			sources: {},
+			layers: [],
+			version: 8
+		},
+		center: [108.965014, 34.220905],
+		zoom: 14,
+		maxZoom: 22,
+		minZoom: 1
+	});
+
+	map.repaint = true;
+	map.enableLight();
+	var batchAddInstance, modelTransformationControl;
+	map.on("load", function() {
+		map.addSource("3D_SOURCE", {
+			type: "raster", //DEM的数据类型为"raster"
+			tiles: [
+				"https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg",
+			], //瓦片服务地址
+			tileSize: 512, //瓦片大小
+		});
+		map.addLayer({
+			type: "raster", //DEM的图层类型为"raster"
+			id: "3d-layer",
+			source: "3D_SOURCE",
+			minzoom: 1,
+			maxzoom: 20,
+			layout: {},
+		});
+		map.setTerrain({
+			"tiles": ["https://staticdata-b.minedata.cn:14434/dem/{z}/{r}/{c}/{z}_{x}_{y}.terrain"], //瓦片服务地址
+			"tileSize": 512,  //瓦片大小
+			"maxzoom": 14        //dem最高切分zoom，30米一般是14级；12.5米一般是16级
+		});
+
+		map.addSceneComponent({
+			id: "serve",
+			type: "3d-tiles",
+			url: "https://minemap.minedata.cn/earth_data/oblique/610000/610100/tileset.json",
+			skipLevelOfDetail: false, //跨层调度
+			maximumScreenSpaceError: 16,
+		});
+		batchAddInstance = new minemap.BatchAddInstanceControl({
+			url: "http://192.168.152.123:18801/service/terrain/altitude/getHeight"
+		});
+		modelTransformationControl = new minemap.ModelTransformationControl();
+		initializeGUI();
+		window.batchAddInstance = batchAddInstance;
+	});
+	// 初始化UI
+	function initializeGUI() {
+		const gui = new lil.GUI({ width: 300, right: 400 });
+		const options = {
+			"开启模型批量生成": addBatchAddInstance,
+			"移除模型批量生成": removeBatchAddInstance,
+			"开启模型调整": addTransformation,
+			"移除模型调整": removeTransformation,
+		}
+		gui.add(options, "开启模型批量生成");
+		gui.add(options, "移除模型批量生成");
+		gui.add(options, "开启模型调整");
+		gui.add(options, "移除模型调整");
+	}
+
+	function addBatchAddInstance() {
+		if (!map.hasControl(batchAddInstance)) {
+			map.addControl(batchAddInstance);
+		}
+	}
+
+	function removeBatchAddInstance() {
+		if (map.hasControl(batchAddInstance)) {
+			map.removeControl(batchAddInstance);
+		}
+	}
+
+	function addTransformation() {
+		if (!map.hasControl(modelTransformationControl)) {
+			map.addControl(modelTransformationControl, 'top-left');
+		}
+	}
+
+	function removeTransformation() {
+		if (map.hasControl(modelTransformationControl)) {
+			map.removeControl(modelTransformationControl);
+		}
+	}
+</script>
+</body>
+
+</html>

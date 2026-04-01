@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+		<title>Phong Material</title>
+		<link rel="stylesheet" href="../../dist/minemap.css" />
+		<script src="../../dist/minemap-dev.js"></script>
+		<script src="../js/lil-gui.umd.min.js"></script>
+		<style>
+			html,
+			body,
+			#map {
+				margin: 0;
+				padding: 0;
+				width: 100%;
+				height: 100%;
+				font-size: 12px;
+			}
+		</style>
+	</head>
+	<body>
+		<div id="map"></div>
+		<script>
+			minemap.domainUrl = "https://minedata.cn";
+			minemap.serverDomainUrl = "https://minedata.cn";
+			minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+			window.minemapCDN = "https://minedata.cn/minemapapi/minemap-CDN";
+
+			minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+
+			const style = {
+				glyphs: "minemap://fonts/{fontstack}/{range}",
+				sprite: "minemap://sprite/sprite",
+				sources: {},
+				layers: [],
+				version: 8
+			};
+			const map = new minemap.Map({
+				container: "map",
+				style: style,
+				center: [116.26444, 40.05687],
+				pitch: 51.694,
+				bearing: -177.317,
+				zoom: 16,
+				maxZoom: 22,
+				minZoom: 1
+			});
+			map.repaint = true;
+			map.on("load", function () {
+				initializeGUI();
+				addRasterLayer();
+				addPrimitive();
+			});
+
+			// 材质参数
+			map.enableLight();
+			map.enableShadow();
+
+			// 光影参数
+			const exampleParams = {
+				example: "sphere"
+			};
+			const sunParams = {
+				year: 2024,
+				month: 6,
+				day: 6,
+				hours: 10,
+				minutes: 0,
+				seconds: 0,
+				castShadow: true,
+				intensity: 1,
+				shadowBias: 0,
+				shadowNormalBias: 1,
+				shadowRadius: 3
+			};
+
+			map.setSunLightTime(sunParams);
+			const sunLight = map.getLights().sunLight;
+
+			sunLight.intensity = sunParams.intensity;
+			sunLight.castShadow = sunParams.castShadow;
+			sunLight.shadow.bias = sunParams.shadowBias;
+			sunLight.shadow.normalBias = sunParams.shadowNormalBias;
+			sunLight.shadow.radius = sunParams.shadowRadius;
+
+			const materialParams = {
+				baseColor: "#ffffff",
+				specularColor: "#ffffff",
+				emissive: "#000000",
+				shininess: 30,
+				baseColorMap: null,
+				specularMap: null,
+				emissiveMap: null,
+				normalMap: null,
+				emissiveIntensity: 1.0
+			};
+
+			const models = ["sphere", "model"];
+
+			const textures = {
+				baseColorMap: minemap.TextureLoader.load({
+					map,
+					texUrl: "../image/brick_diffuse.jpg",
+					minFilter: minemap.WebGLConstants.LINEAR,
+					magFilter: minemap.WebGLConstants.LINEAR,
+					wrapS: minemap.WebGLConstants.REPEAT,
+					wrapT: minemap.WebGLConstants.REPEAT
+				})
+			};
+
+			let materialSphere, material, model;
+
+			function initializeGUI() {
+				const gui = new lil.GUI({ width: 300 });
+				const example = gui.addFolder("Example");
+				const materialMenu = gui.addFolder("Material");
+				const sun = gui.addFolder("Sun Light");
+
+				materialMenu.addColor(materialParams, "baseColor").onChange((value) => {
+					material.setOptions({ baseColor: value });
+				});
+				materialMenu
+					.add(materialParams, "baseColorMap", { none: null, baseColorMap: "baseColorMap" })
+					.onChange((value) => {
+						material.baseColorMap = textures[value] ?? null;
+					});
+				materialMenu.addColor(materialParams, "specularColor").onChange((value) => {
+					material.setOptions({ specularColor: value });
+				});
+				materialMenu.addColor(materialParams, "emissive").onChange((value) => {
+					material.setOptions({ emissive: value });
+				});
+				materialMenu
+					.add(materialParams, "emissiveIntensity")
+					.min(0)
+					.max(10)
+					.step(0.1)
+					.onChange((value) => {
+						material.setOptions({ emissiveIntensity: value });
+					});
+				materialMenu
+					.add(materialParams, "shininess")
+					.min(1)
+					.max(100)
+					.step(1)
+					.onChange((value) => {
+						material.setOptions({ shininess: value });
+					});
+
+				example.add(exampleParams, "example", models).onChange((value) => {
+					switch (value) {
+						case "sphere":
+							removeModel();
+							addPrimitive();
+							break;
+						case "model":
+							removePrimitive();
+							addModel();
+							break;
+					}
+				});
+
+				sun.close();
+				sun.add(sunParams, "month")
+					.min(1)
+					.max(12)
+					.step(1)
+					.onChange((value) => {
+						map.setSunLightTime(sunParams);
+					});
+				sun.add(sunParams, "day")
+					.min(1)
+					.max(30)
+					.step(1)
+					.onChange((value) => {
+						map.setSunLightTime(sunParams);
+					});
+				sun.add(sunParams, "hours")
+					.min(0)
+					.max(23)
+					.step(1)
+					.onChange((value) => {
+						map.setSunLightTime(sunParams);
+					});
+				sun.add(sunParams, "minutes")
+					.min(0)
+					.max(59)
+					.step(1)
+					.onChange((value) => {
+						map.setSunLightTime(sunParams);
+					});
+				sun.add(sunParams, "castShadow").onChange((value) => {
+					map.getLights().sunLight.castShadow = value;
+				});
+				sun.add(sunParams, "intensity")
+					.min(0)
+					.max(5)
+					.step(0.1)
+					.onChange((value) => {
+						map.getLights().sunLight.intensity = value;
+					});
+				sun.add(sunParams, "shadowBias")
+					.min(-0.01)
+					.max(0.01)
+					.step(0.00001)
+					.onChange((value) => {
+						map.getLights().sunLight.shadow.bias = value;
+					});
+				sun.add(sunParams, "shadowNormalBias")
+					.min(-1)
+					.max(1)
+					.step(0.002)
+					.onChange((value) => {
+						map.getLights().sunLight.shadow.normalBias = value;
+					});
+				sun.add(sunParams, "shadowRadius")
+					.min(1)
+					.max(10)
+					.step(1)
+					.onChange((value) => {
+						map.getLights().sunLight.shadow.radius = value;
+					});
+			}
+
+			function addRasterLayer() {
+				map.addSource("IMAGERY_SOURCE", {
+					type: "raster",
+					tiles: ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"],
+					tileSize: 256
+				});
+
+				map.addLayer({
+					id: "IMAGERY",
+					type: "raster",
+					source: "IMAGERY_SOURCE",
+					minzoom: 1,
+					maxzoom: 23
+				});
+			}
+
+			function addPrimitive() {
+				const matrix = minemap.Transforms.cartographicToFixedFrame(
+					new minemap.Math.Vector3([116.26531978613971, 40.05753009943292, 100])
+				);
+				const rotX = new minemap.Math.Matrix4().rotateX(Math.PI / 2);
+				matrix.multiplyRight(rotX);
+
+				const geometry = new minemap.Geometries.SphereGeometry({
+					radius: 120,
+					widthSegments: 100,
+					heightSegments: 100
+				});
+				material = new minemap.PhongMaterial(materialParams);
+				materialSphere = new minemap.Primitive({
+					modelMatrix: matrix,
+					geometry,
+					material,
+					castShadow: true,
+					receiveShadow: true
+				});
+				map.addPrimitive(materialSphere);
+			}
+
+			function addModel() {
+				model = map.addSceneComponent({
+					id: "id",
+					type: "3d-model",
+					data: "https://minedata.cn/nce-static/support/demo/js-3d-ultra/zh/assets/DamagedHelmet/glTF/DamagedHelmet.gltf",
+					modelFolder:
+						"https://minedata.cn/nce-static/support/demo/js-3d-ultra/zh/assets/DamagedHelmet/glTF/",
+					scale: new minemap.Math.Vector3([100, 100, 100]),
+					rotation: new minemap.Math.Vector3([90, 0, 0]),
+					translation: new minemap.Math.Vector3([0, 0, 0]),
+					position: new minemap.Math.Vector3([116.26531978613971, 40.05753009943292, 100]),
+					lightingModel: minemap.LightingModelType.PHONG,
+					castShadow: true,
+					receiveShadow: true,
+					loaded() {
+						/**
+						 * 注意：实际模型加载是不可以通过这种方式取得材质的，这里仅仅是方便展示部分属性的作用
+						 */
+						material = model.opaqueList[0].material;
+					}
+				});
+			}
+
+			function removeRasterLayer() {
+				map.removeLayer("IMAGERY");
+				map.removeSource("IMAGERY_SOURCE");
+			}
+
+			function removePrimitive() {
+				map.removePrimitive(materialSphere);
+			}
+
+			function removeModel() {
+				map.removeSceneComponent(model.id);
+			}
+		</script>
+	</body>
+</html>

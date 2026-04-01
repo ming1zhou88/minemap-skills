@@ -1,0 +1,241 @@
+<!--
+ * @Author: lsw
+ * @Date: 2022-04-20 15:50:33
+ * @LastEditTime: 2026-02-03 10:29:01
+ * @LastEditors: defineconst
+ * @Description:
+ * @FilePath: \MineMap3DEngine\demo\html\RegionGeometry.html
+-->
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8" />
+	<title>北斗网格位置码渲染三维模型网格</title>
+	<!-- demo样式文件 -->
+	<link rel="stylesheet" href="../style/demo.css" />
+	<!-- 引入MineMap API插件 -->
+	<link rel="stylesheet" href="../../dist/minemap.css" />
+	<script src="../../dist/minemap-dev.js"></script>
+	<script src="../js/lil-gui.umd.min.js"></script>
+	<style>
+		#map {
+			width: 100%;
+			height: 100%;
+		}
+	</style>
+</head>
+
+<body>
+	<div id="map"></div>
+	<script>
+		/**
+		 * 全局参数设置
+		 */
+
+		minemap.domainUrl = "https://minedata.cn";
+		minemap.dataDomainUrl = "https://minedata.cn";
+		minemap.serverDomainUrl = "https://minedata.cn";
+		minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+		minemap.serviceUrl = "https://minedata.cn/service/";
+
+		minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+		minemap.solution = 11001;
+		window.minemapCDN = "https://minedata.cn/minemapapi/minemap-CDN";
+
+		// 定义空底图样式
+		var style = {
+			glyphs: "minemap://fonts/{fontstack}/{range}",
+			sprite: "minemap://sprite/sprite",
+			sources: {},
+			layers: [],
+			version: 8
+		};
+
+		/**
+		 * 初始化地图实例
+		 */
+		var map = new minemap.Map({
+			container: "map",
+			style: style,
+			/*球面矢量底图样式*/
+			position: [120.37796643765078, 36.07093244353641, 986.0362986138038],
+			pitch: 61,
+			bearing: -4.5,
+			/*地图俯仰角度*/
+			maxZoom: 24,
+			/*地图最大缩放等级*/
+			minZoom: 1,
+			/*地图最小缩放等级*/
+			projection: "MERCATOR",
+			OIT: true,
+			logDepth: true
+		});
+		map.repaint = true;
+
+		map.on("load", function () {
+			/*添加栅格图*/
+			map.addSource("IMAGERY_SOURCE", {
+				type: "raster", //数据源类型：栅格数据源
+				tiles: ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+				tileSize: 256 //瓦片尺寸
+			});
+
+			map.addLayer({
+				id: "IMAGERY",
+				type: "raster", //图层类型为"raster"
+				source: "IMAGERY_SOURCE",
+				minzoom: 1,
+				maxzoom: 23,
+				"depth-test": true,
+				paint: {
+					"raster-opacity": 1
+				}
+			});
+
+			map.addSceneComponent({
+				id: "serve",
+				type: "3d-tiles",
+				url: "https://minemap.minedata.cn/earth_data/oblique/QD/tileset.json" // 要加载的数据
+			});
+
+			initializeGUI();
+			initializeGrids();
+		});
+
+		const gridSource = [
+			"http://192.168.152.123:11187/beidougrid/qingdao1.json",
+			"http://192.168.152.123:11187/beidougrid/qingdao2.json",
+			"http://192.168.152.123:11187/beidougrid/qingdao3.json",
+			"http://192.168.152.123:11187/beidougrid/qingdao4.json",
+			"http://192.168.152.123:11187/beidougrid/qingdao5.json",
+			"http://192.168.152.123:11187/beidougrid/qingdao6.json"
+		];
+
+		function initializeGrids() {
+			for (let i = 0; i < gridSource.length; i++) {
+				minemap.util.getJSON(gridSource[i], function (err, data) {
+					if (!err) {
+						addBeiDouGrid(data);
+					}
+				});
+			}
+		}
+
+		function addBeiDouGrid(data) {
+			// 方法1：直接使用服务端的顶点数据
+			const result = [];
+			for (let i = 0; i < data.length; i++) {
+				const point3D = [];
+				const item = data[i];
+				const points = item.gridBound;
+				if (points.length !== 8) {
+					continue;
+				}
+				for (let j = 0; j < points.length; j++) {
+					const point = JSON.parse(points[j]);
+					point3D.push(minemap.Math.Vector3.fromDegrees(point[0], point[1], point[2]));
+				}
+				result.push({
+					id: item.gridCode,
+					cartesianCorners: point3D,
+					color: minemap.Color.parse("rgba(0,172,255,0.2)"),
+					outlineColor: minemap.Color.parse("rgba(0,210,255,0.6)")
+				});
+			}
+			// 方法2：使用服务端的编码
+			// const result = [];
+			// for (let i = 0; i < data.length; i++) {
+			// 	const item = data[i];
+			// 	const code = item.gridCode;
+			// 	const point = minemap.BeiDouGrid.convertCodeToPoint(code);
+			// 	result.push({
+			// 		id: item.gridCode,
+			// 		cartesianCorners: point,
+			//      color: minemap.Color.parse("rgba(0,172,255,0.2)"),
+			// 	    outlineColor: minemap.Color.parse("rgba(0,210,255,0.6)")
+			// 	});
+			// }
+
+			map.addSceneComponent(new minemap.BeiDouGrid({
+				autoGenerateGridData: false,
+				gridData: result
+			}));
+		}
+
+		let popup = new minemap.Popup({
+			closeOnClick: false,
+			closeButton: false,
+			anchor: "top-left",
+			offset: [10, 5]
+		}).setHTML(
+			`<div class="minemap-popup-diy-jw toolContainer">点击获取当前位置高度</div>`
+		);
+
+		let selectBeiDouGrid;
+		map.on("click", function (e) {
+			const pos = map.getPositionByGPUPick(e.point, { ignoreNoneAllowPick: true });
+			console.log(pos);
+			if (selectBeiDouGrid) {
+				selectBeiDouGrid.clearHighlights();
+				selectBeiDouGrid = undefined;
+			}
+			const beiDouGrids = map.style.beiDouGridCollection.getAll();
+			let result;
+			for (let i = 0; i < beiDouGrids.length; i++) {
+				result = beiDouGrids[i].getPickedGridByPosition(pos);
+				if (result) {
+					result.color = minemap.Color.parse("yellow");
+					selectBeiDouGrid = beiDouGrids[i];
+					break;
+				}
+			}
+
+			if (result && selectBeiDouGrid) {
+				selectBeiDouGrid.setHighlights([result]);
+				if (popup) {
+					const positions = [];
+					for (let i = 0; i < result.cartesianCorners.length; i++) {
+						const cartographic = minemap.Math.Cartographic.fromVector3(result.cartesianCorners[i]);
+						const longitude = minemap.Math.toDegrees(cartographic.longitude);
+						const latitude = minemap.Math.toDegrees(cartographic.latitude);
+						positions.push([longitude, latitude, cartographic.height]);
+					}
+					popup.setHTML(`<div>
+					<div>网格码id:${result.id}</div>
+					<div>网格码level:${result.level}</div>
+					<div>网格码边界:${JSON.stringify(result.lngLatHeightCorners)}</div>
+					<div>网格码属性:${JSON.stringify(result.property)}</div>
+				</div>`).setLngLat([pos[0], pos[1]]).setAltitude(pos[2]).setMaxWidth("400px");
+				}
+
+				popup.addTo(map);
+			} else {
+				popup.remove();
+			}
+		}
+		)
+			;
+
+		function initializeGUI() {
+			//参数控制面板
+			const gui = new lil.GUI({ title: "控制菜单" });
+			gui.add({
+				"显示": true
+			}, "显示").onChange(function (value) {
+				const beiDouGrids = map.style.beiDouGridCollection.getAll();
+				for (let i = 0; i < beiDouGrids.length; i++) {
+					beiDouGrids[i].show = value;
+				}
+
+				if (value && selectBeiDouGrid) {
+					popup.addTo(map);
+				} else {
+					popup.remove();
+				}
+			});
+		}
+	</script>
+</body>
+
+</html>

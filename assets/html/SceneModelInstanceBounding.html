@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8"/>
+	<title>SceneModel实例化模型与边界框演示</title>
+	<!-- demo样式文件 -->
+	<link rel="stylesheet" href="../style/demo.css"/>
+	<!-- 引入MineMap API插件 -->
+	<link rel="stylesheet" href="../../dist/minemap.css"/>
+	<script src="../../dist/minemap-dev.js"></script>
+	<script src="../js/lil-gui.umd.min.js"></script>
+	<style>
+		#map {
+			width: 100%;
+			height: 100%;
+		}
+	</style>
+</head>
+<body>
+<div id="map"></div>
+<script>
+	/**
+	 * 全局参数设置
+	 */
+	minemap.domainUrl = "https://minedata.cn";
+	minemap.dataDomainUrl = "https://minedata.cn";
+	minemap.serverDomainUrl = "https://minedata.cn";
+	minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+	minemap.serviceUrl = "https://mineservice.minedata.cn/service/";
+
+	minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+	minemap.solution = 11001;
+
+	// 定义空底图样式
+	var style = {
+		glyphs: "minemap://fonts/{fontstack}/{range}",
+		sprite: "minemap://sprite/sprite",
+		sources: {},
+		layers: [],
+		version: 8
+	};
+
+	/**
+	 * 初始化地图实例
+	 */
+	var map = new minemap.Map({
+		container: "map",
+		style: style /*球面矢量底图样式*/,
+		position: [116.24717159548905, 40.06797747528279, 165.840742231634],
+		pitch: 79.30277416875467,
+		bearing: -30,
+		maxZoom: 22 /*地图最大缩放等级*/,
+		minZoom: 1 /*地图最小缩放等级*/,
+		projection: "MERCATOR",
+		logDepth: true
+	});
+	map.repaint = true;
+	map.enableLight();
+
+	let sceneModel;
+
+	// 操作参数
+	const operateParams = {
+		operateType: "add", // 操作类型：add, remove, edit
+		instanceIndex: 0, // 当前选中的实例索引
+		// 实例属性
+		positionX: 116.24433782743151,
+		positionY: 40.07330251849555,
+		positionZ: 0,
+		rotationHeading: 0,
+		rotationPitch: 0,
+		rotationRoll: 90,
+		scaleX: 100,
+		scaleY: 100,
+		scaleZ: 100,
+		show: true,
+		// 边界框控制
+		showBoundingBox: true
+	};
+
+	// 初始化实例化数据
+	function initializeData() {
+		const centerLongitude = 116.24433782743151;
+		const centerLatitude = 40.07330251849555;
+		const height = 0.0;
+		const count = 9; // 3x3网格
+		let spacing = 0.001;
+		const gridSize = Math.sqrt(count);
+		let positions = [];
+		let rotations = [];
+		let scales = [];
+		let instanceNames = [];
+		let colors = [];
+		let shows = [];
+		let index = 0;
+
+		for (let y = 0; y < gridSize; ++y) {
+			for (let x = 0; x < gridSize; ++x) {
+				const longitude = centerLongitude + spacing * (x - gridSize / 2);
+				const latitude = centerLatitude + spacing * (y - gridSize / 2);
+				positions.push(new minemap.Math.Vector3(longitude, latitude, height));
+				scales.push(new minemap.Math.Vector3(100, 100, 100));
+				rotations.push(minemap.Math.HeadingPitchRoll.fromDegrees(0, 0, 90));
+				instanceNames.push("houseInstance" + index);
+				shows.push(true);
+				index++;
+			}
+		}
+
+		return {
+			positions,
+			rotations,
+			scales,
+			instanceNames,
+			colors,
+			shows
+		};
+	}
+
+	// 初始化实例化模型
+	function initializeModel() {
+		const instanceData = initializeData();
+
+		// 添加实例化glb模型
+		sceneModel = map.addSceneComponent({
+			id: "instanceHouseModel",
+			type: "3d-model", // 数据类型为"3d-model"
+			data: "../data/2.0/potato/xihongshi.glb", // glb模型文件路径
+			modelFolder: "../data/2.0/potato/", // glb模型资源文件夹路径
+			// 实例化参数
+			positions: instanceData.positions, // 实例化顶点数组
+			rotations: instanceData.rotations, // 实例化旋转参数数组
+			scales: instanceData.scales, // 实例化缩放参数数组
+			instanceNames: instanceData.instanceNames, // 实例化id数组
+			colors: instanceData.colors, // 实例化color数组
+			shows: instanceData.shows, // 实例化show数组
+			loaded() {
+				console.log("实例化模型加载完成");
+				// 模型加载完成后显示边界框
+				if (operateParams.showBoundingBox) {
+					//避免模型未完全加载时调用边界框显示失败，延时调用
+					setTimeout(() => {
+						sceneModel.showBoundingBox();
+					})
+
+				}
+			}
+		});
+	}
+
+	// 添加实例
+	function addInstance() {
+		if (!sceneModel || !sceneModel.modelInstanceCollection) return;
+
+		const position = new minemap.Math.Vector3(
+			operateParams.positionX,
+			operateParams.positionY,
+			operateParams.positionZ
+		);
+		const rotation = minemap.Math.HeadingPitchRoll.fromDegrees(
+			operateParams.rotationHeading,
+			operateParams.rotationPitch,
+			operateParams.rotationRoll
+		);
+		const scale = new minemap.Math.Vector3(
+			operateParams.scaleX,
+			operateParams.scaleY,
+			operateParams.scaleZ
+		);
+
+		const instanceName = "newInstance" + Date.now();
+
+		sceneModel.modelInstanceCollection.add({
+			position: position,
+			rotation: rotation,
+			scale: scale,
+			show: operateParams.show,
+			instanceName: instanceName
+		});
+
+		map.repaint = true;
+		console.log("添加实例:", instanceName);
+	}
+
+	// 移除实例
+	function removeInstance(point) {
+		if (!sceneModel || !sceneModel.modelInstanceCollection) return;
+
+		if (point) {
+			// 使用GPU拾取获取点击的实例
+			const instance = map.getFeatureByGPUPick(point);
+			if (instance instanceof minemap.ModelInstance) {
+				sceneModel.modelInstanceCollection.remove(instance);
+				map.repaint = true;
+				console.log("移除实例:", instance.instanceName);
+			}
+		} else {
+			// 兼容原有的索引删除方式
+			const instances = sceneModel.modelInstanceCollection.instances;
+			if (instances.length > operateParams.instanceIndex) {
+				sceneModel.modelInstanceCollection.removeByIndex(operateParams.instanceIndex);
+				map.repaint = true;
+				console.log("移除实例索引:", operateParams.instanceIndex);
+			}
+		}
+	}
+
+	// 编辑实例
+	function editInstance(point) {
+		if (!sceneModel || !sceneModel.modelInstanceCollection) return;
+
+		if (point) {
+			// 使用GPU拾取获取点击的实例
+			const instance = map.getFeatureByGPUPick(point);
+			if (instance instanceof minemap.ModelInstance) {
+				// 只更新旋转、缩放和显示属性，不修改位置避免实例消失
+				instance.rotation = minemap.Math.HeadingPitchRoll.fromDegrees(
+					operateParams.rotationHeading,
+					operateParams.rotationPitch,
+					operateParams.rotationRoll
+				);
+				instance.scale = new minemap.Math.Vector3(
+					operateParams.scaleX,
+					operateParams.scaleY,
+					operateParams.scaleZ
+				);
+				instance.show = operateParams.show;
+
+				console.log("编辑实例:", instance.instanceName);
+			}
+		} else {
+			// 兼容原有的索引编辑方式
+			const instances = sceneModel.modelInstanceCollection.instances;
+			if (instances.length > operateParams.instanceIndex) {
+				const instance = instances[operateParams.instanceIndex];
+
+				// 只更新旋转、缩放和显示属性，不修改位置避免实例消失
+				instance.rotation = minemap.Math.HeadingPitchRoll.fromDegrees(
+					operateParams.rotationHeading,
+					operateParams.rotationPitch,
+					operateParams.rotationRoll
+				);
+				instance.scale = new minemap.Math.Vector3(
+					operateParams.scaleX,
+					operateParams.scaleY,
+					operateParams.scaleZ
+				);
+				instance.show = operateParams.show;
+
+				console.log("编辑实例索引:", operateParams.instanceIndex);
+			}
+		}
+	}
+
+	// 控制边界框显隐
+	function toggleBoundingBox(show) {
+		if (!sceneModel) return;
+
+		if (show) {
+			sceneModel.showBoundingBox();
+		} else {
+			sceneModel.hideBoundingBox();
+		}
+	}
+
+	// 初始化地图事件
+	function initializeMapEvent() {
+		map.on("click", function (e) {
+			if (operateParams.operateType === "add") {
+				// 更新位置参数为点击位置
+				operateParams.positionX = e.lngLat.lng;
+				operateParams.positionY = e.lngLat.lat;
+				addInstance();
+			} else if (operateParams.operateType === "remove") {
+				removeInstance(e.point);
+			} else if (operateParams.operateType === "edit") {
+				// 更新位置参数为点击位置
+				operateParams.positionX = e.lngLat.lng;
+				operateParams.positionY = e.lngLat.lat;
+				editInstance(e.point);
+			}
+		});
+	}
+
+	map.on("load", function () {
+		/*添加栅格图*/
+		map.addSource("IMAGERY_SOURCE", {
+			type: "raster", //数据源类型：栅格数据源
+			tiles: ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+			tileSize: 512 //瓦片尺寸
+		});
+
+		map.addLayer({
+			id: "IMAGERY",
+			type: "raster", //图层类型为"raster"
+			source: "IMAGERY_SOURCE",
+			minzoom: 1,
+			maxzoom: 23
+		});
+
+		// 初始化模型和事件
+		initializeModel();
+		initializeMapEvent();
+	});
+
+	// 初始化GUI控制面板
+	function initializeGUI() {
+		const gui = new lil.GUI({title: "实例化模型控制"});
+
+		// 操作模式控制
+		const operationFolder = gui.addFolder('操作模式');
+		operationFolder.add(operateParams, 'operateType', ['add', 'remove', 'edit']).name('操作类型');
+
+		// 位置控制
+		const positionFolder = gui.addFolder('位置控制');
+		positionFolder.add(operateParams, 'positionX', 116.2, 116.3, 0.001).name('经度');
+		positionFolder.add(operateParams, 'positionY', 40.0, 40.1, 0.001).name('纬度');
+		positionFolder.add(operateParams, 'positionZ', -100, 100, 1).name('高度(m)');
+
+		// 旋转控制
+		const rotationFolder = gui.addFolder('旋转控制');
+		rotationFolder.add(operateParams, 'rotationHeading', -180, 180, 1).name('航向角(度)');
+		rotationFolder.add(operateParams, 'rotationPitch', -90, 90, 1).name('俯仰角(度)');
+		rotationFolder.add(operateParams, 'rotationRoll', -180, 180, 1).name('翻滚角(度)');
+
+		// 缩放控制
+		const scaleFolder = gui.addFolder('缩放控制');
+		scaleFolder.add(operateParams, 'scaleX', 0.1, 100, 0.1).name('X轴缩放');
+		scaleFolder.add(operateParams, 'scaleY', 0.1, 100, 0.1).name('Y轴缩放');
+		scaleFolder.add(operateParams, 'scaleZ', 0.1, 100, 0.1).name('Z轴缩放');
+
+		// 边界框控制
+		const boundingBoxFolder = gui.addFolder('边界框控制');
+		boundingBoxFolder.add(operateParams, 'showBoundingBox').name('显示边界框').onChange(toggleBoundingBox);
+
+		// 展开主要文件夹
+		operationFolder.open();
+		boundingBoxFolder.open();
+	}
+
+	// 初始化GUI
+	initializeGUI();
+</script>
+</body>
+</html>

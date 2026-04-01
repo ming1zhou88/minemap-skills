@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8"/>
+	<title>fill带边线图层使用translate</title>
+	<link
+		rel="stylesheet"
+		href="../style/demo.css"
+	/>
+	<link rel="stylesheet" href="http://192.168.152.123/minemapapi/v4.0.0/minemap.css"/>
+	<script src="../../dist/minemap-dev.js"></script>
+	<script src="http://192.168.152.123/minemapapi/minemap-plugins/edit/minemap-edit.js"></script>
+	<script src="//minedata.cn/minemapapi/minemap-CDN/dat.gui/dat.gui.min.js"></script>
+	<style>
+		#map {
+			width: 100%;
+			height: 100%;
+		}
+
+		#control-panel {
+			position: fixed;
+			top: 0;
+			left: 0;
+
+		}
+	</style>
+</head>
+<body>
+<div id="map"></div>
+<script>
+	minemap.domainUrl = "https://minedata.cn";
+	minemap.dataDomainUrl = "https://minedata.cn";
+	minemap.serverDomainUrl = "https://minedata.cn";
+	minemap.spriteUrl = "http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite";
+	minemap.serviceUrl = "https://minedata.cn/service/";
+
+	minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+	minemap.solution = 11001;
+	window.minemapCDN = "https://minedata.cn/minemapapi/minemap-CDN";
+
+	var style = {
+		glyphs: "minemap://fonts/{fontstack}/{range}",
+		sprite: "minemap://sprite/sprite",
+		sources: {},
+		layers: [],
+		version: 8
+	};
+
+	var map = new minemap.Map({
+		container: "map",
+		style: style,
+		center: [116.46, 39.92],
+		zoom: 9,
+		pitch: 0,
+		maxZoom: 17,
+		minZoom: 3,
+		boxZoom: false,
+		projection: "MERCATOR"
+	});
+
+	var center = map.getCenter();
+
+
+	/**
+	 * 创建地图对象后，开始加载地图资源，地图资源加载完成后触发load事件
+	 */
+	map.on("load", function () {
+		/*添加栅格图*/
+		map.addSource("IMAGERY_SOURCE", {
+			type: "raster", //数据源类型：栅格数据源
+			tiles: ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+			tileSize: 512 //瓦片尺寸
+		});
+
+		map.addLayer({
+			id: "IMAGERY",
+			type: "raster", //图层类型为"raster"
+			source: "IMAGERY_SOURCE",
+			minzoom: 1,
+			maxzoom: 23
+		});
+		// 增加自定义数据源、自定义图层
+		minemap.util.getJSON(
+			"http://192.168.152.123:11187/demo-data/3d-ultra/assets/grid_data.json",
+			function (error, data) {
+				addSources(data);
+				addLayers();
+			}
+		);
+
+	});
+
+	function addSources(data) {
+		map.addSource("gridSource", {
+			type: "geojson",
+			data: data
+		});
+	}
+
+	function addLayers() {
+		//添加所有数据
+		map.addLayer({
+			id: "grid-layer",
+			type: "fill",
+			source: "gridSource",
+			paint: {
+				"fill-outline-color": "rgba(1, 0, 0, 0.4)",
+				"fill-color": "#40c0f5",
+				"fill-translate": [100, 10]
+			}
+		});
+
+	}
+
+	//添加translate的调节控件
+	const gui = new dat.GUI();//外部UI
+	const translateControl = gui.addFolder("图层的tranlate");
+	const translate = {
+		translateX: 100,
+		translateY: 10,
+	};
+
+	translateControl.add(translate, "translateX", 0, 100).onChange(updateLayerTranslate);
+	translateControl.add(translate, "translateY", 0, 100).onChange(updateLayerTranslate);
+
+	function updateLayerTranslate(data) {
+		map.setPaintProperty("grid-layer", "fill-translate", [translate.translateX, translate.translateY])
+	}
+</script>
+</body>
+</html>

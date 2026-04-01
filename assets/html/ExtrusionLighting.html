@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+		<title>Extrusion光照效果</title>
+		<link rel="stylesheet" href="../../dist/minemap.css" />
+		<script src="../../dist/minemap-dev.js"></script>
+		<style>
+			html,
+			body,
+			#map {
+				margin: 0;
+				padding: 0;
+				width: 100%;
+				height: 100%;
+			}
+		</style>
+	</head>
+
+	<body>
+		<div id="map"></div>
+		<script>
+			minemap.domainUrl = "https://minedata.cn";
+			minemap.serverDomainUrl = "https://sd-data.minedata.cn";
+			minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+			window.minemapCDN = "https://minedata.cn/minemapapi/minemap-CDN";
+
+			minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+			const style = {
+				glyphs: "minemap://fonts/{fontstack}/{range}",
+				sprite: "minemap://sprite/sprite",
+				sources: {},
+				layers: [],
+				version: 8
+			};
+			const map = new minemap.Map({
+				container: "map",
+				style: style,
+				center: [121.48926083297684, 31.234862028916028],
+				bearing: 40,
+				pitch: 55,
+				zoom: 14.3,
+				maxZoom: 22,
+				minZoom: 3
+			});
+
+			map.repaint = true;
+			map.enableLight();
+			map.enableShadow();
+
+			map.on("load", function () {
+				addRasterLayer();
+				addWater();
+				addPointLight();
+				addExtrusionLayer();
+			});
+
+			function addExtrusionLayer() {
+				map.addSource("buildingSource", {
+					type: "vector",
+					tiles: ["cloudservice://mvt-layer/merge/{z}/{r}/{c}/{z}_{x}_{y}.pbf"]
+				});
+				map.addLayer({
+					id: "buildingLayer",
+					maxzoom: 22,
+					paint: {
+						"extrusion-height": { property: "levels", type: "identity" },
+						"extrusion-color": "#b5f5d9",
+						"extrusion-base": 0,
+						"extrusion-opacity": 1.0,
+						"extrusion-translate-anchor": "viewport",
+						"extrusion-translate": [0, 0],
+						"extrusion-roughness": 0.5
+					},
+					source: "buildingSource",
+					"source-layer": "building",
+					type: "extrusion",
+					minzoom: 8
+				});
+			}
+
+			function addRasterLayer() {
+				map.addSource("3D_SOURCE", {
+					type: "raster",
+					tiles: ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"],
+					tileSize: 512,
+					maxzoom: 21
+				});
+				map.addLayer({
+					type: "raster",
+					id: "3d-layer",
+					source: "3D_SOURCE",
+					minzoom: 1,
+					maxzoom: 21,
+					layout: {}
+				});
+			}
+
+			function addPointLight() {
+				const lightCartographic = [121.48756083297684, 31.246862028916028, 250];
+				const lightColor = "#00ffff";
+
+				const pointLight = new minemap.PointLight(lightColor, 1, 1000);
+				pointLight.setPosition(
+					new minemap.Math.Vector3(minemap.Transforms.cartographicToCartesian3(lightCartographic))
+				);
+
+				map.addLight(pointLight);
+
+				const sphereGeometry = new minemap.Geometries.SphereGeometry({
+					radius: 50,
+					widthSegments: 100,
+					heightSegments: 100
+				});
+				const matrix = minemap.Transforms.cartographicToFixedFrame(new minemap.Math.Vector3(lightCartographic));
+				const primitive = new minemap.Primitive({
+					modelMatrix: matrix,
+					geometry: sphereGeometry,
+					material: minemap.StandardMaterial.fromType("Color", {
+						color: lightColor
+					})
+				});
+
+				map.addPrimitive(primitive);
+			}
+
+			function addWater() {
+				const waterVertex = [
+					[121.54346231721358, 31.25661309737318],
+					[121.54746552990011, 31.2533407978233],
+					[121.54448455903616, 31.2514098614739],
+					[121.54065975458467, 31.24867809318359],
+					[121.53410890051852, 31.24577178811547],
+					[121.52643601889704, 31.244540010465084],
+					[121.52150738204337, 31.24489283523849],
+					[121.51440398290983, 31.24571144547033],
+					[121.50820075168009, 31.24409610598948],
+					[121.49833265737601, 31.24148321408013],
+					[121.49508149392089, 31.239269019494834],
+					[121.4957172771744, 31.236728554666605],
+					[121.50035578346831, 31.232580974667258],
+					[121.50509793040644, 31.227781687454442],
+					[121.50969976358877, 31.22301334954365],
+					[121.51315842571826, 31.21684753509953],
+					[121.51188889994681, 31.214889486982848],
+					[121.50997268283393, 31.210123520152386],
+					[121.5067072944522, 31.205082398616195],
+					[121.50504331923074, 31.206081772803337],
+					[121.50380604316265, 31.206928069909114],
+					[121.50573032467969, 31.209231371184927],
+					[121.50737181047654, 31.212120877632188],
+					[121.5079558579515, 31.21513370363313],
+					[121.5069958938734, 31.21850178446046],
+					[121.5043123140723, 31.221967705328655],
+					[121.50227955879598, 31.224769008927538],
+					[121.50000825961514, 31.227065617501257],
+					[121.49572885145773, 31.23060102943155],
+					[121.49172033449895, 31.234859913988117],
+					[121.49046261751789, 31.238838241752386],
+					[121.49234353693488, 31.242717204811438],
+					[121.49581422177363, 31.245853967205957],
+					[121.499191539054, 31.246865128419905],
+					[121.50371575168704, 31.2489720565926],
+					[121.50888932130313, 31.249593648255885],
+					[121.51729020463337, 31.25022464758579],
+					[121.52427912785318, 31.24910003990449],
+					[121.530207407526, 31.25084390119674],
+					[121.53730871290466, 31.253428217491482],
+					[121.54018563601029, 31.25445273541083],
+					[121.54335354095609, 31.25648170897254]
+				];
+
+				for (let i = 0; i < waterVertex.length; i++) {
+					waterVertex[i].push(10);
+				}
+
+				const waterGeometry = new minemap.Geometries.PolygonGeometry({
+					polygonHierarchy: {
+						positions: minemap.Math.Vector3.fromDegreesArrayHeights(waterVertex.flat())
+					},
+					perPositionHeight: true,
+					arcType: minemap.ARCTYPE.GEODESIC
+				});
+
+				const waterPlanePrimitive = new minemap.Primitive({
+					geometry: waterGeometry,
+					material: new minemap.WaterMaterial({
+						normalMapA: minemap.TextureLoader.load({ map, texUrl: "../data/image/Water_1_M_Normal.jpg" }),
+						normalMapB: minemap.TextureLoader.load({ map, texUrl: "../data/image/Water_2_M_Normal.jpg" }),
+						depth: 200
+					})
+				});
+
+				map.addPrimitive(waterPlanePrimitive);
+			}
+		</script>
+	</body>
+</html>

@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+		<title>图元贴合-被投影物体禁止贴合</title>
+		<link rel="stylesheet" href="../style/demo.css" />
+		<!-- 引入MineMap API -->
+		<link rel="stylesheet" href="https://minemap.minedata.cn/minemapapi/v4.0.0/minemap.css" />
+		<script src="../../dist/minemap-dev.js"></script>
+		<style>
+			html,
+			body,
+			#map {
+				margin: 0;
+				width: 100%;
+				height: 100%;
+			}
+		</style>
+	</head>
+
+	<body>
+		<div id="map"></div>
+		<script>
+			/**
+			 * 全局参数设置
+			 */
+			minemap.domainUrl = "https://minemap.minedata.cn";
+			minemap.dataDomainUrl = "https://minemap.minedata.cn";
+			minemap.serverDomainUrl = "https://sd-data.minedata.cn";
+			minemap.spriteUrl = "http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite";
+			minemap.serviceUrl = "https://service.minedata.cn/service";
+
+			minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+			minemap.solution = 11001;
+			window.minemapCDN = "https://minemap.minedata.cn/minemapapi/minemap-CDN/"; // minemapCDN 配置
+
+			var style = {
+				glyphs: "minemap://fonts/{fontstack}/{range}",
+				sprite: "minemap://sprite/sprite",
+				sources: {},
+				layers: [],
+				version: 8
+			};
+
+			var center = [108.965014, 34.220905];
+
+			/*初始化地图实例*/
+			var map = new minemap.Map({
+				container: "map",
+				style: style,
+				// "style": "https://service.minedata.cn/map/solu/style/11001",
+				position: [108.96702910607269, 34.22029643775657, 537.0417054471116], //如果按照position写那么必须写 lng lat height，同时删掉zoom参数
+				bearing: -65.06348147552603,
+				pitch: 56.47945131466514, //地图俯仰角度
+				maxZoom: 22, //地图最大缩放等级
+				minZoom: 1, //地图最小缩放等级
+				// "logarithmicDepthBuffer": true, //开启后，可降低远距离模型闪烁
+				projection: "MERCATOR"
+			});
+
+			map.repaint = true;
+
+			map.on("load", function () {
+				/*添加DEM数字高程模型数据*/
+				map.addSource("3D_SOURCE", {
+					type: "raster", //DEM的数据类型为"raster"
+					tiles: ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+					tileSize: 512 //瓦片大小
+				});
+				map.addLayer({
+					type: "raster", //DEM的图层类型为"raster"
+					id: "3d-layer",
+					source: "3D_SOURCE",
+					minzoom: 1,
+					maxzoom: 20,
+					layout: {}
+				});
+				// map.setStyle("https://service.minedata.cn/map/solu/style/11001");
+				map.setTerrain({
+					type: "terrain", //DEM的数据类型为"raster"
+					tiles: ["https://staticdata-b.minedata.cn:14434/dem/{z}/{r}/{c}/{z}_{x}_{y}.terrain"], //瓦片服务地址
+					tileSize: 512, //瓦片大小
+					maxzoom: 14 //dem最高切分zoom，30米一般是14级；12.5米一般是16级
+				});
+				map.addSceneComponent({
+					id: "serve",
+					type: "3d-tiles",
+					url: "https://minemap.minedata.cn/earth_data/oblique/610000/610100/tileset.json",
+					skipLevelOfDetail: false, //跨层调度
+					maximumScreenSpaceError: 16,
+					sourceLoaded: (tileset) => {
+						console.log(tileset);
+					}
+				});
+				map.addSceneComponent({
+					id: "modelId",
+					type: "3d-model",
+					data: "http://192.168.152.123:11187/demo-data/models/LittlestTokyo.glb",
+					modelFolder: "https://minedata.cn/nce-static/support/demo/js-3d-ultra/zh/assets/models",
+					scale: [0.1, 0.1, 0.1], // 在xyz轴方向上的缩放比例
+					rotation: [90, 0, 0], // 绕xyz轴方向上的旋转，单位为度
+					position: [...center, 400], // 锚点（模型局部坐标原点）的经纬度位置
+					loaded: () => {
+						// 模型加载完成的回调函数
+					},
+					classificationType: minemap.ClassificationType.IGNORECLASSIFICATION // 模型选择拒绝单体化的数据贴合，此同样适用拒绝矢量的图层贴合
+				});
+				addPrimitives();
+			});
+
+			map.on("click", function (e) {
+				const feature = map.getFeatureByGPUPick(e.point);
+				if (feature && feature.material) {
+					if (feature.material instanceof minemap.StandardMaterial) {
+						feature.material.updateProperty({
+							color: new minemap.Color(Math.random(), Math.random(), Math.random(), 1)
+						});
+					} else {
+						feature.material._color = new minemap.Color(Math.random(), Math.random(), Math.random(), 1);
+					}
+				} else {
+					console.log("未选中任何要素");
+				}
+			});
+
+			function addPrimitives() {
+				const height = 50;
+				const linePosition = [
+					center[0] - 0.006,
+					center[1] - 0.006,
+					height,
+					center[0] - 0.001,
+					center[1] + 0.001,
+					height,
+					center[0] + 0.002,
+					center[1] + 0.002,
+					height,
+					center[0] - 0.0001,
+					center[1] - 0.0001,
+					height
+				];
+				const polygonPosition = [
+					...center,
+					center[0],
+					center[1] + 0.006,
+					center[0] + 0.006,
+					center[1],
+					...center
+				];
+				const lineGeometry = new minemap.Geometries.PolylineGeometry({
+					positions: minemap.Math.Vector3.fromDegreesArrayHeights(linePosition),
+					width: 10
+				});
+				const lineMaterial = new minemap.PolylineMaterial({
+					color: new minemap.Color(0.79, 0.21, 0.49, 0.5)
+					// dashed: true
+				});
+				const redPolylinePrimitive = new minemap.Primitive({
+					geometry: lineGeometry,
+					material: lineMaterial,
+					name: "polyline",
+					adaptTerrain: true, //贴合三维场景，单体化操作
+					allowPick: true
+				});
+				map.addPrimitive(redPolylinePrimitive);
+				window.line = redPolylinePrimitive;
+				const polygonGeometry = new minemap.Geometries.PolygonGeometry({
+					polygonHierarchy: {
+						positions: minemap.Math.Vector3.fromDegreesArray(polygonPosition)
+					},
+					height: 10
+				});
+				const polygonMaterial = minemap.StandardMaterial.fromType("Color", {
+					color: new minemap.Color(0.32, 0.71, 0.99, 0.5),
+					doubleSided: true
+				});
+				const polygonPrimitive = new minemap.Primitive({
+					geometry: polygonGeometry,
+					material: polygonMaterial,
+					adaptTerrain: true, //贴合三维场景，单体化操作
+					allowPick: true
+				});
+				map.addPrimitive(polygonPrimitive);
+			}
+		</script>
+	</body>
+</html>

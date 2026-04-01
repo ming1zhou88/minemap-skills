@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+	<title>自定义图层-Threejs-添加事件</title>
+	<link rel="stylesheet" href="../style/demo.css" />
+	<!-- 引入MineMap API插件 -->
+	<link rel="stylesheet" href="https://minemap.minedata.cn/minemapapi/v2.1.1/minemap.css" />
+	<script src="../../dist/minemap-dev.js"></script>
+
+	<style>
+		#map {
+			width: 100%;
+			height: 100%;
+		}
+	</style>
+</head>
+<body>
+<div class="card-panel card-panel-top-right toolContainer">
+	<div class="card-title">点击模型的蓝色部分，触发相应事件</div>
+</div>
+<div id="map"></div>
+<script type="module">
+	import * as THREE from "https://cdn.bootcdn.net/ajax/libs/three.js/0.166.1/three.module.js"
+
+	/**
+	 * 全局参数设置
+	 */
+	minemap.domainUrl = "https://minemap.minedata.cn";
+	minemap.dataDomainUrl = "https://minemap.minedata.cn";
+	minemap.serverDomainUrl = "https://sd-data.minedata.cn";
+	minemap.spriteUrl = "http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite";
+	minemap.serviceUrl = "https://service.minedata.cn/service";
+
+	minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+	minemap.solution = 11001;
+	const style = {
+		glyphs: "minemap://fonts/{fontstack}/{range}",
+		sprite: "minemap://sprite/sprite",
+		sources: {},
+		layers: [],
+		version: 8
+	};
+
+	var map = new minemap.Map({
+		container: "map",
+		style: style,
+
+		position: [116.36987198542292, 39.85244176899702, 1300],
+		zoom: 14,
+		bearing: 0,
+		pitch: 70,
+		projection: "MERCATOR"
+	});
+	map.repaint = true;
+
+	// 模型位置
+	const cartographic = new minemap.Math.Vector3([116.365, 39.88, 200]);
+	// 模型位置矩阵
+	const modelMatrix = new THREE.Matrix4().fromArray(
+		minemap.Transforms.cartographicToFixedFrame(cartographic)
+	);
+	// 缩放比例
+	const scale = 60;
+	const modelScale = new THREE.Vector3(scale, scale, scale);
+	// 模型缩放比例矩阵
+	modelMatrix.scale(modelScale);
+
+
+	class ThreeJSCubeDemo extends THREE.EventDispatcher{
+		constructor() {
+			super();
+			this.id = "mycustomlayer";
+			this.type = "custom";
+			this.renderingMode = "3d";
+			this.scale = 60; //建筑物模型的大小因子
+			this.camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 2000);
+			this.scene = new THREE.Scene();
+
+			var textureBlue = new THREE.TextureLoader().load(
+				"https://minedata.cn/nce-static/support/demo/js-api/zh/images/buildings/window.png"
+			); //加载纹理
+			textureBlue.magFilter = THREE.NearestFilter;
+			textureBlue.wrapS = THREE.RepeatWrapping; //纹理水平填充，此参数是指水平重复
+			textureBlue.wrapT = THREE.RepeatWrapping; //纹理垂直填充，此参数是指垂直重复
+			var textureYellow = new THREE.TextureLoader().load(
+				"https://minedata.cn/nce-static/support/demo/js-api/zh/images/buildings/window2.png"
+			); //加载纹理
+			textureYellow.magFilter = THREE.NearestFilter;
+			textureYellow.wrapS = THREE.RepeatWrapping; //纹理水平填充，此参数是指水平重复
+			textureYellow.wrapT = THREE.RepeatWrapping; //纹理垂直填充，此参数是指垂直重复
+
+			var ambientLight = new THREE.AmbientLight(0xcccccc); //环境光，必须开启，颜色可以自己定义
+			this.scene.add(ambientLight);
+
+			//提供拉伸体的二维平面形状
+			var length = 12,
+				width = 8; //设置拉伸体或者说是建筑物的长宽为12和8
+
+			var shapeBigYellow = new THREE.Shape();
+			shapeBigYellow.moveTo(0, 0); //首先移动到0,0点
+			shapeBigYellow.lineTo(0, width); //再移动到0，width点
+			shapeBigYellow.lineTo(length, width); //再移动到length，width点
+			shapeBigYellow.lineTo(length, 0); //再移动到length，0点
+			shapeBigYellow.lineTo(0, 0); //再移动到0，0点,画出一个完成的矩形，形状可以是任意形状，5边型6边型都可以
+
+			var shapeBlue = new THREE.Shape();
+			shapeBlue.moveTo(0, 0); //首先移动到0,0点
+			shapeBlue.lineTo(0, width); //再移动到0，width点
+			shapeBlue.lineTo(length - 2, width); //再移动到length - 2，width点
+			shapeBlue.lineTo(length - 2, 0); //再移动到length - 2，0点
+			shapeBlue.lineTo(0, 0); //再移动到0，0点,画出一个完成的矩形，形状可以是任意形状，5边型6边型都可以
+
+			var shapeSmallYellow = new THREE.Shape();
+			shapeSmallYellow.moveTo(0, 0); //首先移动到0,0点
+			shapeSmallYellow.lineTo(0, width); //再移动到0，width点
+			shapeSmallYellow.lineTo(length - 10, width); //再移动到length - 10，width点
+			shapeSmallYellow.lineTo(length - 10, 0); //再移动到length- 10，0点
+			shapeSmallYellow.lineTo(0, 0); //再移动到0，0点,画出一个完成的矩形，形状可以是任意形状，5边型6边型都可以
+
+			var extrudeSettings = {
+				steps: 2,
+				depth: 2, //建筑物的高度
+				bevelEnabled: false,
+				bevelSegments: 1
+			};
+
+			var geometryBlue = new THREE.ExtrudeGeometry(shapeBlue, extrudeSettings);
+			geometryBlue.translate(2, 7, 2); //建筑物模型的局部位置，[x,y,z]xy是水平面的坐标系，z是垂直方向上的坐标，z值越大建筑物会漂浮在空中
+
+			var geometryBigYellow = new THREE.ExtrudeGeometry(shapeBigYellow, extrudeSettings);
+			geometryBigYellow.translate(0, 2, 0); //建筑物模型的局部位置，[x,y,z]xy是水平面的坐标系，z是垂直方向上的坐标，z值越大建筑物会漂浮在空中
+
+			var geometrySmallYellow = new THREE.ExtrudeGeometry(shapeSmallYellow, extrudeSettings);
+			geometrySmallYellow.translate(0, 4, 2); //建筑物模型的局部位置，[x,y,z]xy是水平面的坐标系，z是垂直方向上的坐标，z值越大建筑物会漂浮在空中
+
+			var materialSideBlue = new THREE.MeshBasicMaterial({
+				map: textureBlue,
+				side: THREE.FrontSide
+			}); //创建建筑物侧面材质
+			var materialTop = new THREE.MeshBasicMaterial({
+				color: 0x00ff00
+			}); //创建建筑物顶面材质
+			var materialSideYellow = new THREE.MeshBasicMaterial({
+				map: textureYellow,
+				side: THREE.FrontSide
+			}); //创建建筑物侧面材质
+
+			this.extrusionBlue = new THREE.Mesh(geometryBlue, [materialTop, materialSideBlue]);
+			this.extrusionBlue.name = "小明";
+
+			this.extrusionBigYellow = new THREE.Mesh(geometryBigYellow, [materialTop, materialSideYellow]);
+			this.extrusionBigYellow.name = "小李";
+
+			this.extrusionSmallYellow = new THREE.Mesh(geometrySmallYellow, [materialTop, materialSideYellow]);
+			this.extrusionSmallYellow.name = "小周";
+
+			this.scene.add(this.extrusionBlue);
+			this.scene.add(this.extrusionSmallYellow);
+			this.scene.add(this.extrusionBigYellow);
+		}
+
+		onAdd(map, gl) {
+			this.map = map;
+			this.renderer = new THREE.WebGLRenderer({
+				canvas: map.getCanvas(),
+				context: gl
+			});
+
+			this.renderer.autoClear = false;
+		}
+
+		render(gl, framebuffer) {
+
+			// 设置Three.js相机投影矩阵,更新Three.js相机位置
+			this.camera.projectionMatrix = new THREE.Matrix4()
+				.fromArray(map.camera.getVPMatrix())
+				.multiply(modelMatrix);
+			this.renderer.state.reset();
+			// Three.js渲染器渲染场景到minemap的framebuffer
+			// 设置需要渲染到的framebuffer
+			if (framebuffer !== undefined) {
+				gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
+			}
+			this.renderer.render(this.scene, this.camera);
+			gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+		}
+
+		click() {
+			//给对象加一个click方法，调用此方法就可以发送一个‘mmClick’事件
+			this.dispatchEvent({
+				type: "mmClick",
+				message: "点击事件触发"
+			});
+		}
+	}
+
+	/**
+	 * 创建地图对象后，开始加载地图资源，地图资源加载完成后触发load事件
+	 */
+	map.on("load", function () {
+		map.addSource("IMAGERY_SOURCE", {
+			type: "raster", //数据源类型：栅格数据源
+			tiles: ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+			tileSize: 512 //瓦片尺寸
+		});
+
+		map.addLayer({
+			id: "IMAGERY",
+			type: "raster", //图层类型为"raster"
+			source: "IMAGERY_SOURCE",
+			minzoom: 1,
+			maxzoom: 23,
+			"depth-test": true,
+			paint: {
+				"raster-opacity": 1
+			}
+		});
+
+		/**
+		 * 地图加载完成后,加载自定义gl图层，调用自定义的ThreeJSCubeDemo类
+		 */
+		const cube = new ThreeJSCubeDemo();
+		map.addLayer(cube); //添加自定义图层
+
+		//给自定义图层对象添加一个事件监听器，当触发‘mmClick’事件，添加一个矩形块
+		cube.addEventListener("mmClick", function (event) {
+			//提供拉伸体的二维平面形状
+			var length = 12,
+				width = 8; //设置拉伸体或者说是建筑物的长宽为12和8
+
+			var shape = new THREE.Shape();
+			shape.moveTo(0, 0); //首先移动到0,0点
+			shape.lineTo(0, width); //再移动到0，width点
+			shape.lineTo(length, width); //再移动到length，width点
+			shape.lineTo(length, 0); //再移动到length，0点
+			shape.lineTo(0, 0); //再移动到0，0点,画出一个完成的矩形，形状可以是任意形状，5边型6边型都可以
+
+			var extrudeSettings = {
+				steps: 2,
+				depth: 2, //建筑物的高度
+				bevelEnabled: false,
+				bevelSegments: 1
+			};
+			var geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+			geometry.translate(2, 0, 4); //建筑物模型的局部位置，[x,y,z]xy是水平面的坐标系，z是垂直方向上的坐标，z值越大建筑物会漂浮在空中
+
+			var texture = new THREE.TextureLoader().load('https://minedata.cn/nce-static/support/demo/js-api/zh/images/buildings/window2.png'); //加载纹理
+			texture.magFilter = THREE.NearestFilter;
+			texture.wrapS = THREE.RepeatWrapping; //纹理水平填充，此参数是指水平重复
+			texture.wrapT = THREE.RepeatWrapping; //纹理垂直填充，此参数是指垂直重复
+
+			var material = new THREE.MeshBasicMaterial({
+				map: texture,
+				side: THREE.FrontSide
+			}); //创建建筑物侧面材质
+			var materialColor = new THREE.MeshBasicMaterial({
+				color: 0x00ff00
+			}); //创建建筑物顶面材质
+			var extrusion = new THREE.Mesh(geometry, [materialColor, material]);
+
+			cube.scene.add(extrusion);
+		});
+
+		//第二种触发事件的方式，可以实现鼠标在指定的模型上才能触发相应事件
+		// 添加鼠标点击事件
+		document.addEventListener("mousedown", mouseDownFuc);
+
+		//点击蓝色模型，才能触发事件
+		function mouseDownFuc(e) {
+			let raycaster = new THREE.Raycaster(); //创建光线投射对象
+			let mouse = new THREE.Vector2(); //创建二维平面
+			let intersectsObjArr = getSelsectOBj(mouse, raycaster, e); //通过封装的getSelsectOBj函数获取鼠标选中对象集合，e是点击事件对象
+
+			if (intersectsObjArr.length > 0) {
+				if (intersectsObjArr[0].object.name === "小李") {
+					intersectsObjArr[0].object.position.x = 10;
+					cube.click(); //触发自定义图层事件
+				}
+
+			}
+		}
+		//获取事件操作对象
+		function getSelsectOBj(mouse, raycaster, e) {
+			//将html坐标系转化为webgl坐标系，并确定鼠标点击位置
+			mouse.x = (e.clientX / cube.renderer.domElement.clientWidth) * 2 - 1;
+			mouse.y = -((e.clientY / cube.renderer.domElement.clientHeight) * 2) + 1;
+
+			//首先要求projection matrix的逆矩阵，将mapbox的二维平面坐标转换为空间三维矩阵.
+			//使用它来获得鼠标和摄像机在空间坐标系中的位置
+			//viewDirection只是从摄像头位置到鼠标位置的单位向量。
+			var camInverseProjection = cube.camera.projectionMatrix.clone().invert();
+			var cameraPosition = new THREE.Vector3().applyMatrix4(camInverseProjection);
+			var mousePosition = new THREE.Vector3(mouse.x, mouse.y, 1).applyMatrix4(camInverseProjection);
+			var viewDirection = mousePosition.clone().sub(cameraPosition).normalize();
+			raycaster.set(cameraPosition, viewDirection);
+
+			let intersects = raycaster.intersectObjects(cube.scene.children, true); //确定所点击位置上的物体数量集合
+			return intersects; //返回连线经过的物体集合
+		}
+	});
+</script>
+</body>
+</html>

@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+	<title>Fill面-表达式</title>
+	<link rel="stylesheet" href="../style/demo.css" />
+	<link rel="stylesheet" href="https://minemap.minedata.cn/minemapapi/v4.0.0/minemap.css" />
+	<script src="../../dist/minemap-dev.js"></script>
+
+	<style>
+		#map {
+			width: 100%;
+			height: 100%;
+		}
+	</style>
+</head>
+<body>
+<div id="map"></div>
+<script>
+	/**
+	 * 全局参数设置
+	 */
+	minemap.domainUrl = 'https://minemap.minedata.cn';
+	minemap.dataDomainUrl = 'https://minemap.minedata.cn';
+	minemap.serverDomainUrl = 'https://sd-data.minedata.cn';
+	minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+	minemap.serviceUrl = 'https://service.minedata.cn/service';
+
+	minemap.key = '0c6ac62182404e5ebc7a789981f6db72';
+	minemap.solution = 11001;
+
+	// 定义空底图样式
+	var style = {
+		glyphs: "minemap://fonts/{fontstack}/{range}",
+		sprite: "minemap://sprite/sprite",
+		sources: {},
+		layers: [{
+			"id": "background",
+			"type": "background",
+			"source": "",
+			"paint": {
+				"background-color": "green",
+				"background-opacity": 0.1
+			}
+		}],
+		version: 8
+	};
+
+	var map = new minemap.Map({
+		container: 'map',
+		style: style,
+		// style: style,
+		center: [105.46,36.12],
+		zoom: 3,
+		pitch: 0,
+		maxZoom: 17,
+		minZoom: 3,
+		projection: 'MERCATOR'
+	});
+	map.repaint = true;
+
+	var hoveredStateId = null;
+	map.on('load', function () {
+		map.addSource('provinces', {
+			'type': 'geojson',
+			'data': 'https://minedata.cn/nce-static/support/demo/js-api/zh/assets/geojson-level.json',
+			// 使用feature-state需要feature中必须含有id，如果没有，添加promoteId属性从properties中取该属性当作id
+			'promoteId': 'adcode'
+		});
+
+        // 当鼠标移入一个feature，修改它的feature-state，以改变透明度，实现选中效果
+        map.addLayer({
+            'id': 'provinces-fills',
+            'type': 'fill',
+            'source': 'provinces',
+            'layout': {},
+            'paint': {
+                "fill-pattern": [ // 条件表达式设置fill-pattern，这里还有问题待解决，暂时不要使用
+                        'case',
+                        ['<', ['get', 'levels'], 100], 'pattern_1',
+                        ['<', ['get', 'levels'], 1000], 'pattern_2',
+                        ['<', ['get', 'levels'], 2000], 'pattern_3',
+                        ['<', ['get', 'levels'], 3000], 'pattern_4',
+                        ['<=', ['get', 'levels'], 4000], 'pattern_5',
+                        ['<=', ['get', 'levels'], 5000], 'pattern_6',
+                    'pattern_1' // 默认值
+                ],
+				// "fill-color": '#3412ff',
+                'fill-opacity': [
+                    'case',
+                    ['boolean', ['feature-state', 'hover'], false],
+                    1,
+                    0.8
+                ]
+            }
+        });
+
+		map.addLayer({
+			'id': 'provinces-borders',
+			'type': 'line',
+			'source': 'provinces',
+			'layout': {},
+			'paint': {
+				'line-color': '#627BC1',
+				'line-width': 2
+			}
+		});
+
+		// 鼠标在'provinces-fills'图层移动时，更新鼠标所在feature的feature-state
+		map.on('mousemove', 'provinces-fills', function (e) {
+			if (e.features.length > 0) {
+				if (hoveredStateId) {
+					map.setFeatureState({
+						source: 'provinces',
+						id: hoveredStateId
+					}, {
+						hover: false
+					});
+				}
+				hoveredStateId = e.features[0].id;
+				map.setFeatureState({
+					source: 'provinces',
+					id: hoveredStateId
+				}, {
+					hover: true
+				});
+			}
+		});
+
+		map.on('mouseleave', 'provinces-fills', function () {
+			if (hoveredStateId) {
+				map.setFeatureState({
+					source: 'provinces',
+					id: hoveredStateId
+				}, {
+					hover: false
+				});
+			}
+			hoveredStateId = null;
+		});
+	});
+
+</script>
+</body>

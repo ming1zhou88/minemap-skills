@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+		<title>Directional Light</title>
+		<link rel="stylesheet" href="../../dist/minemap.css" />
+		<script src="../../dist/minemap-dev.js"></script>
+		<script src="../js/lil-gui.umd.min.js"></script>
+		<style>
+			html,
+			body,
+			#map {
+				margin: 0;
+				padding: 0;
+				width: 100%;
+				height: 100%;
+			}
+		</style>
+	</head>
+	<body>
+		<div id="map"></div>
+		<script>
+			minemap.domainUrl = "https://minedata.cn";
+			minemap.serverDomainUrl = "https://minedata.cn";
+			minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+			window.minemapCDN = "https://minedata.cn/minemapapi/minemap-CDN";
+
+			minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+
+			const style = {
+				glyphs: "minemap://fonts/{fontstack}/{range}",
+				sprite: "minemap://sprite/sprite",
+				sources: {},
+				layers: [],
+				version: 8
+			};
+
+			const map = new minemap.Map({
+				container: "map",
+				style: style,
+				center: [116.26531978613971, 40.05753009943292],
+				pitch: 51.694,
+				bearing: -177.317,
+				zoom: 14,
+				maxZoom: 22,
+				minZoom: 1
+			});
+
+			map.repaint = true;
+
+			map.on("load", function () {
+				initializeGUI();
+				addRasterLayer();
+				addSceneModel();
+				addLight();
+			});
+
+			// 开启光影
+			map.enableLight();
+			map.enableShadow();
+			map.setShadowType(minemap.ShadowType.SHADOW_MAP_PCF);
+
+			// 光影参数
+			const commonParams = {
+				enableLight: true,
+				enableShadow: true,
+				shadowType: minemap.ShadowType.SHADOW_MAP_PCF
+			};
+
+			const directionalParams = {
+				intensity: 1,
+				color: "#ffffff",
+				castShadow: true,
+				shadowBias: 0,
+				shadowNormalBias: 0.5,
+				shadowRadius: 3
+			};
+
+			map.getLights().sunLight.castShadow = false;
+
+			let directionalLight;
+
+			function addLight() {
+				addDirectionLight();
+			}
+
+			function addDirectionLight() {
+				const position = minemap.Transforms.cartographicToCartesian3([
+					116.28084236500333, 40.07054296210216, 2000
+				]);
+				const target = minemap.Transforms.cartographicToCartesian3([116.25184236500333, 40.07054296210216, 0]);
+				directionalLight = new minemap.DirectionalLight(directionalParams.color, directionalParams.intensity);
+				directionalLight.setPosition(new minemap.Math.Vector3(position));
+				directionalLight.setTarget(new minemap.Math.Vector3(target));
+				directionalLight.castShadow = directionalParams.castShadow;
+				directionalLight.shadow.bias = directionalParams.shadowBias;
+				directionalLight.shadow.normalBias = directionalParams.shadowNormalBias;
+				directionalLight.shadow.radius = directionalParams.shadowRadius;
+				map.addLight(directionalLight);
+			}
+
+			function initializeGUI() {
+				const gui = new lil.GUI({ width: 300 });
+				const common = gui.addFolder("Common");
+				const directional = gui.addFolder("Directional Light");
+
+				common.open();
+				common.add(commonParams, "enableLight").onChange((value) => {
+					if (value) map.enableLight();
+					else map.disableLight();
+				});
+				common.add(commonParams, "enableShadow").onChange((value) => {
+					if (value) map.enableShadow();
+					else map.disableShadow();
+				});
+				common
+					.add(commonParams, "shadowType")
+					.options({ Basic: minemap.ShadowType.SHADOW_MAP_BASIC, PCF: minemap.ShadowType.SHADOW_MAP_PCF })
+					.onChange((value) => {
+						map.setShadowType(value);
+					});
+
+				directional.open();
+				directional
+					.add(directionalParams, "intensity")
+					.min(0)
+					.max(5)
+					.step(0.1)
+					.onChange((value) => {
+						directionalLight.intensity = value;
+					});
+				directional.addColor(directionalParams, "color").onChange((value) => {
+					directionalLight.color = value;
+				});
+				directional.add(directionalParams, "castShadow").onChange((value) => {
+					directionalLight.castShadow = value;
+				});
+				directional
+					.add(directionalParams, "shadowBias")
+					.min(-0.01)
+					.max(0.01)
+					.step(0.00001)
+					.onChange((value) => {
+						directionalLight.shadow.bias = value;
+					});
+				directional
+					.add(directionalParams, "shadowNormalBias")
+					.min(-0.5)
+					.max(0.5)
+					.step(0.002)
+					.onChange((value) => {
+						directionalLight.shadow.normalBias = value;
+					});
+				directional
+					.add(directionalParams, "shadowRadius")
+					.min(1)
+					.max(10)
+					.step(1)
+					.onChange((value) => {
+						directionalLight.shadow.radius = value;
+					});
+			}
+
+			function addRasterLayer() {
+				map.addSource("IMAGERY_SOURCE", {
+					type: "raster", //数据源类型：栅格数据源
+					tiles: ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+					tileSize: 256 //瓦片尺寸
+				});
+
+				map.addLayer({
+					id: "IMAGERY",
+					type: "raster", //图层类型为"raster"
+					source: "IMAGERY_SOURCE",
+					minzoom: 1,
+					maxzoom: 23
+				});
+			}
+
+			function addSceneModel() {
+				map.addSceneComponent({
+					id: "modelA",
+					type: "3d-model",
+					data: "http://192.168.152.123:11187/demo-data/bim/only-building.gltf",
+					modelFolder: "http://192.168.152.123:11187/demo-data/bim/",
+					scale: new minemap.Math.Vector3([10, 10, 10]),
+					rotation: new minemap.Math.Vector3([90, 65, 0]),
+					position: new minemap.Math.Vector3([116.22544236500333, 40.03454296210216, 0.0]),
+					loaded: () => {},
+					castShadow: true,
+					receiveShadow: true
+				});
+
+				map.addSceneComponent({
+					id: "modelB",
+					type: "3d-model",
+					data: "http://192.168.152.123:11187/demo-data/models/LittlestTokyo.glb",
+					modelFolder: "https://minedata.cn/nce-static/support/demo/js-3d-ultra/zh/assets/models",
+					scale: new minemap.Math.Vector3([1, 1, 1]),
+					rotation: new minemap.Math.Vector3([90, 0, 0]),
+					position: new minemap.Math.Vector3([116.28544236500333, 40.06454296210216, 200]),
+					castShadow: true,
+					receiveShadow: true
+				});
+			}
+		</script>
+	</body>
+</html>

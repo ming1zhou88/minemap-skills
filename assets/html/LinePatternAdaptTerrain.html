@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+    <title>Line图层贴图贴地</title>
+    <link rel="stylesheet" href="../style/demo.css" />
+    <link rel="stylesheet" href="https://minemap.minedata.cn/minemapapi/v4.0.0/minemap.css" />
+    <script src="../../dist/minemap-dev.js"></script>
+
+    <style>
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="map"></div>
+    <script>
+        /**
+         * 全局参数设置
+         */
+        minemap.domainUrl = 'https://minemap.minedata.cn';
+        minemap.dataDomainUrl = 'https://minemap.minedata.cn';
+        minemap.serverDomainUrl = 'https://sd-data.minedata.cn';
+        minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+        minemap.serviceUrl = 'https://service.minedata.cn/service';
+
+        minemap.key = '0c6ac62182404e5ebc7a789981f6db72';
+        minemap.solution = 11001;
+
+        var map = new minemap.Map({
+            container: 'map',
+            style: '../data/style/with_symbol_height_p.json',
+            center: [116.46, 39.92],
+            zoom: 14,
+            pitch: 0,
+            maxZoom: 17,
+            minZoom: 3,
+            projection: 'MERCATOR'
+        });
+
+		map.setTerrain({
+			"tiles": ["https://staticdata-b.minedata.cn:14434/dem/{z}/{r}/{c}/{z}_{x}_{y}.terrain"], //瓦片服务地址
+			"tileSize": 512,  //瓦片大小
+			"availabilities": ["https://staticdata-b.minedata.cn:14434/dem/layer.json"], //索引文件是可选项
+		});
+
+        /**
+         * 创建地图对象后，开始加载地图资源，地图资源加载完成后触发load事件
+         */
+        map.on('load', function () {
+            // 增加自定义数据源、自定义图层
+            addSources();
+            addLayers();
+        });
+
+        function addSources() {
+            var center = map.getCenter();
+            var jsonData = {
+                "type": "FeatureCollection",
+                "features": [
+                    {
+                        "type": "Feature",
+                        "geometry": {
+                            "type": "LineString",
+                            "coordinates": [[center.lng - 0.005, center.lat + 0.005], [center.lng - 0.005, center.lat - 0.005]]
+                        },
+                        "properties": {
+                            "title": "路线一",
+                            "kind": 1
+                        },
+                    }, {
+                        "type": "Feature",
+                        "geometry": {
+                            "type": "LineString",
+                            "coordinates": [[center.lng - 0.004, center.lat], [center.lng, center.lat], [center.lng + 0.008, center.lat]]
+                        },
+                        "properties": {
+                            "title": "路线二",
+                            "kind": 2
+                        },
+                    }
+                ]
+            };
+            map.addSource("lineSource", {
+                "type": "geojson",
+                "data": jsonData,
+				adaptTerrain: true
+            });
+        }
+
+        map.atmosphere = false;
+
+        function addLayers() {
+            map.addLayer({
+                id: "lineLayer",
+                type: "line", //图层类型为"line"
+                source: "lineSource",
+                layout: {
+                    "line-join": "round",
+                    "line-cap": "round-butt",
+                    "border-visibility": "none",
+                    "line-miter-limit": 2,
+                    "line-round-limit": 1.05,
+                    visibility: "visible"
+                },
+                paint: {
+                    "line-width": 20,
+                    "line-width": [
+                        'case',
+                        ['==', ['get', 'kind'], 1], 15,
+                        ['==', ['get', 'kind'], 2], 20,
+                        20 // 默认值
+                    ],
+                    // "line-color": "#ff0000",
+                    "line-opacity": [
+                        'case',
+                        ['==', ['get', 'kind'], 1], 1.0,
+                        ['==', ['get', 'kind'], 2], 0.5,
+                        1.0 // 默认值
+                    ],
+                    // "line-offset": 0,
+                    // "line-blur": 0,
+                    // "line-dasharray": '',
+                    "line-pattern": [
+                        'case',
+                        ['==', ['get', 'kind'], 1], 'pattern_1',
+                        ['==', ['get', 'kind'], 2], 'pattern_3',
+                        'pattern_1' // 默认值
+                    ],
+                    "line-translate": [0, 0],
+                    "line-translate-anchor": "map",
+                    // "line-pattern": "pattern_1",
+                    "line-border-color": "#f9bd09ff",
+                    "line-border-width": 10,
+                    "line-border-opacity": 1
+                },
+                minzoom: 1,
+                maxzoom: 24
+            });
+        }
+
+    </script>
+</body>

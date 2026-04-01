@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+	<title>3dtiles数据进行逐id设色</title>
+	<!-- 引入MineMap API插件 -->
+	<link rel="stylesheet" href="../../dist/minemap.css" />
+	<script src="../../dist/minemap-dev.js"></script>
+	<style>
+		html,
+		body,
+		#map {
+			margin: 0;
+			padding: 0;
+			width: 100%;
+			height: 100%;
+		}
+
+		.toolContainer {
+			position: absolute;
+			top: 0;
+			left: 0;
+			z-index: 999;
+		}
+	</style>
+</head>
+<div class="toolContainer">
+	<button onclick="setTileFeaturesStyle(0)">开启颜色样式设定</button>
+	<button onclick="removeTileFeaturesStyle()">关闭颜色样式设定</button>
+	<button onclick="setTileFeaturesStyle(1)">开启显隐样式设定</button>
+	<button onclick="removeTileFeaturesStyle()">关闭显隐样式设定</button>
+	<button onclick="setTileFeaturesStyle(2)">开启颜色+显隐样式设定</button>
+	<button onclick="removeTileFeaturesStyle()">关闭颜色+显隐样式设定</button>
+</div>
+
+<body>
+<div id="map"></div>
+<script>
+	minemap.domainUrl = "https://minedata.cn";
+	minemap.dataDomainUrl = "https://minedata.cn";
+	minemap.serverDomainUrl = "https://minedata.cn";
+	minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+	minemap.serviceUrl = "https://minedata.cn/service/";
+
+	minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+	minemap.solution = 11001;
+	window.minemapCDN = 'https://minedata.cn/minemapapi/minemap-CDN'; // minemapCDN 配置
+	// window.minemapCDN = "http://192.168.152.123/minemap-engine/minemap-CDN/"; // minemapCDN 配置 http://192.168.152.123/
+
+	// 定义空底图样式
+	var style = {
+		glyphs: "minemap://fonts/{fontstack}/{range}",
+		sprite: "minemap://sprite/sprite",
+		sources: {},
+		layers: [],
+		version: 8
+	};
+	/**
+	 * 初始化地图实例
+	 */
+
+	var map = new minemap.Map({
+		container: "map",
+		style: style,
+		position: [119.27903279452657, 26.0208926166619, 50],
+		maxZoom: 100 /*地图最大缩放等级*/,
+		minZoom: 1 /*地图最小缩放等级*/
+	});
+	map.repaint = true;
+
+	let selectId;
+	function pickStyle(feature) {
+		const properties = feature.getProperties();
+
+		if(properties.id === selectId){
+			feature.color = "yellow";
+		}
+	}
+
+	function colorStyle(feature) {
+		const properties = feature.getProperties();
+
+		//具体有什么字段需要看数据里面是否有对应生成的，也可以打印properties信息查看
+
+		if (properties.id === "e56b06c51e1049195d7b26d043c478a0") {
+			feature.color = "rgba(255,0,0,0.8)";
+		}
+
+		if(properties.id === 'c8ed21db4f678f3b13b9d5ee16489088'){
+			feature.color = "brown";
+		}
+
+		if(properties.id === selectId){
+			feature.color = "yellow";
+		}
+
+		if (properties.name === "D300705") {
+			feature.color = "rgba(0,255,0,0.8)";
+		}
+
+	}
+
+	function visibleStyle(feature) {
+		const properties = feature.getProperties();
+
+		//具体有什么字段需要看数据里面是否有对应生成的，也可以打印properties信息查看
+
+		if(properties.id === selectId){
+			feature.color = "yellow";
+		}
+
+		if (properties.id === "26337353b7962f533d78c762373b3318") {
+			feature.show = false;
+		}
+
+		if(properties.id === '647bba344396e7c8170902bcf2e15551'){
+			feature.show = false;
+		}
+
+		const names = ["D300903","D301112","D301216","D301008","D300904","D301113"];
+		for(let i = 0;i<names.length;i++){
+			if (properties.name === names[i]) {
+				feature.show = false;
+			}
+		}
+
+
+	}
+
+	function mergedStyle(feature) {
+		const properties = feature.getProperties();
+
+		//具体有什么字段需要看数据里面是否有对应生成的，也可以打印properties信息查看
+
+		if (properties.id === "e56b06c51e1049195d7b26d043c478a0") {
+			feature.color = "rgba(255,0,0,0.8)";
+		}
+
+		if(properties.id === 'c8ed21db4f678f3b13b9d5ee16489088'){
+			feature.color = "brown";
+		}
+
+		if (properties.name === "D300705") {
+			feature.color = "rgba(0,255,0,0.8)";
+		}
+
+		if(properties.id === selectId){
+			feature.color = "yellow";
+		}
+
+		if (properties.id === "26337353b7962f533d78c762373b3318") {
+			feature.show = false;
+		}
+
+		if(properties.id === '647bba344396e7c8170902bcf2e15551'){
+			feature.show = false;
+		}
+
+		const names = ["D300903","D301112","D301216","D301008","D300904","D301113"];
+		for(let i = 0;i<names.length;i++){
+			if (properties.name === names[i]) {
+				feature.show = false;
+			}
+		}
+
+	}
+
+	map.on("load", function () {
+		/*添加栅格图*/
+		map.addSource("IMAGERY_SOURCE", {
+			"type": "raster",//数据源类型：栅格数据源
+			"tiles": ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+			"tileSize": 512,//瓦片尺寸
+		});
+
+		map.addLayer({
+			"id": "IMAGERY",
+			"type": "raster", //图层类型为"raster"
+			"source": "IMAGERY_SOURCE",
+			"minzoom": 1,
+			"maxzoom": 23,
+			"depth-test": true,
+		});
+
+		// 3dtiles
+		const tileset = map.addSceneComponent({
+			id: "serve",
+			type: "3d-tiles",
+			show: true,
+			urls: [{url:"../data/seat-3dtiles/tileset.json", name: "test"}],
+			maximumScreenSpaceError: 8,
+			sourceLoaded: (tileset) => {
+				console.log(tileset);
+			},
+			/**
+			 * 飞行选择
+			 * index: 指定飞行目标(优先)
+			 * combine: 合并bounds为飞行目标
+			 */
+			geoBoundsOptions: {
+				index: 1,
+				combine: true
+			},
+			allowPick: true,
+			lightingModel: minemap.LightingModelType.NONE,
+		});
+		window.tileset = tileset;
+
+		tileset.setTileFeatureStyle(colorStyle);
+	});
+
+	function setTileFeaturesStyle(id){
+		selectId = undefined;
+		window.tileset.setTileFeatureStyle();
+		if(window.tileset){
+			if(id==0){
+				window.tileset.setTileFeatureStyle(colorStyle);
+			} else if(id == 1){
+				window.tileset.setTileFeatureStyle(visibleStyle);
+			} else if(id == 2){
+				window.tileset.setTileFeatureStyle(mergedStyle);
+			}
+
+		}
+	}
+
+	function removeTileFeaturesStyle(){
+		if(window.tileset){
+			window.tileset.setTileFeatureStyle(null);
+		}
+	}
+
+	map.on("click", function (e) {
+		let currentFn = window.tileset.tileFeatureStyleUpdateFunction;
+		if (!currentFn) {
+			currentFn = pickStyle;
+		}
+
+		const feature = map.getFeatureByGPUPick(e.point);
+		// 包含json文件时才解析
+		if (feature && feature._content && feature._content.json) {
+			// 更新id
+			selectId = feature.getProperty("id");
+		} else {
+			// 更新id
+			selectId = undefined;
+			console.log("未选中任何要素");
+		}
+		window.tileset.setTileFeatureStyle();
+		window.tileset.setTileFeatureStyle(currentFn);
+	});
+
+
+
+</script>
+</body>
+
+</html>

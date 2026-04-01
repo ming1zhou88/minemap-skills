@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<title>Measurement3D</title>
+		<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+		<!-- 引入MineMap API插件 -->
+		<link rel="stylesheet" href="../../dist/minemap.css" />
+		<script src="../../dist/minemap-dev.js"></script>
+		<style>
+			html,
+			#map,
+			body {
+				margin: 0;
+				padding: 0;
+				width: 100%;
+				height: 100%;
+			}
+
+			.toolContainer {
+				position: absolute;
+				top: 0;
+				left: 0;
+				z-index: 999;
+			}
+
+			#text {
+				position: absolute;
+				z-index: 999;
+				top: 16px;
+				right: 14px;
+				background: #fff;
+				border-radius: 2px;
+			}
+
+			.text-content {
+				line-height: 38px;
+				padding: 0 16px 0 12px;
+			}
+		</style>
+	</head>
+	<div id="text"></div>
+	<div class="toolContainer">
+		<button onclick="area()">空间面积测量</button>
+		<button onclick="distance()">空间距离测量</button>
+		<button onclick="height()">空间三角测量</button>
+	</div>
+
+	<body>
+		<div id="map"></div>
+		<script>
+			minemap.domainUrl = "//192.168.152.123";
+			minemap.dataDomainUrl = "https://minedata.cn";
+			minemap.serverDomainUrl = "https://minedata.cn";
+			minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+			minemap.serviceUrl = "https://minedata.cn/service/";
+
+			minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+			minemap.solution = 11001;
+			window.minemapCDN = "https://minedata.cn/minemapapi/minemap-CDN";
+
+			// 定义空底图样式
+			var style = {
+				glyphs: "minemap://fonts/{fontstack}/{range}",
+				sprite: "minemap://sprite/sprite",
+				sources: {},
+				layers: [],
+				version: 8
+			};
+			var map = new minemap.Map({
+				container: "map",
+				style: style,
+				/*球面矢量底图样式*/
+				position: [120.38015644605872, 36.070400027482705, 802.2547815688738],
+				bearing: 3.440371431313398,
+				pitch: 57.131963270641805,
+				logDepth: true,
+				maxZoom: 22, //地图最大缩放级别限制
+				minZoom: 1 //地图最小缩放级别限制
+			});
+			map.repaint = true;
+
+			/**
+			 * Attention:
+			 * 面积量算：左键添加点，右键结束；
+			 * 距离量算：左键添加点，右键结束；
+			 * 高度量算：左键第一次添加起点，左键第二次添加终点，并结束测量；
+			 *
+			 * TODO:
+			 * 目前已支持线面的的动态绘制，但空间高度测量需要另绘geometry,
+			 * 暂时先使用Polyline
+			 */
+			let areaStart = false,
+				distanceStart = false,
+				heightStart = false,
+				polylinePrimitive = undefined,
+				polygonPrimitive = undefined;
+			let positions = [],
+				tempPoint = [];
+			function area() {
+				areaStart = true;
+				distanceStart = false;
+				heightStart = false;
+				positions = [];
+				removePrimitive(polylinePrimitive, polygonPrimitive);
+				polylinePrimitive = undefined;
+				polygonPrimitive;
+				createPolygon();
+				createPolyline();
+			}
+
+			function distance() {
+				areaStart = false;
+				distanceStart = true;
+				heightStart = false;
+				positions = [];
+				removePrimitive(polylinePrimitive, polygonPrimitive);
+				createPolyline();
+			}
+
+			function height() {
+				areaStart = false;
+				distanceStart = false;
+				heightStart = true;
+				positions = [];
+				removePrimitive(polylinePrimitive, polygonPrimitive);
+				createPolyline();
+			}
+
+			function createPolygon() {
+				polygonPrimitive = new minemap.Primitive({
+					geometry: new minemap.Geometries.PolygonGeometry({
+						polygonHierarchy: {
+							positions: function () {
+								const results = positions.concat(tempPoint);
+								// 判断是否自相交，如果自相交则该点不进入数组内
+								if (
+									results.length > 3 &&
+									minemap.Geometries.PolygonGeometry.isSelfIntersection(results, true)
+								) {
+									return positions;
+								} else {
+									return results;
+								}
+							}
+						},
+						perPositionHeight: true
+					}),
+					material: minemap.StandardMaterial.fromType("Color", {
+						color: "red",
+						doubleSided: true
+					}),
+					name: "polygon"
+				});
+				map.addPrimitive(polygonPrimitive);
+			}
+
+			function createPolyline() {
+				polylinePrimitive = new minemap.Primitive({
+					geometry: new minemap.Geometries.PolylineGeometry({
+						positions: function () {
+							return positions.concat(tempPoint);
+						},
+						width: 2,
+						arcType: minemap.ARCTYPE.GEODESIC
+					}),
+					material: new minemap.PolylineMaterial({
+						color: "red"
+					}),
+					name: "polyline"
+				});
+				map.addPrimitive(polylinePrimitive);
+			}
+
+			function removePrimitive(polylinePrimitive, polygonPrimitive) {
+				if (polylinePrimitive !== undefined) {
+					map.removePrimitive(polylinePrimitive);
+				}
+
+				if (polygonPrimitive !== undefined) {
+					map.removePrimitive(polygonPrimitive);
+				}
+			}
+
+			map.on("click", function (e) {
+				if (areaStart || distanceStart || heightStart) {
+					const point = map.painter.getPositionByGPUPick(e.point);
+					const position = minemap.Math.Vector3.fromDegrees(point.x, point.y, point.z);
+					positions.push(position);
+				}
+
+				if (areaStart && positions.length > 1) {
+					removePrimitive(polylinePrimitive);
+				}
+
+				if (heightStart && positions.length === 2) {
+					tempPoint = [];
+					const heightPositions = [];
+					positions.forEach((item) => {
+						heightPositions.push(vector3ToLatLng(item));
+					});
+					const height = minemap.Measurement3D.height(heightPositions[0], heightPositions[1]);
+					heightStart = false;
+					document.getElementById("text").innerHTML =
+						'<span class="text-content">空间三角测量:' +
+						"<br>平距:" +
+						height.horizontalDistance +
+						"米" +
+						"<br>斜距:" +
+						height.spatialDistance +
+						"米" +
+						"<br>垂距:" +
+						height.verticalHeight +
+						"米" +
+						"</span>";
+				}
+			});
+
+			// mouseMove
+			map.on("mousemove", function (e) {
+				if (areaStart || distanceStart || heightStart) {
+					tempPoint = [];
+					const point = map.painter.getPositionByGPUPick(e.point);
+					tempPoint.push(minemap.Math.Vector3.fromDegrees(point.x, point.y, point.z));
+				}
+			});
+
+			// rightClick
+			map.on("contextmenu", function (e) {
+				let measureContent;
+				if (areaStart) {
+					tempPoint = [];
+					const areaPositions = [];
+					positions.forEach((item) => {
+						areaPositions.push(vector3ToLatLng(item));
+					});
+
+					let areaM = minemap.Measurement3D.area(areaPositions);
+					measureContent = "面积:" + areaM + "平方米";
+					areaStart = false;
+				} else if (distanceStart) {
+					tempPoint = [];
+					const distancePositions = [];
+					positions.forEach((item) => {
+						distancePositions.push(vector3ToLatLng(item));
+					});
+					let distance = minemap.Measurement3D.distance(distancePositions);
+					measureContent = "距离:" + distance + "米";
+					distanceStart = false;
+				}
+
+				if (measureContent !== undefined) {
+					document.getElementById("text").innerHTML =
+						'<span class="text-content">' + measureContent + "</span>";
+				}
+			});
+
+			let cartographic, longitude, latitude;
+			function vector3ToLatLng(vector) {
+				cartographic = minemap.Math.Cartographic.fromVector3(vector);
+				longitude = minemap.Math.toDegrees(cartographic.longitude);
+				latitude = minemap.Math.toDegrees(cartographic.latitude);
+				return new minemap.Math.Vector3(longitude, latitude, cartographic.height);
+			}
+
+			map.on("load", function () {
+				/*添加栅格图*/
+				map.addSource("IMAGERY_SOURCE", {
+					type: "raster", //数据源类型：栅格数据源
+					tiles: ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+					tileSize: 512 //瓦片尺寸
+				});
+
+				map.addLayer({
+					id: "IMAGERY",
+					type: "raster", //图层类型为"raster"
+					source: "IMAGERY_SOURCE",
+					minzoom: 1,
+					maxzoom: 23
+				});
+
+				const tileset = map.addSceneComponent({
+					id: "serve",
+					type: "3d-tiles",
+					show: true,
+					urls: [{ url: `https://minemap.minedata.cn/earth_data/oblique/QD/tileset.json`, name: 1 }]
+				});
+
+				const model = map.addSceneComponent({
+					id: "serve1",
+					type: "3d-model",
+					data: "http://192.168.152.123:11187/demo-data/bim/only-building.gltf",
+					modelFolder: "http://192.168.152.123:11187/demo-data/bim/",
+					position: [120.37618100413485, 36.07991622472278, 1],
+					rotation: [90, 0, 0]
+				});
+			});
+		</script>
+	</body>
+</html>

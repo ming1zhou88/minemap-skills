@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8"/>
+	<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no"/>
+	<title>渐变geometry</title>
+	<!-- demo样式文件 -->
+	<link rel="stylesheet" href="../style/demo.css"/>
+	<!-- 引入MineMap API插件 -->
+	<link rel="stylesheet" href="../../dist/minemap.css"/>
+	<!-- <script src="../../dist/minemap-dev.js"></script> -->
+	<script src="../../dist/minemap-dev.js"></script>
+
+	<style>
+		#map {
+			width: 100%;
+			height: 100%;
+		}
+	</style>
+</head>
+
+<body>
+<div id="map"></div>
+<script>
+	/**
+	 * 全局参数设置
+	 */
+	minemap.domainUrl = 'https://minemap.minedata.cn';
+	minemap.dataDomainUrl = 'https://minemap.minedata.cn';
+	minemap.serverDomainUrl = 'https://sd-data.minedata.cn';
+	minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+	minemap.serviceUrl = 'https://service.minedata.cn/service';
+
+	minemap.key = '0c6ac62182404e5ebc7a789981f6db72';
+	minemap.solution = 11001;
+
+	// 定义空底图样式
+	var style = {
+		"glyphs": "minemap://fonts/{fontstack}/{range}",
+		"sprite": "minemap://sprite/sprite",
+		"sources": {},
+		"layers": [],
+		"version": 8
+	};
+
+	/**
+	 * 初始化地图实例
+	 */
+	var map = new minemap.Map({
+		container: 'map',
+		style: style, /*底图样式*/
+		position: [115.01604069030742, 39.12404464078398, 282459.8147600806],
+		bearing: -60.18063971008843,
+		pitch: 0.420011678883969,
+		maxZoom: 22, /*地图最大缩放等级*/
+		minZoom: 1,  /*地图最小缩放等级*/
+		projection: 'MERCATOR'
+	});
+	map.repaint = true;
+
+	const cartographics = [];
+	// 业务值
+	const values = [];
+	// 构成三角形的索引(可以看下webgl立方体的点索引)
+	let index = [];
+	const totalCount = 50;
+	const halfCount = totalCount / 2;
+	for (let i = 0; i < totalCount; i++) {
+		for (let j = 0; j < totalCount; j++) {
+			cartographics.push(115 + (i + j) * Math.sin(i / totalCount * 2 * Math.PI) * 0.01, 39 + (i + j) * Math.cos(i / totalCount * 2 * Math.PI) * 0.01, 200 + Math.random() * 1000);
+			values.push(Math.round(i % 8));
+		}
+	}
+
+	for (let i = 1; i < totalCount; i++) {
+		for (let j = 0; j < totalCount - 1; j++) {
+			index.push((i - 1) * totalCount + j, i * totalCount + j, i * totalCount + j + 1);
+			index.push(i * totalCount + j + 1, (i - 1) * totalCount + j, (i - 1) * totalCount + j + 1);
+		}
+	}
+
+	// 空间坐标点
+	const positions = minemap.Math.Vector3.fromDegreesArrayHeights(cartographics);
+
+	const gradientColorBoxGeometry = new minemap.Geometries.GradientColorBoxGeometry({ positions, index, values });
+
+	const material = new minemap.GradientColorBoxMaterial({
+		gradientColor: [  // 业务值区间，对应颜色渐变区间(这个示例每个点对应一个业务值)
+			[0, getRandomColor()],
+			[1, getRandomColor()],
+			[2, getRandomColor()],
+			[3, getRandomColor()],
+			[4, getRandomColor()],
+			[5, getRandomColor()],
+			[6, getRandomColor()],
+			[7, getRandomColor()],
+			[8, getRandomColor()]
+		],
+		doubleSided: true
+	});
+
+	const primitive = new minemap.Primitive({
+		geometry: gradientColorBoxGeometry,
+		material: material,
+		name: "gradientColorBoxGeometry"
+	})
+	map.addPrimitive(primitive);
+
+	map.on('load', function () {
+		/*添加栅格图*/
+		map.addSource("IMAGERY_SOURCE", {
+			type: "raster", //数据源类型：栅格数据源
+			tiles: ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+			tileSize: 512 //瓦片尺寸
+		});
+
+		map.addLayer({
+			id: "IMAGERY",
+			type: "raster", //图层类型为"raster"
+			source: "IMAGERY_SOURCE",
+			minzoom: 1,
+			maxzoom: 23,
+			paint: {
+				"raster-opacity": 1
+			}
+		});
+
+	});
+	// 更新数据
+	setTimeout(() => {
+		// // 空间坐标点
+		// const positions = minemap.Math.Vector3.fromDegreesArrayHeights(
+		//     [115.005, 39.005, 0,
+		//         115.0051, 39.0061, 0,
+		//         115.0061, 39.0051, 0,
+		//         115.0061, 39.0061, 0,
+		//         115.0051, 39.0051, 2000,
+		//         115.0051, 39.0061, 2000,
+		//         115.0061, 39.0051, 2000,
+		//         115.0061, 39.0061, 2000]);
+		//
+		// const geometryOptions = {
+		//     positions: positions,
+		//     index: index,
+		//     values: values
+		// };
+		//
+		// // 更新几何属性
+		// gradientColorBoxGeometry.setData(geometryOptions);
+
+		const materialOptions = {
+			gradientColor: [
+				// 业务值区间，对应颜色渐变区间(这个示例每个点对应一个业务值)
+				[0, getRandomColor()],
+				[1, getRandomColor()],
+				[2, getRandomColor()],
+				[3, getRandomColor()],
+				[4, getRandomColor()],
+				[5, getRandomColor()],
+				[6, getRandomColor()],
+				[7, getRandomColor()],
+				[8, getRandomColor()]
+			],
+			doubleSided: true
+		};
+
+		// 更新材质属性
+		material.updateMaterialProperty(materialOptions)
+	}, 5000);
+
+	function getRandomColor() {
+		return `rgba(${Math.random() * 255},${Math.random() * 255},${Math.random() * 255},${Math.random() * 0.5 + 0.5})`
+	}
+
+</script>
+</body>
+
+</html>

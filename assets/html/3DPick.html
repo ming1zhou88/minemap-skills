@@ -1,0 +1,170 @@
+<!--
+ * @FileDescription:
+ * @Author: weipeng@cennavi.com.cn
+ * @Date: 2022-11-10 09:51:42
+ * @LastEditors: liwei
+ * @LastEditTime: 2023-04-25 14:22:03
+ * @FilePath: \MineMap3DEngine\demo\html\3DPick.html
+-->
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+	<title>三维实体高度查询</title>
+	<link rel="stylesheet" href="../style/demo.css" />
+
+	<title>gpuPick</title>
+	<!--	<script src="http://192.168.153.116:18111/minemapapi/v4.0.0/minemap.js"></script>-->
+	<link rel="stylesheet" href="../../dist/minemap.css">
+	<script src="../../dist/minemap-dev.js"></script>
+
+	<style>
+		html,
+		body,
+		#map {
+			margin: 0;
+			padding: 0;
+			width: 100%;
+			height: 100%;
+		}
+
+		#text {
+			position: fixed;
+			z-index: 999;
+			top: 16px;
+			right: 14px;
+			background: #fff;
+			border-radius: 1px;
+		}
+
+		.text-content {
+			line-height: 38px;
+			padding: 0 16px 0 12px;
+		}
+	</style>
+</head>
+
+<body>
+	<div id="map">
+		<div id="text" class="toolContainer"></div>
+	</div>
+
+	<script>
+		/**
+		 * 全局参数设置
+		 */
+		minemap.domainUrl = "https://minedata.cn";
+		minemap.dataDomainUrl = "https://minedata.cn";
+		minemap.serverDomainUrl = "https://minedata.cn";
+		minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+		minemap.serviceUrl = "https://minedata.cn/service/";
+
+		minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+		minemap.solution = 11001;
+		window.minemapCDN = 'https://minedata.cn/minemapapi/minemap-CDN'; // minemapCDN 配置
+
+		// 定义空底图样式
+		var style = {
+			glyphs: "minemap://fonts/{fontstack}/{range}",
+			sprite: "minemap://sprite/sprite",
+			sources: {},
+			layers: [
+				{
+					id: "background",
+					type: "background",
+					source: "",
+					paint: {
+						"background-color": "#005100",
+					},
+				},
+			],
+			version: 8,
+		};
+
+		/**
+		 * 初始化地图实例
+		 */
+		var map = new minemap.Map({
+			container: "map",
+			style: style /*球面矢量底图样式*/,
+			center: [120.38350045826306, 36.09331460005243] /*地图中心点*/,
+			zoom: 15 /*地图默认缩放等级*/,
+			pitch: 0 /*地图俯仰角度*/,
+			bearing: 0 /*地图旋转角度*/,
+			maxZoom: 22 /*地图最大缩放等级*/,
+			minZoom: 1 /*地图最小缩放等级*/,
+			projection: "MERCATOR",
+		});
+		map.repaint = true;
+
+		//设置地形数据
+		map.setTerrain({
+			"tiles": ["https://staticdata-b.minedata.cn:14434/dem/{z}/{r}/{c}/{z}_{x}_{y}.terrain"], //瓦片服务地址
+			"tileSize": 512,  //瓦片大小
+			"maxzoom": 14        //dem最高切分zoom，30米一般是14级；12.5米一般是16级
+		});
+
+		map.on("load", function () {
+			/*添加DEM数字高程模型数据*/
+			map.addSource("3D_SOURCE", {
+				type: "raster", //DEM的数据类型为"raster"
+				tiles: [
+					"https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg",
+				], //瓦片服务地址
+				tileSize: 512, //瓦片大小
+			});
+			map.addLayer({
+				type: "raster", //DEM的图层类型为"raster"
+				id: "3d-layer",
+				source: "3D_SOURCE",
+				minzoom: 1,
+				maxzoom: 20,
+				layout: {},
+			});
+
+			const tileset = map.addSceneComponent({
+				id: "serve",
+				type: "3d-tiles",
+				show: true,
+				url: "https://staticdata-b.minedata.cn:14434/oblique/tileset.json",
+				skipLevelOfDetail: false, //跨层调度
+				maximumScreenSpaceError: 16,
+				sourceLoaded: (tileset) => {
+					map.flyTo({
+						center: [120.38807, 36.085351],
+						zoom: 15,
+					});
+				}
+			});
+
+			const popup = new minemap.Popup({
+				closeOnClick: false,
+				closeButton: false,
+				anchor: "top-left",
+				offset: [10, 5],
+			})
+				.setHTML(
+					`<div class="minemap-popup-diy-jw toolContainer">点击获取当前位置高度</div>`
+				)
+				.trackPointer() //此方法可以让popup跟随鼠标指针，使用此方法就不再需要使用setLngLat()方法
+				.addTo(map);
+			// 点击地图，获取位置点高度
+			map.on("click", function (e) {
+				const point = map.getPositionByGPUPick(e.point);
+				document.getElementById("text").innerHTML =
+					'<span class="text-content toolContainer">获取经纬度为：' +
+					point[0] +
+					"," +
+					point[1] +
+					'</span><span class="text-content toolContainer">获取高度为：' +
+					point[2].toFixed(2) +
+					"米</span>";
+			});
+		});
+	</script>
+</body>
+
+</html>

@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+		<title>干扰分析</title>
+		<link rel="stylesheet" href="../../dist/minemap.css" />
+		<script src="../../dist/minemap-dev.js"></script>
+		<script type="text/javascript" src="../js/lil-gui.umd.min.js"></script>
+		<style>
+			html,
+			body,
+			#map {
+				margin: 0;
+				padding: 0;
+				width: 100%;
+				height: 100%;
+			}
+		</style>
+	</head>
+	<body>
+		<div id="map"></div>
+		<script>
+			/**
+			 * 全局参数设置
+			 */
+			minemap.domainUrl = "http://192.168.152.123";
+			minemap.dataDomainUrl = "https://minedata.cn";
+			minemap.serverDomainUrl = "https://minedata.cn";
+			minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+			minemap.serviceUrl = "https://minedata.cn/service/";
+			minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+			minemap.solution = 11001;
+			window.minemapCDN = "http://192.168.152.123//minemapapi/minemap-CDN";
+
+			var style = {
+				glyphs: "minemap://fonts/{fontstack}/{range}",
+				sprite: "minemap://sprite/sprite",
+				sources: {},
+				layers: [],
+				version: 8
+			};
+
+			var map = new minemap.Map({
+				container: "map",
+				style: style,
+				position: [113.43647458493244, 35.72767601841212, 3397.8410026715087],
+				pitch: 60,
+				bearing: 0,
+				logDepth: true,
+				maxZoom: 22, //地图最大缩放级别限制
+				minZoom: 1 //地图最小缩放级别限制
+			});
+			map.repaint = true;
+
+			//设置地形数据
+			map.setTerrain({
+				tiles: ["https://staticdata-b.minedata.cn:14434/dem/{z}/{r}/{c}/{z}_{x}_{y}.terrain"], //瓦片服务地址
+				tileSize: 512, //瓦片大小
+				maxzoom: 16 //dem最高切分zoom，30米一般是14级；12.5米一般是16级
+			});
+
+			map.on("load", function () {
+				/*添加栅格图*/
+				map.addSource("raster1", {
+					type: "raster", //数据源类型：栅格数据源
+					tiles: ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"],
+					maxzoom: 16,
+					tileSize: 512 //瓦片尺寸
+				});
+
+				map.addLayer({
+					id: "raster1",
+					type: "raster", //图层类型为"raster"
+					source: "raster1",
+					minzoom: 1,
+					maxzoom: 23,
+					"depth-test": true
+				});
+
+				initializeGUI();
+
+				setTimeout(() => {
+					createByParameter();
+				}, 2000);
+			});
+
+			const params = {
+				分析类型: "接收传入分析结果",
+				高度: 1563,
+				半径: 800,
+				是否显示: true,
+				球体显示类型: "全部显示",
+				球体可见区域颜色: "#0000FF",
+				球体隐藏区域颜色: "#ff0000",
+				投影面显示类型: "全部显示",
+				投影面可见区域颜色: "#00FF00",
+				投影面隐藏区域颜色: "#ff0000",
+				视点指示器: true,
+				参数化创建: createByParameter,
+				点击添加: addInterference,
+				移除: remove,
+				移除所有: removeAll,
+				联合分析: addConjoined,
+				移除联合分析: removeConjoined,
+				移除所有联合分析: removeAllConjoined
+			};
+
+			let interference,
+				analysisType = minemap.AnalysisType.AUTONOMOUS_COMPUTING,
+				sphereType = minemap.AnalysisVisibleType.ALL,
+				projectionPlaneType = minemap.AnalysisVisibleType.ALL;
+
+			function initializeGUI() {
+				const gui = new lil.GUI({ title: "干扰分析", width: 300 });
+				gui.onChange((event) => {
+					params[event.property] = event.value;
+				});
+
+				const paramsFolder = gui.addFolder("参数设置");
+				paramsFolder.open();
+
+				paramsFolder
+					.add(params, "分析类型")
+					.options(["接收传入分析结果", "自主计算分析结果"])
+					.onChange(function (value) {
+						if (value === "自主计算分析结果") {
+							analysisType = minemap.AnalysisType.AUTONOMOUS_COMPUTING;
+						} else if (value === "接收传入分析结果") {
+							analysisType = minemap.AnalysisType.ACCEPT_COMPUTING;
+						}
+					});
+
+				paramsFolder
+					.add(params, "高度", 0, 9000, 1)
+					.onChange((value) => {
+						if (interference) {
+							interference.viewPosition = new minemap.Math.Vector3(
+								interference.viewPosition.x,
+								interference.viewPosition.y,
+								value
+							);
+						}
+					})
+					.listen();
+
+				paramsFolder.add(params, "半径", 0, 3000, 1).onChange((value) => {
+					if (interference) {
+						interference.radius = value;
+					}
+				});
+
+				paramsFolder.add(params, "是否显示").onChange((value) => {
+					if (interference) {
+						interference.show = value;
+					}
+				});
+
+				paramsFolder
+					.add(params, "球体显示类型")
+					.options(["可见部分", "不可见部分", "全部显示", "不显示"])
+					.onChange(function (value) {
+						switch (value) {
+							case "可见部分":
+								sphereType = minemap.AnalysisVisibleType.VISIBLE;
+								break;
+							case "不可见部分":
+								sphereType = minemap.AnalysisVisibleType.HIDDEN;
+								break;
+							case "不显示":
+								sphereType = minemap.AnalysisVisibleType.NONE;
+								break;
+							default:
+								sphereType = minemap.AnalysisVisibleType.ALL;
+								break;
+						}
+
+						if (interference) {
+							interference.sphereType = sphereType;
+						}
+					});
+
+				paramsFolder.addColor(params, "球体可见区域颜色").onChange((value) => {
+					if (interference) {
+						const visibleColor = minemap.Color.parse(value);
+						visibleColor.a = 0.3;
+						interference.sphereVisibleAreaColor = visibleColor;
+					}
+				});
+
+				paramsFolder.addColor(params, "球体隐藏区域颜色").onChange((value) => {
+					if (interference) {
+						const hiddenAreaColor = minemap.Color.parse(value);
+						hiddenAreaColor.a = 0.3;
+						interference.sphereHiddenAreaColor = hiddenAreaColor;
+					}
+				});
+
+				paramsFolder
+					.add(params, "投影面显示类型")
+					.options(["可见部分", "不可见部分", "全部显示", "不显示"])
+					.onChange(function (value) {
+						switch (value) {
+							case "可见部分":
+								projectionPlaneType = minemap.AnalysisVisibleType.VISIBLE;
+								break;
+							case "不可见部分":
+								projectionPlaneType = minemap.AnalysisVisibleType.HIDDEN;
+								break;
+							case "不显示":
+								projectionPlaneType = minemap.AnalysisVisibleType.NONE;
+								break;
+							default:
+								projectionPlaneType = minemap.AnalysisVisibleType.ALL;
+								break;
+						}
+
+						if (interference) {
+							interference.projectionPlaneType = projectionPlaneType;
+						}
+					});
+
+				paramsFolder.addColor(params, "投影面可见区域颜色").onChange((value) => {
+					if (interference) {
+						const visibleColor = minemap.Color.parse(value);
+						visibleColor.a = 0.3;
+						interference.projectionPlaneVisibleAreaColor = visibleColor;
+					}
+				});
+
+				paramsFolder.addColor(params, "投影面隐藏区域颜色").onChange((value) => {
+					if (interference) {
+						const hiddenAreaColor = minemap.Color.parse(value);
+						hiddenAreaColor.a = 0.3;
+						interference.projectionPlaneHiddenAreaColor = hiddenAreaColor;
+					}
+				});
+
+				paramsFolder.add(params, "视点指示器").onChange((value) => {
+					if (interference) {
+						interference.indicatorVisible = value;
+					}
+				});
+
+				const drawFolder = gui.addFolder("绘制");
+				drawFolder.open();
+
+				drawFolder.add(params, "参数化创建");
+				drawFolder.add(params, "点击添加");
+				drawFolder.add(params, "移除");
+				drawFolder.add(params, "移除所有");
+				drawFolder.add(params, "联合分析");
+				drawFolder.add(params, "移除联合分析");
+				drawFolder.add(params, "移除所有联合分析");
+			}
+
+			let addNewInterference = false;
+			function addInterference() {
+				addNewInterference = true;
+			}
+
+			function remove() {
+				map.analysis.interferenceCollection.removeByIndex(map.analysis.interferenceCollection.length - 1);
+				// map.analysis.interferenceCollection.remove(interference);
+			}
+
+			function removeAll() {
+				map.analysis.interferenceCollection.removeAll();
+			}
+
+			function createByParameter() {
+				const height = params.高度;
+				// 半径
+				const radius = params.半径;
+				const sphereAlpha = 0.2;
+				// 球体可见区域颜色
+				const sphereVisibleColor = minemap.Color.parse(params.球体可见区域颜色);
+				sphereVisibleColor.a = sphereAlpha;
+				// 球体不可见区域颜色
+				const sphereHiddenColor = minemap.Color.parse(params.球体隐藏区域颜色);
+				sphereHiddenColor.a = sphereAlpha;
+
+				const projectionAlpha = 0.3;
+				// 投影面可见区域颜色
+				const projectionVisibleColor = minemap.Color.parse(params.投影面可见区域颜色);
+				projectionVisibleColor.a = projectionAlpha;
+				// 投影面不可见区域颜色
+				const projectionHiddenColor = minemap.Color.parse(params.投影面隐藏区域颜色);
+				sphereHiddenColor.a = projectionAlpha;
+				// 是否添加视点指示器
+				const indicatorVisible = params.视点指示器;
+
+				if (analysisType === minemap.AnalysisType.AUTONOMOUS_COMPUTING) {
+					//自主计算分析结果
+					interference = new minemap.Interference({
+						viewPosition: new minemap.Math.Vector3(113.43810394591816, 35.75498676432862, height),
+						radius: radius,
+						id: "interference",
+						interferenceType: minemap.AnalysisType.AUTONOMOUS_COMPUTING,
+						sphereVisibleAreaColor: sphereVisibleColor,
+						sphereHiddenAreaColor: sphereHiddenColor,
+						projectionVisibleAreaColor: projectionVisibleColor,
+						projectionHiddenAreaColor: projectionHiddenColor,
+						indicatorVisible: indicatorVisible
+					});
+				} else {
+					// 贴纹理模式
+					const lngLatBounds = new minemap.LngLatBounds(
+						new minemap.LngLat(113.4291262357097736, 35.746009054120222),
+						new minemap.LngLat(113.4470816561265707, 35.7639644745370262)
+					);
+
+					const center = lngLatBounds.getCenter();
+					interference = new minemap.Interference({
+						id: "interference",
+						interferenceType: minemap.AnalysisType.ACCEPT_COMPUTING,
+						viewPosition: new minemap.Math.Vector3(center.lng, center.lat, 1541),
+						radius: 800,
+						lngLatBounds: lngLatBounds,
+						projectionTexture: minemap.TextureLoader.load({
+							map,
+							flipY: true,
+							texUrl: "../data/interference.png" //纹理为测试图片，请主动替换相关
+						})
+					});
+				}
+				map.analysis.interferenceCollection.add(interference);
+			}
+
+			function addIndicator(checkbox) {
+				if (interference) {
+					interference.indicatorVisible = checkbox.checked;
+				}
+			}
+
+			function addConjoined() {
+				if (map.analysis.interferenceCollection.length < 2) {
+					alert("至少需要两个干扰分析");
+					return;
+				}
+
+				/**
+				 * 以下计算经纬度边框的方法不是通用方法，仅供引擎测试使用！！！！！！！！！！！！
+				 * 联合分析的经纬度范围由服务端提供！！！！！！！！！！！！！！！！！！！！！！！
+				 * 使用联合分析方法时，请主动替换相关方法！！！！！！！！！！！！！！！！！！！！
+				 */
+				/*********************************************************************/
+				/**↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓*/
+
+				let positions = [];
+				const interferences = [];
+				for (let i = 0; i < map.analysis.interferenceCollection.length; i++) {
+					const interference = map.analysis.interferenceCollection.getByIndex(i);
+					interferences.push(interference);
+					positions = positions.concat(calculatePositions(interference));
+				}
+
+				const { west, south, east, north } = calculateBounds(positions);
+				/**↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑*/
+				/*********************************************************************/
+
+				const lngLatBounds = new minemap.LngLatBounds(
+					new minemap.LngLat(west, south),
+					new minemap.LngLat(east, north)
+				);
+				const conjoinedInterference = new minemap.InterferenceConjoined({
+					interferences: interferences,
+					lngLatBounds: lngLatBounds,
+					projectionTexture: minemap.TextureLoader.load({
+						map,
+						texUrl: "../data/interference.jpg", //纹理为测试图片，请主动替换相关
+						flipY: true
+					})
+				});
+				map.analysis.interferenceCollection.addConjoined(conjoinedInterference);
+
+				// 或者使用以下方式添加
+				// const conjoinedInterference = new minemap.InterferenceConjoined();
+				// conjoinedInterference.add(
+				// 	[interference],
+				// 	lngLatBounds,
+				// 	minemap.TextureLoader.load({
+				// 		map,
+				// 		texUrl: "../data/interference.jpg" // 纹理为测试图片，请主动替换相关
+				// 	})
+				// );
+			}
+
+			function removeConjoined() {
+				map.analysis.interferenceCollection.removeConjoinedByIndex(
+					map.analysis.interferenceCollection.conjoinedLength - 1
+				);
+			}
+
+			function removeAllConjoined() {
+				map.analysis.interferenceCollection.removeAllConjoined();
+			}
+
+			function calculatePositions(interference) {
+				const vertices = interference._vertices;
+				const worldMatrix = interference._worldMatrix;
+				const positions = [];
+				for (let i = 0; i < vertices.length; i += 3) {
+					const vector = new minemap.Math.Vector3(
+						vertices[i] * interference._radius,
+						vertices[i + 1] * interference._radius,
+						vertices[i + 2] * interference._radius
+					);
+
+					positions.push(
+						minemap.Math.Matrix4.multiplyByPoint(worldMatrix, vector, new minemap.Math.Vector3())
+					);
+				}
+
+				return positions;
+			}
+
+			function calculateBounds(vectors) {
+				let west = Number.MAX_VALUE;
+				let east = -Number.MAX_VALUE;
+				let westOverIDL = Number.MAX_VALUE;
+				let eastOverIDL = -Number.MAX_VALUE;
+				let south = Number.MAX_VALUE;
+				let north = -Number.MAX_VALUE;
+				const resultCartographic = new minemap.Math.Cartographic();
+
+				for (let i = 0, len = vectors.length; i < len; i++) {
+					const position = minemap.Math.Cartographic.fromVector3(vectors[i]);
+					west = Math.min(west, position.longitude);
+					east = Math.max(east, position.longitude);
+					south = Math.min(south, position.latitude);
+					north = Math.max(north, position.latitude);
+
+					const lonAdjusted =
+						position.longitude >= 0 ? position.longitude : position.longitude + 2.0 * Math.PI;
+					westOverIDL = Math.min(westOverIDL, lonAdjusted);
+					eastOverIDL = Math.max(eastOverIDL, lonAdjusted);
+				}
+
+				if (east - west > eastOverIDL - westOverIDL) {
+					west = westOverIDL;
+					east = eastOverIDL;
+
+					if (east > Math.PI) {
+						east = east - 2.0 * Math.PI;
+					}
+					if (west > Math.PI) {
+						west = west - 2.0 * Math.PI;
+					}
+				}
+
+				return {
+					west: minemap.Math.toDegrees(west),
+					south: minemap.Math.toDegrees(south),
+					east: minemap.Math.toDegrees(east),
+					north: minemap.Math.toDegrees(north)
+				};
+			}
+
+			map.on("click", function (e) {
+				if (addNewInterference) {
+					billboardPrimitive = undefined;
+					const point = map.getPositionByGPUPick(e.point);
+					const instance = map.getFeatureByGPUPick(e.point);
+
+					const sphereAlpha = 0.2;
+					// 球体可见区域颜色
+					const sphereVisibleColor = minemap.Color.parse(params.球体可见区域颜色);
+					sphereVisibleColor.a = sphereAlpha;
+					// 球体不可见区域颜色
+					const sphereHiddenColor = minemap.Color.parse(params.球体隐藏区域颜色);
+					sphereHiddenColor.a = sphereAlpha;
+
+					const projectionAlpha = 0.3;
+					// 投影面可见区域颜色
+					const projectionVisibleColor = minemap.Color.parse(params.投影面可见区域颜色);
+					projectionVisibleColor.a = projectionAlpha;
+					// 投影面不可见区域颜色
+					const projectionHiddenColor = minemap.Color.parse(params.投影面隐藏区域颜色);
+					projectionHiddenColor.a = projectionAlpha;
+
+					// 干扰分析半径
+					const radius = params.半径;
+					// 干扰分析是否显示
+					const interferenceVisible = params.是否显示;
+					// 是否添加视点指示器
+					const indicatorVisible = params.视点指示器;
+
+					if (analysisType === minemap.AnalysisType.AUTONOMOUS_COMPUTING) {
+						interference = new minemap.Interference({
+							viewPosition: point, // 视点位置
+							radius: radius, // 干扰分析半径
+							interferenceType: minemap.AnalysisType.AUTONOMOUS_COMPUTING,
+							show: interferenceVisible, // 显示
+							sphereType: sphereType, // 球体显示类型
+							sphereVisibleAreaColor: sphereVisibleColor, // 球体可见部分颜色
+							sphereHiddenAreaColor: sphereHiddenColor, // 球体不可见部分颜色
+							projectionPlane: projectionPlaneType, // 投影面显示类型
+							projectionPlaneVisibleAreaColor: projectionVisibleColor, // 投影面可见部分颜色
+							projectionPlaneHiddenAreaColor: projectionHiddenColor, // 投影面不可见部分颜色
+							indicatorVisible: indicatorVisible // 是否添加视点指示器
+						});
+					} else {
+						// 贴纹理模式
+						const diffLng = 0.008977710208398548;
+						const diffLat = 0.008977710208402101;
+						const lngLatBounds = new minemap.LngLatBounds(
+							new minemap.LngLat(point.x - diffLng, point.y - diffLat),
+							new minemap.LngLat(point.x + diffLng, point.y + diffLat)
+						);
+
+						const center = lngLatBounds.getCenter();
+						interference = new minemap.Interference({
+							id: "interference",
+							interferenceType: minemap.AnalysisType.ACCEPT_COMPUTING,
+							viewPosition: new minemap.Math.Vector3(center.lng, center.lat, point.z),
+							radius: 800,
+							lngLatBounds: lngLatBounds,
+							projectionTexture: minemap.TextureLoader.load({
+								map,
+								flipY: true,
+								texUrl: "../data/interference.png" //纹理为测试图片，请主动替换相关
+							})
+						});
+					}
+
+					map.analysis.interferenceCollection.add(interference);
+					addNewInterference = false;
+				}
+			});
+		</script>
+	</body>
+</html>

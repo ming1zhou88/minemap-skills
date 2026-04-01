@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+	<title>3dtiles数据进行逐id设色</title>
+	<!-- 引入MineMap API插件 -->
+	<link rel="stylesheet" href="http://192.168.152.123/minemapapi/v4.0.0/minemap.css" />
+	<script src="../../dist/minemap-dev.js"></script>
+	<style>
+		html,
+		body,
+		#map {
+			margin: 0;
+			padding: 0;
+			width: 100%;
+			height: 100%;
+		}
+
+		.toolContainer {
+			position: absolute;
+			top: 0;
+			left: 0;
+			z-index: 999;
+		}
+	</style>
+</head>
+<div class="toolContainer">
+	<button onclick="setTileFeaturesStyle(0)">开启颜色样式设定</button>
+	<button onclick="removeTileFeaturesStyle()">关闭颜色样式设定</button>
+	<button onclick="setTileFeaturesStyle(1)">开启显隐样式设定</button>
+	<button onclick="removeTileFeaturesStyle()">关闭显隐样式设定</button>
+	<button onclick="setTileFeaturesStyle(2)">开启颜色+显隐样式设定</button>
+	<button onclick="removeTileFeaturesStyle()">关闭颜色+显隐样式设定</button>
+	<br>
+	<div id="deskinfo" style="background-color: aliceblue;"></div>
+	<br>
+	<button onclick="showTLG()">显隐天灵盖</button>
+</div>
+
+<script>
+	function showTLG() {
+		show = !show;
+		tileset.setShowByUrlName(show, "utyw");
+		// tileset.setOpacityByUrlName(1.0, "utyw");
+	}
+
+</script>
+
+<body>
+<div id="map"></div>
+<script>
+	minemap.domainUrl = "https://minedata.cn";
+	minemap.dataDomainUrl = "https://minedata.cn";
+	minemap.serverDomainUrl = "https://minedata.cn";
+	minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+	minemap.serviceUrl = "https://minedata.cn/service/";
+
+	minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+	minemap.solution = 11003;
+	// window.minemapCDN = 'https://minedata.cn/minemapapi/minemap-CDN'; // minemapCDN 配置
+	window.minemapCDN = "http://192.168.152.123/minemap-engine/minemap-CDN/"; // minemapCDN 配置 http://192.168.152.123/
+	// window.minemapCDN = 'https://minemap.minedata.cn/minemapapi/minemap-CDN/'; // minemapCDN 配置
+
+	// 定义空底图样式
+	var style = {
+		glyphs: "minemap://fonts/{fontstack}/{range}",
+		sprite: "minemap://sprite/sprite",
+		sources: {},
+		layers: [],
+		version: 8
+	};
+	/**
+	 * 初始化地图实例
+	 */
+
+	var map = new minemap.Map({
+		container: "map",
+		// style,
+		style: style,
+		center: [119.2796417374573, 26.01982318049367],
+		pitch: 41.95810183674179,
+		bearing: -0.005472748689603888,
+		zoom: 16.86521575980471,
+		maxZoom: 100 /*地图最大缩放等级*/,
+		minZoom: 1 /*地图最小缩放等级*/
+	});
+	map.repaint = true;
+
+	function colorStyle(feature) {
+		const properties = feature.getProperties();
+
+		//具体有什么字段需要看数据里面是否有对应生成的，也可以打印properties信息查看
+
+		if (properties.id === "e56b06c51e1049195d7b26d043c478a0") {
+			feature.color = "rgba(255,0,0,0.8)";
+		}
+
+		if (properties.id === 'c8ed21db4f678f3b13b9d5ee16489088') {
+			feature.color = "brown";
+		}
+
+		if (properties.name === "D300705") {
+			feature.color = "rgba(0,255,0,0.8)";
+		}
+
+		// 上
+		var names = ["ATZQKT059", "ATZQKT060", "ATZQKT061", "ATZQKT062",
+			"ATZQKT063", "ATZQKT064", "ATZQKT065", "ATZQKT066",
+			"ATZQKT051", "ATZQKT050", "ATZQKT049", "ATZQKT048",
+			"ATZQKT047", "ATZQKT046", "ATZQKT045", "ATZQKT044"];
+		for (let i = 0; i < names.length; i++) {
+			if (properties.name === names[i]) {
+				feature.color = "rgba(255,0,0,0.8)";
+			}
+		}
+
+
+		////////////////////////////////////////////////////////////////////////////////
+		// 隐藏天灵盖，显示座位颜色
+		var names = ["TYCSW12", "TYCSW15", "TYCSW09", "TYCSW04"];
+		for (let i = 0; i < names.length; i++) {
+			if (properties.name === names[i]) {
+				feature.show = false;
+			}
+		}
+		// 左
+		names = ["ATZQKT056", "ATZQKT052", "ATZQKT055", "ATZQKT054",
+			"ATZQKT053", "ATZQKT071", "ATZQKT070", "ATZQKT072",
+			"ATZQKT067", "ATZQKT069", "ATZQKT075", "ATZQKT073",
+			"ATZQKT073", "ATZQKT074", "ATZQKT024", "ATZQKT025",
+			"ATZQKT026", "ATZQKT023", "ATZQKT027", "ATZQKT028",
+			"ATZQKT029"];
+		for (let i = 0; i < names.length; i++) {
+			if (properties.name === names[i]) {
+				feature.color = "rgba(255,255,0,0.8)";
+			}
+		}
+
+		// 右
+		var names = ["ATZQKT006", "ATZQKT005", "ATZQKT004", "ATZQKT003",
+			"ATZQKT002", "ATZQKT001", "ATZQKT021", "ATZQKT022",
+			"ATZQKT020", "ATZQKT040", "ATZQKT039", "ATZQKT037",
+			"ATZQKT038", "ATZQKT008", "ATZQKT042", "ATZQKT009",
+			"ATZQKT010", "ATZQKT041", "ATZQKT011", "ATZQKT012"];
+		for (let i = 0; i < names.length; i++) {
+			if (properties.name === names[i]) {
+				feature.color = "rgba(0,255,0,0.8)";
+			}
+		}
+
+		// 下
+		var names = ["ATZQKT043", "ATZQKT013", "ATZQKT014", "ATZQKT015",
+			"ATZQKT016", "ATZQKT017", "ATZQKT018", "ATZQKT019",
+			"ATZQKT036", "ATZQKT035", "ATZQKT034", "ATZQKT033",
+			"ATZQKT032", "ATZQKT031", "ATZQKT030"];
+		for (let i = 0; i < names.length; i++) {
+			if (properties.name === names[i]) {
+				feature.color = "rgba(0,0,255,0.8)";
+			}
+		}
+		////////////////////////////////////////////////////////////////////////////////
+	}
+
+	function visibleStyle(feature) {
+		const properties = feature.getProperties();
+
+		//具体有什么字段需要看数据里面是否有对应生成的，也可以打印properties信息查看
+
+		if (properties.id === "26337353b7962f533d78c762373b3318") {
+			feature.show = false;
+		}
+
+		if (properties.id === '647bba344396e7c8170902bcf2e15551') {
+			feature.show = false;
+		}
+
+		var names = ["D300903", "D301112", "D301216", "D301008", "D300904", "D301113"];
+		for (let i = 0; i < names.length; i++) {
+			if (properties.name === names[i]) {
+				feature.show = false;
+			}
+		}
+
+		names = ["TYCSW12", "TYCSW15", "TYCSW09", "TYCSW04"];
+		for (let i = 0; i < names.length; i++) {
+			if (properties.name === names[i]) {
+				feature.color = "rgba(255,0,0,0.8)";
+			}
+		}
+	}
+
+	function mergedStyle(feature) {
+		const properties = feature.getProperties();
+
+		//具体有什么字段需要看数据里面是否有对应生成的，也可以打印properties信息查看
+
+		if (properties.id === "e56b06c51e1049195d7b26d043c478a0") {
+			feature.color = "rgba(255,0,0,0.8)";
+		}
+
+		if (properties.id === 'c8ed21db4f678f3b13b9d5ee16489088') {
+			feature.color = "brown";
+		}
+
+		if (properties.name === "D300705") {
+			feature.color = "rgba(0,255,0,0.8)";
+		}
+
+		if (properties.id === "26337353b7962f533d78c762373b3318") {
+			feature.show = false;
+		}
+
+		if (properties.id === '647bba344396e7c8170902bcf2e15551') {
+			feature.show = false;
+		}
+
+		var names = ["D300903", "D301112", "D301216", "D301008", "D300904", "D301113"];
+		for (let i = 0; i < names.length; i++) {
+			if (properties.name === names[i]) {
+				feature.show = false;
+			}
+		}
+
+
+		names = ["D300903", "D301112", "D301216", "D301008", "D300904", "D301113"];
+		for (let i = 0; i < names.length; i++) {
+			if (properties.name === names[i]) {
+				feature.show = false;
+			}
+		}
+
+	}
+
+	let tileset, show;
+
+	map.on("load", function () {
+		// /*添加栅格图*/
+		map.addSource("IMAGERY_SOURCE", {
+			"type": "raster",//数据源类型：栅格数据源
+			"tiles": ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+			"tileSize": 256,//瓦片尺寸
+		});
+		map.addLayer({
+			"id": "IMAGERY",
+			"type": "raster", //图层类型为"raster"
+			"source": "IMAGERY_SOURCE",
+			"minzoom": 1,
+			"maxzoom": 23,
+			"depth-test": true,
+		});
+
+		// TextureLoader只支持加载长宽均为2的n次方的图片
+		const arrowTexture = minemap.TextureLoader.load({
+			map,
+			texUrl: "http://192.168.152.123/minemap-engine/EngineCanaryDemo//image/arrow2.png"
+		});
+
+		flowOptions = {
+			flowTexture: arrowTexture,
+			speed: 10,           // 速度取值范围：1-10, 值越大，流动速度越快
+			direction: "right",   // 纹理流动方向，取值：left,right,up,down
+			rotation: 0,         // 纹理旋转角度，取值范围：0-360
+			texOffset: [0, 0.5], // 横纵纹理偏移量，取值范围：0-1
+			texRepeat: [0, 2], // 横纵纹理重复次数。设置lengthAttribute后仅第二个值，即纵向纹理重复次数生效
+			texUnit: 2, // 横向纹理单元长度，以length/texUnit确定横向纹理重复的次数
+			lengthAttribute: "GXCD" // 横向要素长度字段名称，与texUnit配合使用。如果不设置或读取不到对应属性，则横向纹理重复次数生效
+		};
+
+
+		// 3dtiles
+		tileset = map.addSceneComponent({
+			id: "serve",
+			type: "3d-tiles",
+			show: true,
+			urls: [
+				{
+					url: "http://192.168.152.227:3333/sportsvenue-style/utyfl/tileset.json",
+					name: "utyfl",
+					opacity: 0.5
+				}, {
+					url: "http://192.168.152.227:3333/sportsvenue-style/utyk/tileset.json",
+					name: "utyk"
+				}, {
+					url: "http://192.168.152.227:3333/sportsvenue-style/utyol/tileset.json",
+					name: "utyol",
+					opacity: 0.5
+				}, {
+					url: "http://192.168.152.227:3333/sportsvenue-style/utysl/tileset.json",
+					name: "utysl",
+					opacity: 0.5
+				}, {
+					url: "http://192.168.152.227:3333/sportsvenue-style/utys/tileset.json",
+					name: "utys",
+					opacity: 0.5
+				}, {
+					url: "http://192.168.152.227:3333/sportsvenue-style/utytl/tileset.json",
+					name: "utytl",
+					opacity: 0.5
+				},
+				{
+					url: "http://192.168.152.227:3333/sportsvenue-style/utyw/tileset.json",
+					name: "utyw",
+					show: show,
+				},
+				{
+					url: "http://192.168.152.227:3333/sportsvenue-style/utyxs/tileset.json",
+					name: "utyxs"
+				}, {
+					url: "http://192.168.152.227:3333/sportsvenue-style/vip/tileset.json",
+					name: "vip"
+				},
+			],
+			maximumScreenSpaceError: 8,
+			sourceLoaded: (tileset) => {
+				tileset.setTileFeatureStyle(colorStyle);
+				console.log(tileset);
+				// map.flyTo({
+				//     target: tileset,
+				//     bearing: 0,
+				//     pitch: 0,
+				//     duration: 2000,
+				//     range: 1000
+				// });
+
+			},
+
+			/**
+			 * 飞行选择
+			 * index: 指定飞行目标(优先)
+			 * combine: 合并bounds为飞行目标
+			 */
+			geoBoundsOptions: {
+				index: 0,
+				combine: true
+			},
+			allowPick: true,
+			lightingModel: minemap.LightingModelType.PBR,
+		});
+		window.tileset = tileset;
+
+		// map.fitBounds(tileset.getBounds())
+	});
+
+	function setTileFeaturesStyle(id) {
+		window.tileset.setTileFeatureStyle();
+		if (window.tileset) {
+			if (id == 0) {
+				window.tileset.setTileFeatureStyle(colorStyle);
+			} else if (id == 1) {
+				window.tileset.setTileFeatureStyle(visibleStyle);
+			} else if (id == 2) {
+				window.tileset.setTileFeatureStyle(mergedStyle);
+			}
+
+		}
+	}
+
+	function removeTileFeaturesStyle() {
+		if (window.tileset) {
+			window.tileset.setTileFeatureStyle(null);
+		}
+	}
+
+	let prePrimitive;
+	let preColor;
+	map.on("click", function (e) {
+		const feature = map.getFeatureByGPUPick(e.point);
+
+		console.log(feature);
+
+		// 包含json文件时才解析
+		if (feature && feature._content && feature._content.json) {
+
+			if (prePrimitive) {
+				prePrimitive.color = [1, 1, 1, 1];
+			}
+
+			prePrimitive = feature;
+			preColor = feature.color;
+
+			feature.color = [1.0, 1.0, 0.0, 1.0];//选中部分，设置高亮颜色
+
+
+			const json = feature._content.json;
+			const map = new Map(Object.entries(json));
+
+			var info = feature._properties
+
+			info = "id：" + info.id + " ;" + "name：" + info.name + "<br/>"
+
+			document.getElementById("deskinfo").innerHTML = info;
+
+
+		} else {
+			if (prePrimitive) {
+				prePrimitive.color = [1.0, 1.0, 1.0, 0.0];
+			}
+
+			console.log("未选中任何要素");
+		}
+	});
+
+</script>
+</body>
+
+</html>

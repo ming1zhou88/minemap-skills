@@ -1,0 +1,700 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+	<title>模型自动赋高动画</title>
+	<link rel="stylesheet" href="../style/demo.css" />
+	<!-- 引入MineMap API插件 -->
+	<link rel="stylesheet" href="https://minemap.minedata.cn/minemapapi/v4.0.0/minemap.css" />
+	<script src="../../dist/minemap-dev.js"></script>
+	<script type="text/javascript" src="../js/lil-gui.umd.min.js"></script>
+	<style>
+		html,
+		body,
+		#map {
+			margin: 0;
+			padding: 0;
+			width: 100%;
+			height: 100%;
+		}
+	</style>
+</head>
+
+<body>
+<div id="map">
+	<div id="text" class="toolContainer"></div>
+</div>
+<script>
+	/*全局参数设置*/
+	minemap.domainUrl = "https://minedata.cn";
+	minemap.dataDomainUrl = "https://minedata.cn";
+	minemap.serverDomainUrl = "https://minedata.cn";
+	minemap.spriteUrl = "http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite";
+	minemap.serviceUrl = "https://minedata.cn/service/";
+
+	minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+	minemap.solution = 11001;
+	window.minemapCDN = "https://minedata.cn/minemapapi/minemap-CDN";
+
+	const style = {
+		glyphs: 'minemap://fonts/{fontstack}/{range}',
+		sprite: 'minemap://sprite/sprite',
+		sources: {},
+		layers: [],
+		version: 8
+	};
+
+	const trackPositions = [
+		120.35690098524475,
+		36.08792215919826,
+		0,
+		120.35860816528344,
+		36.08694075168068,
+		0,
+		120.36047957269045,
+		36.08600429438649,
+		0,
+		120.36267934949618,
+		36.08538015780022,
+		0,
+		120.3648680854439,
+		36.08587179493841,
+		0,
+		120.36678604042018,
+		36.08596514124355,
+		0,
+		120.36960293182585,
+		36.08649115933998,
+		0,
+		120.37154268038215,
+		36.08702274467799,
+		0,
+		120.3734044204064,
+		36.08678492176987,
+		0,
+		120.37436142988714,
+		36.08684404082956,
+		0,
+		120.377013105604,
+		36.086842457791356,
+		0,
+		120.38009289398278,
+		36.08688163355205,
+		0,
+		120.38201957633525,
+		36.08682279549587,
+		0,
+		120.38418931336183,
+		36.0868765209948,
+		0,
+		120.38580873128393,
+		36.0869645198459,
+		0,
+		120.3873739519217,
+		36.08707299695337,
+		0,
+		120.38874199137715,
+		36.08707156523946,
+		0,
+		120.391844436227,
+		36.08684240270046,
+		0,
+		120.39448669298721,
+		36.08767994092398,
+		0,
+		120.3969661195761,
+		36.08860586448224,
+		0,
+		120.39816274975603,
+		36.08874141118214,
+		0,
+		120.39914620390675,
+		36.08749966705453,
+		0,
+		120.40024446915791,
+		36.085815306058834,
+		0,
+		120.40122181636204,
+		36.084394472753914,
+		0,
+		120.40132933656541,
+		36.08305763646013,
+		0,
+		120.40143992615793,
+		36.081463137091426,
+		0,
+		120.4023149603821,
+		36.080656814023655,
+		0,
+		120.404287251041,
+		36.08007590828165,
+		0,
+		120.40663858109116,
+		36.081992723933666,
+		0,
+		120.40909322921259,
+		36.08279642157729,
+		0,
+		120.4108860107708,
+		36.08390864868731,
+		0,
+		120.4131719164948,
+		36.08690324221854,
+		0,
+		120.41499798195191,
+		36.08961731985514,
+		0,
+		120.41459552094267,
+		36.08878673252825,
+		0,
+		120.41278649158262,
+		36.08651503036329,
+		0,
+		120.41092652270507,
+		36.084307418276886,
+		0,
+		120.40907430711451,
+		36.08271804765232,
+		0,
+		120.41171167704267,
+		36.0830765139452,
+		0,
+		120.41345262890177,
+		36.082958776551784,
+		0,
+		120.4158516034506,
+		36.08322742677649,
+		0,
+		120.41827322250563,
+		36.08301103686739,
+		0,
+		120.42084869587201,
+		36.083053570045806,
+		0,
+		120.42296756692781,
+		36.083170830116444,
+		0,
+		120.42489121571923,
+		36.08384708984268,
+		0,
+		120.42602279884407,
+		36.08325167905191,
+		0,
+		120.42658975548248,
+		36.08291089609855,
+		0,
+		120.42747034953595,
+		36.082397739220596,
+		0,
+		120.42830367288165,
+		36.081933061168186,
+		0,
+		120.42894454078365,
+		36.08131453600683,
+		0,
+		120.4295128590195,
+		36.08106164518852,
+		0,
+		120.43088954983905,
+		36.08142141230929,
+		0,
+		120.4315851016213,
+		36.0816465794984,
+		0,
+		120.43252538659559,
+		36.08224747843082,
+		0,
+		120.43342097339357,
+		36.0834870395011,
+		0,
+		120.4337260460518,
+		36.08389435069293,
+		0,
+		120.43350325835333,
+		36.08452661811473,
+		0,
+		120.43372939946612,
+		36.08521364971292,
+		0,
+		120.43453440473913,
+		36.086373600638126,
+		0,
+		120.43505825566132,
+		36.08738045625619,
+		0,
+		120.43764053099034,
+		36.08794712579781,
+		0,
+		120.438179455466,
+		36.088989949911635,
+		0,
+		120.44021345811596,
+		36.08911998512458,
+		0,
+		120.4425251785528,
+		36.089919721748416,
+		0
+	]
+	const animationPositions = minemap.Math.Vector3.fromDegreesArrayHeights(trackPositions);
+
+	const map = new minemap.Map({
+		container: 'map',
+		style: style /*球面矢量底图样式*/,
+		center: [120.35690098524475, 36.08792215919826],
+		zoom: 16 /*地图默认缩放等级*/,
+		pitch: 0 /*地图俯仰角度*/,
+		bearing: 0 /*地图旋转角度*/,
+		maxZoom: 22 /*地图最大缩放等级*/,
+		minZoom: 1 /*地图最小缩放等级*/,
+		projection: 'MERCATOR'
+	});
+	map.repaint = true;
+
+	//设置地形数据
+	map.setTerrain({
+		tiles: ['https://ol-data.minedata.cn/dem/{z}/{r}/{c}/{z}_{x}_{y}.terrain'], //瓦片服务地址
+		tileSize: 512, //瓦片大小
+		maxzoom: 14 //dem最高切分zoom，30米一般是14级；12.5米一般是16级
+	});
+
+	let carModel, animationBlender, pauseButton, stopButton, pickAndDragButton, modelNameButton;
+	let pickTolerance = 50;
+	const params = {
+		模型像素大小: 100,
+		模型比例: 10,
+		播放速度: 1,
+		时间轴: 0,
+		暂停: pause,
+		停止: stop,
+		复位: reset,
+		拾取容差: pickTolerance,
+		"拾取并拖动模型(左键按下拖动，抬起结束)": pickAndDragModel,
+		当前拾取模型: "",
+		自由模式: free,
+		视野跟随: follow,
+		视野锁定: lock
+	};
+	map.on("load", function () {
+		/*添加DEM数字高程模型数据*/
+		map.addSource('3D_SOURCE', {
+			type: 'raster', //DEM的数据类型为"raster"
+			tiles: ['https://ol-data.minedata.cn/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg'], //瓦片服务地址
+			tileSize: 512 //瓦片大小
+		});
+		map.addLayer({
+			type: 'raster', //DEM的图层类型为"raster"
+			id: '3d-layer',
+			source: '3D_SOURCE',
+			minzoom: 1,
+			maxzoom: 20,
+			layout: {}
+		});
+
+		const tileset = map.addSceneComponent({
+			id: 'serve',
+			type: '3d-tiles',
+			show: true,
+			url: 'https://minedata.cn/mine-support/assets/web/support-data/3d-tiles/QD/tileset.json', // 要加载的数据
+			skipLevelOfDetail: false, //跨层调度
+			maximumScreenSpaceError: 16,
+			useMipmap: true, // 20210923 不开启useMipmap，3d-tiles 默认为 false
+			sourceLoaded: tileset => { }
+		});
+		carModel = map.addSceneComponent({
+			id: "cartoon_car", // 唯一标识
+			position: new minemap.Math.Vector3(120.35690098524475, 36.08792215919826, 0),
+			rotation: [90, -160, 0],
+			scale: [params.模型比例, params.模型比例, params.模型比例],
+			// minimumPixelSize: params.模型像素大小,
+			type: "3d-model",
+			data: "../data/cartoon_car.glb"
+		});
+
+		initializeGUI();
+		createTrackingPath();
+		playAnimation();
+	});
+
+	let timeAxis;
+	let dragModel = false;
+
+	function initializeGUI() {
+		const gui = new lil.GUI({ width: 300 });
+		gui.onChange((event) => {
+			params[event.property] = event.value;
+		});
+
+		const modelFolder = gui.addFolder("模型设置");
+		modelFolder.open();
+		modelFolder.add(params, "模型像素大小", 0.1, 500).onChange((value) => {
+			carModel.minimumPixelSize = value;
+		});
+		modelFolder.add(params, "模型比例", 0.1, 100).onChange((value) => {
+			carModel.scale = new minemap.Math.Vector3(value, value, value);
+		});
+
+		const animationMode = gui.addFolder("动画设置");
+		animationMode.open();
+		animationMode.add(params, "播放速度", 0.1, 10).onChange((value) => {
+			updateSpeed(value);
+		});
+		pauseButton = animationMode.add(params, "暂停");
+		stopButton = animationMode.add(params, "停止");
+		animationMode.add(params, "复位");
+
+		const animationEdit = gui.addFolder("动画编辑");
+		timeAxis = animationEdit.add(params, "时间轴", 0.1, 30).onChange((value) => {
+			if (!animationBlender) {
+				return;
+			}
+
+			if (pauseButton.$button.children[0].innerText === "暂停") {
+				animationBlender.currentTime = value; // 设置当前动画运行的时间(动画起止时间差值，单位：秒)
+			} else if (pauseButton.$button.children[0].innerText === "继续") {
+				updateModelAnimationByTime(carModel, animationBlender, value, animationPositions);
+			}
+		});
+		animationEdit.add(params, "拾取容差", 0.1, 100).onChange((value) => {
+			pickTolerance = value;
+		});
+		pickAndDragButton = animationEdit.add(params, "拾取并拖动模型(左键按下拖动，抬起结束)");
+		modelNameButton = animationEdit.add(params, "当前拾取模型");
+		modelNameButton.$widget.children[0].style.color = "red";
+		modelNameButton.disable();
+
+		const cameraMode = gui.addFolder("相机模式");
+		cameraMode.open();
+		cameraMode.add(params, "自由模式");
+		cameraMode.add(params, "视野跟随");
+		cameraMode.add(params, "视野锁定");
+	}
+
+	// 自由模式动画，不启用动画跟踪（视野跟随或视野跟踪）即可
+	// 不用设置模式为minemap.AnimationTrackingMode.FREE或者minemap.AnimationTrackingMode.NONE
+	function free() {
+		map.animationManager.animationTracking.enabled = false;
+	}
+
+	// 视野跟随动画
+	function follow() {
+		// 引擎自带动画跟踪配置，根据需要设置不同的效果和模式，也可以根据需求进行创建设置
+		map.animationManager.animationTracking.name = "cartoon_car";
+		map.animationManager.animationTracking.mode = minemap.AnimationTrackingMode.FOLLOW;
+		map.animationManager.animationTracking.effect = minemap.AnimationTrackingEffects.PRECISE;
+		map.animationManager.animationTracking.headingPitchRoll = new minemap.Math.HeadingPitchRoll(
+			minemap.Math.toRadians(0),
+			minemap.Math.toRadians(60),
+			0
+		);
+		map.animationManager.animationTracking.distance = 100;
+		map.animationManager.animationTracking.enabled = true;
+
+		// 自主创建动画跟踪配置
+		// map.animationManager.animationTracking = new minemap.AnimationTracking({
+		// 	distance: 100,
+		// 	effects: minemap.AnimationTrackingEffects.PRECISE,
+		// 	enabled: true,
+		// 	mode: minemap.AnimationTrackingMode.FOLLOW,
+		// 	name: "cartoon_car",
+		// 	headingPitchRoll: new minemap.Math.HeadingPitchRoll(
+		// 		minemap.Math.toRadians(0),
+		// 		minemap.Math.toRadians(60),
+		// 		0
+		// 	)
+		// });
+	}
+
+	// 视野锁定动画
+	function lock() {
+		// 引擎自带动画跟踪配置，根据需要设置不同的效果和模式，也可以根据需求进行创建设置
+		map.animationManager.animationTracking.name = "cartoon_car";
+		map.animationManager.animationTracking.mode = minemap.AnimationTrackingMode.LOCK;
+		map.animationManager.animationTracking.effect = minemap.AnimationTrackingEffects.PRECISE;
+		map.animationManager.animationTracking.headingPitchRoll = new minemap.Math.HeadingPitchRoll(
+			minemap.Math.toRadians(0),
+			minemap.Math.toRadians(65),
+			0
+		);
+		map.animationManager.animationTracking.distance = 100;
+		map.animationManager.animationTracking.enabled = true;
+
+		// 自主创建动画跟踪配置
+		// map.animationManager.animationTracking = new minemap.AnimationTracking({
+		// 	distance: 100,
+		// 	effects: minemap.AnimationTrackingEffects.PRECISE,
+		// 	enabled: true,
+		// 	mode: minemap.AnimationTrackingMode.LOCK,
+		// 	name: "cartoon_car",
+		// 	headingPitchRoll: new minemap.Math.HeadingPitchRoll(
+		// 		minemap.Math.toRadians(0),
+		// 		minemap.Math.toRadians(65),
+		// 		0
+		// 	)
+		// });
+	}
+
+	// 创建跟踪路径
+	function createTrackingPath() {
+		const redRoute = new minemap.Geometries.PolylineGeometry({
+			positions: animationPositions,
+			width: 2,
+			arcType: minemap.ARCTYPE.GEODESIC
+		});
+
+		const redRouteMaterial = new minemap.PolylineMaterial({
+			color: "yellow"
+		});
+
+		const redRoutePrimitive = new minemap.Primitive({
+			geometry: redRoute,
+			material: redRouteMaterial,
+			name: "redRoutePrimitive",
+			adaptTerrain: true
+		});
+
+		map.addPrimitive(redRoutePrimitive);
+	}
+
+	// 创建动画并播放
+	function playAnimation() {
+		carModel.rotation = [90, -90, 0];
+		const content = {
+			id: "cartoon_car",
+			type: "model",
+			reference: "ellipsoid",
+			positions: trackPositions,
+			times: {
+				start: "2023-08-21T11:30:00.000Z",
+				end: "2023-08-21T11:30:30.000Z"
+			},
+			loop: "repeat", //repeat、once、 none
+			autoPlay: true, // 默认:false
+			autoHeight: true
+		};
+		const animationJson = {
+			documnet: "Animation",
+			contents: [content]
+		};
+
+		const animation = map.animationManager.add(animationJson);
+		animation.then((value) => {
+			animationBlender = value[0];
+			timeAxis.max(animationBlender.duration); // 设置时间轴最大值
+			// animationBlender.onPlay = (event) => {
+			// 	console.log("Play", event);
+			// }; // 开始播放时的回调
+			animationBlender.onPlaying = (event) => {
+				timeAxis.setValue(event.time);
+				// console.log("Playing", event);
+			}; // 播放时的回调，参数包含动画时间和模型状态
+			// animationBlender.onPause = (event) => {
+			// 	console.log("Pause", event);
+			// }; // 暂停播放时的回调
+			// animationBlender.onStop = (event) => {
+			// 	console.log("Stop", event);
+			// }; // 停止播放时的回调
+			// animationBlender.onReset = (event) => {
+			// 	console.log("Reset", event);
+			// }; // 重置播放时的回调
+		});
+	}
+
+	// 暂停、停止、复位
+	function pause() {
+		if (!animationBlender) {
+			return;
+		}
+
+		if (pauseButton.$button.children[0].innerText === "暂停") {
+			pauseButton.$button.children[0].innerText = "继续";
+			animationBlender.pause();
+		} else {
+			carModel.rotation = [90, -90, 0];
+			pauseButton.$button.children[0].innerText = "暂停";
+			animationBlender.play();
+		}
+	}
+
+	function stop() {
+		if (!animationBlender) {
+			return;
+		}
+
+		if (stopButton.$button.children[0].innerText === "停止") {
+			stopButton.$button.children[0].innerText = "开始";
+			pauseButton.disable();
+			pickAndDragButton.disable();
+			animationBlender.stop();
+			carModel.rotation = [90, -160, 0];
+		} else {
+			reset();
+		}
+	}
+
+	function reset() {
+		if (!animationBlender) {
+			return;
+		}
+		animationBlender.reset();
+		carModel.rotation = [90, -90, 0];
+		pauseButton.enable();
+		pickAndDragButton.enable();
+		pauseButton.$button.children[0].innerText = "暂停";
+		stopButton.$button.children[0].innerText = "停止";
+	}
+
+	function pickAndDragModel() {
+		dragModel = true;
+		pickAndDragButton.$button.style.backgroundColor = "green";
+	}
+
+	function updateSpeed(value) {
+		if (!animationBlender) {
+			return;
+		}
+		animationBlender.speed = value;
+	}
+
+	let selectModel;
+	map.on("mousedown", (e) => {
+		if (dragModel) {
+			map.cameraController.enableInputs = false;
+			const feature = map.getFeatureByGPUPick(e.point);
+			if (feature !== undefined) {
+				let parent = feature.parent;
+				while (parent) {
+					parent = parent.parent;
+					if (parent.type === "3d-model") {
+						selectModel = parent;
+						animationBlender.pause();
+						modelNameButton.setValue(parent.id);
+						break;
+					}
+				}
+			}
+		}
+	});
+
+	map.on("mouseup", () => {
+		if (dragModel) {
+			dragModel = false;
+			selectModel = undefined;
+			if (pauseButton.$button.children[0].innerText === "暂停") {
+				animationBlender.play();
+			}
+			map.cameraController.enableInputs = true;
+			modelNameButton.setValue("");
+		}
+
+		pickAndDragButton.$button.style.backgroundColor = "";
+	});
+
+	map.on("mousemove", function (e) {
+		if (dragModel && selectModel !== undefined && animationBlender !== undefined) {
+			const point = map.painter.getPositionByGPUPick(e.point);
+			const pickPosition = minemap.Math.Vector3.fromDegrees(point.x, point.y, point.z);
+			updateModelAnimationByPick(
+				selectModel,
+				animationBlender,
+				pickPosition,
+				pickTolerance,
+				animationPositions
+			);
+		}
+	});
+
+	// Attention:
+	// 1. 所有轨迹点之间的时间间隔都是相同的，动画的速度取决于轨迹点之间的时间间隔
+
+	/**
+	 * 更新模型位置和动画运行时间
+	 * @param {SceneModel} model 模型对象
+	 * @param {AnimationBlender} blender 动画混合器对象
+	 * @param {Vector3} pickPosition 鼠标拾取点(世界坐标)
+	 * @param {number} tolerance 点吸附线容差
+	 * @param {Vector3[]} positions 轨迹点数组(世界坐标)
+	 */
+	function updateModelAnimationByPick(model, blender, pickPosition, tolerance, positions) {
+		if (positions.length >= 2) {
+			const duration = blender.duration;
+			let minDist = Infinity;
+			// 点吸附线信息，包含吸附点索引和吸附点坐标
+			let adsorptionInformation = {
+				index: undefined,
+				point: undefined
+			};
+			let totalDist = 0;
+			let insectPointDist = 0;
+			for (let i = 1; i < positions.length; i++) {
+				// 计算拾取点到轨迹线段的投影
+				const segment = minemap.Math.Vector3.subtract(positions[i], positions[i - 1]);
+				const segmentToPoint = minemap.Math.Vector3.subtract(pickPosition, positions[i - 1]);
+				const projection =
+					minemap.Math.Vector3.dot(segmentToPoint, segment) /
+					minemap.Math.Vector3.magnitudeSquared(segment);
+				// 若投影在线段上，则计算拾取点到线段投影点的世界坐标
+				if (projection >= 0 && projection <= 1) {
+					// 计算投影点的世界坐标
+					const insectPoint = minemap.Math.Vector3.add(
+						positions[i - 1],
+						segment.multiplyScalar(projection)
+					);
+					// 计算拾取点到投影点的距离，若小于容差则吸附到该点
+					const dist = minemap.Math.Vector3.distance(pickPosition, insectPoint);
+					if (dist < minDist && dist < tolerance) {
+						minDist = dist;
+						adsorptionInformation.index = i;
+						adsorptionInformation.point = insectPoint;
+						insectPointDist = dist;
+					}
+				}
+				totalDist += minemap.Math.Vector3.distance(positions[i], positions[i - 1]);
+			}
+
+			if (adsorptionInformation.point !== undefined) {
+				model.position = adsorptionInformation.point;
+				// 计算投影点所对应的动画运行时间
+				let currentTime = ((adsorptionInformation.index - 1) / (positions.length - 1)) * duration;
+				currentTime +=
+					(insectPointDist /
+						minemap.Math.Vector3.distance(
+							positions[adsorptionInformation.index],
+							positions[adsorptionInformation.index - 1]
+						) /
+						(positions.length - 1)) *
+					duration;
+				// 设置当前动画运行的时间(动画起止时间差值，单位：秒)
+				blender.currentTime = currentTime;
+			}
+		}
+	}
+
+	/**
+	 * 更新模型位置和动画运行时间
+	 * @param {SceneModel} model 模型对象
+	 * @param {AnimationBlender} blender 动画混合器对象
+	 * @param {number} currentTime 当前动画运行的时间(动画起止时间差值，单位：秒)
+	 * @param {Vector3[]} positions 轨迹点数组(世界坐标)
+	 */
+	function updateModelAnimationByTime(model, blender, currentTime, positions) {
+		const unitInterval = blender.duration / (positions.length - 1); // 计算轨迹段之间的时间间隔
+		const index = Math.floor(currentTime / unitInterval); // 计算当前时间所在的轨迹段起点索引
+		const periodOfTime = currentTime % unitInterval; // 计算当前时间在当前轨迹某一段轨迹中的时间
+		// 计算当前时间在当前轨迹段中的位置，并更新模型位置和设置动画运行时间
+		let position;
+		if (index < positions.length - 1) {
+			const direction = minemap.Math.Vector3.subtract(positions[index + 1], positions[index]).normalize();
+			position = positions[index].add(direction.multiplyScalar(periodOfTime));
+		} else {
+			position = positions[index];
+		}
+
+		model.position = position;
+		blender.currentTime = currentTime; // 设置当前动画运行的时间(动画起止时间差值，单位：秒)
+	}
+</script>
+</body>
+
+</html>

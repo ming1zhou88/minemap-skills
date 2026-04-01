@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>gltf模型测试</title>
+    <!-- demo样式文件 -->
+    <link rel="stylesheet" href="../style/demo.css" />
+    <!-- 引入MineMap API插件 -->
+    <link rel="stylesheet" href="https://minemap.minedata.cn/minemapapi/v4.0.0/minemap.css">
+    <script src='../../dist/minemap-dev.js'></script>
+<!--	<script src='http://192.168.152.227:16866/minemap-v4.8.0-20240605.js'></script>-->
+    <style>
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+<div id="toolContainer" class="toolContainer">
+	切换数据：<select id="select" onchange="selectOperation(this)"></select>
+	切换动画：<select id="selectAnimation"></select>
+</div>
+
+<body>
+    <div id="map"></div>
+    <script>
+        minemap.domainUrl = "https://minedata.cn";
+        minemap.dataDomainUrl = "https://minedata.cn";
+        minemap.serverDomainUrl = "https://minedata.cn";
+        minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+        minemap.serviceUrl = "https://minedata.cn/service/";
+
+        minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+        minemap.solution = 11001;
+        window.minemapCDN = "http://192.168.152.123/minemap-engine/minemap-CDN/"; // minemapCDN 配置 http://192.168.152.123/
+        // window.minemapCDN = "https://minedata.cn/minemapapi/minemap-CDN";
+
+        // 定义空底图样式
+        var style = {
+            glyphs: "minemap://fonts/{fontstack}/{range}",
+            sprite: "minemap://sprite/sprite",
+            sources: {},
+            layers: [],
+            version: 8
+        };
+
+        /**
+         * 初始化地图实例
+         */
+        var map = new minemap.Map({
+            container: "map",
+            style: style,
+            /*球面矢量底图样式*/
+            center: [120.24807538475953, 29.715630206412236],
+            /*地图中心点*/
+            bearing: 0,
+            zoom: 17.7,
+            /*地图默认缩放等级*/
+            pitch: 50,
+            /*地图俯仰角度*/
+            maxZoom: 22,
+            /*地图最大缩放等级*/
+            minZoom: 1,
+            /*地图最小缩放等级*/
+            projection: "MERCATOR",
+			OIT: false
+        });
+        map.repaint = true;
+		// map.enableLight();
+		// map.showDebugBoundingBox = true;
+
+        map.on("load", function () {
+            /*添加栅格图*/
+            map.addSource("IMAGERY_SOURCE", {
+                type: "raster", //数据源类型：栅格数据源
+                tiles: ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+                tileSize: 256 //瓦片尺寸
+            });
+
+            map.addLayer({
+                id: "IMAGERY",
+                type: "raster", //图层类型为"raster"
+                source: "IMAGERY_SOURCE",
+                minzoom: 1,
+                maxzoom: 23,
+                "depth-test": true,
+                paint: {
+                    "raster-opacity": 1
+                }
+            });
+
+			addModel(modelOptions[0]);
+        })
+
+		const optionMode = [
+			"LittlestTokyo",
+			"Cesium_Air",
+			"Cesium_Man",
+			"bird",
+			"nvzhujiao",
+			"RobotExpressive",
+			"CesiumDrone",
+			"CesiumMilkTruck",
+			"GroundVehicle",
+			"trangles",
+			"trangles_animation",
+			"doubleTrangles",
+			"sampleMaterialTrangle",
+			"sampleTexture",
+			"sampleMorphTarget",
+			"sampleSkin",
+			"AnimatedMorphSphere",
+			"tunnel",
+			"BrainStem",
+			"BoxAnimated",
+			"RiggedSimple",
+			"RiggedFigure",
+			"Fox",
+			"VC",
+			"AnimatedMorphCube",
+			"InterpolationTest",
+			"Bee",
+			"IridescentDishWithOlives",
+			"GlassVaseFlowers",
+			"GlassBrokenWindow",
+			"奥体场馆_座椅（卡顿）",
+			"Parrot（暂不支持的变形动画）"
+		];
+
+		const modelOptions = [
+			{
+				key: "LittlestTokyo",
+				data: "../data/test-gltf/LittlestTokyo.glb", // ✔ 普通动画、骨骼动画
+				scale: [0.1, 0.1, 0.1]
+			},
+			{
+				key: "Cesium_Air",
+				data: "../data/test-gltf/Cesium_Air.glb", // ✔ 普通动画
+			},
+			{
+				key: "Cesium_Man",
+				data: "../data/test-gltf/Cesium_Man.glb", // ✔ 骨骼动画
+				scale: [20, 20, 20]
+			},
+			{
+				key: "bird",
+				data: "../data/test-gltf/bird.glb", // ✔ 无动画
+				scale: [1, 1, 1]
+			},
+			{
+				key: "nvzhujiao",
+				data: "../data/test-gltf/nvzhujiao.glb", // ✔ 骨骼动画
+				scale: [20, 20, 20]
+			},
+			{
+				key: "RobotExpressive",
+				data: "../data/test-gltf/RobotExpressive.glb", // ✔ 骨骼动画
+			},
+			{
+				key: "CesiumDrone",
+				data: "../data/test-gltf/CesiumDrone.glb", // ✔ 普通动画
+			},
+			{
+				key: "CesiumMilkTruck",
+				data: "../data/test-gltf/CesiumMilkTruck.glb", // ✔ 普通动画
+			},
+			{
+				key: "GroundVehicle",
+				data: "../data/test-gltf/GroundVehicle.glb", // ✔ 普通动画
+			},
+			{
+				key: "trangles",
+				data: "../data/test-gltf/trangles.gltf", // ✔ 无动画
+			},
+			{
+				key: "trangles_animation",
+				data: "../data/test-gltf/trangles_animation.gltf", // ✔ 普通动画
+				scale: [20, 20, 20]
+			},
+			{
+				key: "doubleTrangles",
+				data: "../data/test-gltf/doubleTrangles.gltf", // ✔ 无动画
+				scale: [20, 20, 20]
+			},
+			{
+				key: "sampleMaterialTrangle",
+				data: "../data/test-gltf/sampleMaterialTrangle.gltf", // ✔ 无动画
+				scale: [20, 20, 20]
+			},
+			{
+				key: "sampleTexture",
+				data: "../data/test-gltf/sampleTexture.gltf", // ✔  无动画
+				scale: [20, 20, 20]
+			},
+			{
+				key: "sampleMorphTarget",
+				data: "../data/test-gltf/sampleMorphTarget.gltf", // ✔ 变形动画
+				scale: [20, 20, 20]
+			},
+			{
+				key: "sampleSkin",
+				data: "../data/test-gltf/sampleSkin.gltf", // ✔ 骨骼动画
+			},
+			{
+				key: "AnimatedMorphSphere",
+				data: "http://192.168.152.123:11187/demo-data/3d-ultra/assets/models/animation/morph/AnimatedMorphSphere.gltf", // ✔ 变形动画
+				modelFolder: "http://192.168.152.123:11187/demo-data/3d-ultra/assets/models/animation/morph",
+			},
+			{
+				key: "tunnel",
+				data: '../data/test-gltf/YINGCHENGZI/tunnel.gltf', // ✔ HAD动画
+				modelFolder: '../data/test-gltf/YINGCHENGZI/images',
+				scale: [0.1, 0.1, 0.1]
+			},
+			{
+				key: "BrainStem",
+				data: "http://192.168.152.123:11187/demo-data/3d-ultra/assets/models/animation/BrainStem.glb", // ✔ 骨骼动画
+				modelFolder: "http://192.168.152.123:11187/demo-data/3d-ultra/assets/models/animation",
+			},
+			{
+				key: "BoxAnimated",
+				data: "../data/test-gltf/BoxAnimated.glb", // ✔ 普通动画
+			},
+			{
+				key: "RiggedSimple",
+				data: "../data/test-gltf/RiggedSimple.glb", // ✔ 骨骼动画
+			},
+			{
+				key: "RiggedFigure",
+				data: "../data/test-gltf/RiggedFigure.glb", // ✔ 骨骼动画
+				scale: [20, 20, 20]
+			},
+			{
+				key: "Fox",
+				data: "../data/test-gltf/Fox.glb", // ✔ 骨骼动画
+				scale: [1, 1, 1]
+			},
+			{
+				key: "VC",
+				data: "../data/test-gltf/VC.glb", // ✔ 普通动画
+			},
+			{
+				key: "AnimatedMorphCube",
+				data: "../data/test-gltf/AnimatedMorphCube.glb", // ✔ 变形动画
+			},
+			{
+				key: "InterpolationTest",
+				data: "../data/test-gltf/InterpolationTest.glb", // ✔ 带三次样条插值的普通动画
+			},
+			{
+				key: "Bee",
+				data: "../data/test-gltf/Bee.glb", // ✔ 骨骼动画
+				scale: [1, 1, 1]
+			},
+			{
+				key: "IridescentDishWithOlives",
+				data: "../data/test-gltf/IridescentDishWithOlives.glb", // 普通动画, ❌不支持KHR_materials_ior、KHR_materials_iridescence、KHR_materials_transmission和KHR_materials_volume扩展
+			},
+			{
+				key: "GlassVaseFlowers",
+				data: "../data/test-gltf/GlassVaseFlowers.glb", // 透明混合，❌不支持KHR_materials_transmission和KHR_materials_volume扩展
+				scale: [200, 200, 200]
+			},
+			{
+				key: "GlassBrokenWindow",
+				data: "../data/test-gltf/GlassBrokenWindow.glb", // 透明混合, ❌不支持KHR_materials_transmission扩展
+				scale: [100, 100, 100]
+			},
+			{
+				key: "奥体场馆_座椅（卡顿）",
+				data: "../data/test-gltf/奥体场馆_座椅.glb", // ❌ 无动画，需要实现mesh的实例化，否则极其卡顿
+			},
+			{
+				key: "Parrot（暂不支持的变形动画）",
+				data: "../data/test-gltf/Parrot.glb", // ❌ 不支持weights长度超过两个的变形动画
+			},
+		]
+
+		const select = document.getElementById("select");
+		for (let i = 0; i < optionMode.length; i++) {
+			select.options.add(new Option(optionMode[i], optionMode[i]));
+		}
+
+		let lastIndex = 0;
+		function selectOperation(selectObject) {
+			removeModel(modelOptions[lastIndex].key);
+			addModel(modelOptions[selectObject.selectedIndex]);
+			lastIndex = selectObject.selectedIndex;
+		}
+
+		function removeModel(key) {
+			if (map.getSceneComponent(key)) {
+				map.removeSceneComponent(key);
+			}
+		}
+
+		let model;
+		function addModel(options) {
+			model = map.addSceneComponent({
+				id: options.key,
+				type: "3d-model", // 数据类型为“3d-model”
+				data: options.data,
+				modelFolder: options.modelFolder,
+				scale: options.scale || [10, 10, 10], // 在xyz轴方向上的缩放比例
+				rotation: [90, 0, 0], // 绕xyz轴方向上的旋转，单位为度
+				position: new minemap.Math.Vector3(120.24805053680325, 29.715189931766076, 50), // 锚点（模型局部坐标原点）的经纬度位置
+				lightingModel: minemap.LightingModelType.PBR,
+				activeAnimation: true,
+				accurateBounding: true,
+				loaded: function (sceneModel) {
+					if (sceneModel.id === "Cesium_Air") {
+						const animations = [];
+						for (let i = 0; i < model.gltfJson.animations.length; i++) {
+							animations.push(model.gltfJson.animations[i].name);
+						}
+						model.gltfJson.animations[0].name;
+						model.currentAnimations = animations;
+					}
+					createGUI(sceneModel);
+				}
+			});
+		}
+
+		let mySelect;
+		function createGUI(sceneModel) {
+			if (!mySelect) {
+				mySelect = document.getElementById("selectAnimation")
+				if (window.addEventListener) {
+					// Mozilla, Netscape, Firefox
+					mySelect.addEventListener('change', mychange, true);
+				} else {
+					// IE
+					mySelect.attachEvent('onchange', mychange);
+				}
+			}
+
+			while (mySelect.options.length > 0) {
+				mySelect.remove(0);
+			}
+
+			const animationsName = sceneModel.animationsName;
+			for (let i = 0; i < animationsName?.length; i++) {
+				mySelect.options.add(new Option(animationsName[i], animationsName[i]));
+			}
+		}
+
+		function mychange(selectObject) {
+			const selectTarget = selectObject.target;
+			model.currentAnimations = [selectTarget.options[selectTarget.selectedIndex].value];
+		}
+    </script>
+</body>
+
+</html>

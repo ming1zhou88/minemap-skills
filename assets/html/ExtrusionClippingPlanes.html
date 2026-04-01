@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<title>Extrusion图层裁剪</title>
+	<!-- demo样式文件 -->
+	<link rel="stylesheet" href="../style/demo.css">
+	<!-- 引入MineMap API插件 -->
+	<link rel="stylesheet" href="../../dist/minemap.css">
+	<!--  <script src="../../dist/minemap-dev.js"></script>-->
+
+	<!--	<script src="../../dist/minemap-dev.js"></script>-->
+	<script src="../../dist/minemap-dev.js"></script>
+	<style>
+		#map {
+			width: 100%;
+			height: 100%;
+		}
+	</style>
+</head>
+
+<body>
+    <div id="map"></div>
+    <script>
+        /**
+         * 全局参数设置
+         */
+
+		minemap.domainUrl = 'https://minemap.minedata.cn';
+		minemap.dataDomainUrl = 'https://minemap.minedata.cn';
+		minemap.serverDomainUrl = 'https://sd-data.minedata.cn';
+		minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+		minemap.serviceUrl = 'https://service.minedata.cn/service';
+
+		minemap.key = '0c6ac62182404e5ebc7a789981f6db72';
+		minemap.solution = 12878;
+
+		var style = {
+			"glyphs": "minemap://fonts/{fontstack}/{range}",
+			"sprite": "minemap://sprite/sprite",
+			"sources": {},
+			"layers": [{
+				"id": "background",
+				"type": "background",
+				"source": "",
+				"paint": {
+					"background-color": "#F9F5ED"
+				}
+			}],
+			"version": 8
+		};
+
+        var map = new minemap.Map({
+            container: 'map',
+			style,
+			//style: 'https://service.minedata.cn/map/solu/style/12878',
+            center: [116.46, 39.92],
+            zoom: 15,
+            pitch: 0,
+            maxZoom: 17,
+            minZoom: 3,
+            projection: 'MERCATOR',
+			logDepth: true
+        });
+
+        /**
+         * 创建地图对象后，开始加载地图资源，地图资源加载完成后触发load事件
+         */
+
+		const clippingPlanesEnabled = true;
+		const cartographicForRed = new minemap.Math.Vector3([116.46, 39.92, 0]);
+		const modelMatrix = minemap.Transforms.cartographicToFixedFrame(cartographicForRed);
+
+		const clippingPlaneCollection= new minemap.ClippingPlaneCollection({
+			modelMatrix: modelMatrix,
+			edgeColor: new minemap.Color(1,1,1,1),
+			edgeWidth: 0.0,
+			enabled: clippingPlanesEnabled,
+			unionClippingRegions: false,
+			planes: [
+				new minemap.ClippingPlane({
+					position: minemap.Math.Vector3.fromDegrees(116.46, 39.92, 0),
+					normal: new minemap.Math.Vector3(1.0, 0.0, 0.0),
+					distance: -300.0
+				}),
+				new minemap.ClippingPlane({
+					position: minemap.Math.Vector3.fromDegrees(116.46, 39.92, 0),
+					normal: new minemap.Math.Vector3(-1.0, 0.0, 0.0),
+					distance: -300.0
+				}),
+				new minemap.ClippingPlane({
+					position: minemap.Math.Vector3.fromDegrees(116.46, 39.92, 0),
+					normal: new minemap.Math.Vector3(0.0, 1.0, 0.0),
+					distance: -300.0
+				}),
+				new minemap.ClippingPlane({
+					position: minemap.Math.Vector3.fromDegrees(116.46, 39.92, 0),
+					normal: new minemap.Math.Vector3(0.0, -1.0, 0.0),
+					distance: -300.0
+				}),
+			]
+		});
+
+        map.on('load', function () {
+            // 增加自定义数据源、自定义图层
+            addSources();
+            addLayers();
+        });
+
+		function addSources() {
+			map.addSource("buildingSource", {
+				type: "vector",
+				tiles: ["cloudservice://mvt-layer/merge/{z}/{r}/{c}/{z}_{x}_{y}.pbf"],
+			});
+		}
+
+        function addLayers() {
+			map.addLayer({
+				"layout": { "visibility": "visible" },
+				"maxzoom": 20,
+				"paint": {
+					"extrusion-height": { "property": "levels", "type": "identity" },
+					"extrusion-color": "#0c3b70",
+					"extrusion-base": 0,
+					"extrusion-opacity": 0.3,
+					"extrusion-translate-anchor": "viewport",
+					"extrusion-translate": [0, 0]
+				},
+				"layerInfo": {
+					"layerType": "extrusion",
+					"groupName": "建筑物",
+					"zindex": 1,
+					"mergeId": "913814171021443198",
+					"maxZoom": 19.5,
+					"groupId": "925026044475486295",
+					"name": "建筑物",
+					"minZoom": 14.0,
+					"describe": "建筑物",
+					"source": "building",
+					"parentId": "913814171063386115"
+				},
+				"source": "buildingSource",
+				"source-layer": "building",
+				"id": "buildingLayer",
+				"type": "extrusion",
+				"minzoom": 10,
+				"clippingPlanes": clippingPlaneCollection,
+			});
+        }
+
+    </script>
+</body>

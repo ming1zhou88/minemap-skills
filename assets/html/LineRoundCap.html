@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+    <title>图形编辑数据交互-圆形端头与实线重叠</title>
+    <link rel="stylesheet" href="../style/demo.css">
+    <link rel="stylesheet" href="https://minedata.cn/nce-static/support/demo/js-api/zh/css/iconfont/iconfont.css">
+    <script src="https://minedata.cn/nce-static/support/demo/js-api/zh/js/demo.js"></script>
+    <!-- 引入MineMap API插件 -->
+    <link rel="stylesheet" href="https://minemap.minedata.cn/minemapapi/minemap-plugins/edit/minemap-edit.css" />
+
+    <link rel="stylesheet" href="https://minemap.minedata.cn/minemapapi/v4.0.0/minemap.css" />
+    <script src="../../dist/minemap-dev.js"></script>
+
+    <script src="https://minemap.minedata.cn/minemapapi/minemap-plugins/edit/minemap-edit.js"></script>
+    <style>
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+
+        .edit-ctrl-group {
+            position: absolute;
+            z-index: 300;
+            top: 10px;
+            right: 10px;
+            width: 32px;
+            overflow: hidden;
+        }
+
+        .edit-btn {
+            width: 30px;
+            height: 30px;
+            line-height: 30px;
+            font-size: 14px;
+            vertical-align: middle;
+            text-align: center;
+            cursor: pointer;
+            color: #111;
+            background-color: white;
+            border: 1px solid #ddd;
+        }
+
+        .edit-btn:hover {
+            background-color: #efefef;
+        }
+
+        .demo-btn {
+            width: 100%;
+        }
+
+        .card-btn-group {
+            padding: 0;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="card-panel card-panel-top-left toolContainer">
+        <div class="card-btn-group" style="justify-content: space-around; flex-direction: column">
+            <button onclick="addFeatures()" class="demo-btn" style="margin-bottom: 10px;">向编辑池中增加数据</button>
+            <button onclick="setFeatures()" class="demo-btn" style="margin-bottom: 10px;">设置编辑池中的数据</button>
+            <button onclick="delFeatures()" class="demo-btn" style="margin-bottom: 10px;">删除编辑池中的所有数据</button>
+            <hr>
+            <button onclick="setStyles()" class="demo-btn">设置样式</button>
+            <button onclick="addData()" class="demo-btn">添加数据</button>
+
+        </div>
+    </div>
+    <div id="map">
+        <div class="edit-ctrl-group toolContainer">
+            <div class="edit-btn" title="画点" onclick="onEditBtnClick('point')"><span class="iconfont icon-draw-point" />
+            </div>
+            <div class="edit-btn" title="画线" onclick="onEditBtnClick('line')"><span class="iconfont icon-draw-line" />
+            </div>
+            <div class="edit-btn" title="画圆弧" onclick="onEditBtnClick('arc')"><span class="iconfont icon-draw-curve" />
+            </div>
+            <div class="edit-btn" title="画多边形" onclick="onEditBtnClick('polygon')"><span
+                    class="iconfont icon-draw-polygon1" /></div>
+            <div class="edit-btn" title="画矩形" onclick="onEditBtnClick('rectangle')"><span
+                    class="iconfont icon-draw-square" /></div>
+            <div class="edit-btn" title="画三角形" onclick="onEditBtnClick('triangle')"><span
+                    class="iconfont icon-Triangle" /></div>
+            <div class="edit-btn" title="画圆" onclick="onEditBtnClick('circle')"><span
+                    class="iconfont icon-draw-circle" /></div>
+            <div class="edit-btn" title="删除所选" onclick="onEditBtnClick('trash')"><span
+                    class="iconfont icon-tool-delete" /></div>
+            <div class="edit-btn" title="撤销上一步操作" onclick="onEditBtnClick('undo')"><span class="iconfont icon-undo" />
+            </div>
+            <div class="edit-btn" title="重复上一步操作" onclick="onEditBtnClick('redo')"><span class="iconfont icon-redo" />
+            </div>
+        </div>
+    </div>
+    <script>
+        /* minemap-edit api文档访问地址'https://minemap.minedata.cn/minemapapi/v2.1.1/plugins/edit/api.html' */
+
+        /**
+         * 全局参数设置
+         */
+        minemap.domainUrl = 'https://minemap.minedata.cn';
+        minemap.dataDomainUrl = 'https://minemap.minedata.cn';
+        minemap.serverDomainUrl = 'https://sd-data.minedata.cn';
+        minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+        minemap.serviceUrl = 'https://service.minedata.cn/service';
+
+        minemap.key = '0c6ac62182404e5ebc7a789981f6db72';
+        minemap.solution = 11001;
+		// 定义空底图样式
+		var style = {
+			"glyphs": "minemap://fonts/{fontstack}/{range}",
+			"sprite": "minemap://sprite/sprite",
+			"sources": {},
+			"layers": [],
+			"version": 8
+		};
+
+        var map = new minemap.Map({
+            container: 'map',
+            style,
+            center: [116.25023493854252, 40.124185485741954],
+            zoom: 14,
+            pitch: 0,
+            maxZoom: 17,
+            minZoom: 3,
+            projection: 'MERCATOR'
+        });
+
+        map.showDebugBoundingBox = true
+        map.showTileBoundaries = true
+
+
+        function onEditBtnClick(mode) {
+            if (edit && mode) {
+                edit.onBtnCtrlActive(mode);
+            }
+        }
+
+        function setFeatures() {
+            var center = map.getCenter();
+            var fc = {
+                type: 'FeatureCollection',
+                features: [{
+                    type: 'Feature',
+                    properties: {},
+                    geometry: { type: 'Point', coordinates: [center.lng + 0.003, center.lat + 0.002] }
+                }, {
+                    type: 'Feature',
+                    properties: {},
+                    geometry: {
+                        type: 'LineString',
+                        coordinates: [[center.lng - 0.005, center.lat + 0.005], [center.lng - 0.005, center.lat - 0.005]]
+                    }
+                }, {
+                    type: 'Feature',
+                    properties: {},
+                    geometry: {
+                        type: 'Polygon',
+                        coordinates: [[[center.lng, center.lat], [center.lng, center.lat + 0.003], [center.lng - 0.003, center.lat + 0.003], [center.lng - 0.003, center.lat], [center.lng, center.lat]]]
+                    }
+                }]
+            };
+            if (edit) {
+                edit.setFeatures(fc);
+            }
+        }
+
+        function addFeatures() {
+            if (edit) {
+
+                var pp = {
+                    "type": "FeatureCollection",
+                    "features": [{
+                        "type": "Feature", "properties":
+                        {
+                            "id": "37c47e9c-1b8d-43b5-bd14-933168d3fb58",
+                            "type": "routerFence", "bufferWidth": "10"
+                        },
+                        "geometry": {
+                            "type": "LineString",
+                            "coordinates":
+                                [[116.24837263176843, 40.12483311518269],
+                                [116.24837263176843, 40.12114340934373],
+                                [116.25425492777657, 40.12114340934373],
+                                [116.25425492777657, 40.12483311518269]]
+                        }
+                    }]
+                }
+
+                var featureIds = edit.draw.add(pp);
+
+                edit.setFeaturePropertiesByIds(featureIds,
+                    {
+                        "custom_style": "true",
+                        "lineWidth": 11,
+                        "lineColor": "#d88339",
+                        "fillOutlineColor": "",
+                        "fillColor": "",
+                        "fillOpacity": 0.1,
+                        "fillOutlineWidth": 0
+                    }
+                );
+
+            }
+        }
+
+        function setStyles() {
+            var ids = edit.draw.getSelectedIds();
+
+            edit.setFeaturePropertiesByIds(ids,
+                {
+                    "custom_style": "true",
+                    "lineWidth": 5,
+                    "lineColor": "#d88339",
+                    "fillOutlineColor": "",
+                    "fillColor": "",
+                    "fillOpacity": 0.1,
+                    "fillOutlineWidth": 0
+                }
+            );
+
+        }
+
+        function delFeatures() {
+            if (edit) {
+                edit.draw.deleteAll();
+            }
+        }
+        var edit
+        map.on('load', function () {
+            setTimeout(function () {
+				edit = new minemap.edit.init(map, {
+					boxSelect: true,
+					touchEnabled: true,
+					displayControlsDefault: true,
+					showButtons: false
+				});
+				console.log("6000")
+                //向编辑池增加数据
+                setFeatures();
+				//测试透明线边缘截断的问题
+				addFeatures();
+            }, 6000)
+
+        });
+
+        window.onerror = function (errorMessage, scriptURI, lineNumber, columnNumber, errorObj) {
+            if (scriptURI.indexOf('minemap-edit') > -1) {
+                message.error(errorObj.message);
+            }
+        };
+
+    </script>
+
+    <script>
+        function addData() {
+
+            function addSources2() {
+
+                var pp = {
+                    "type": "FeatureCollection",
+                    "features": [{
+                        "type": "Feature", "properties":
+                        {
+                            "id": "37c47e9c-1b8d-43b5-bd14-933168d3fb58",
+                            "type": "routerFence", "bufferWidth": "10"
+                        },
+                        "geometry": {
+                            "type": "LineString",
+                            "coordinates":
+                                [[116.24837263176843, 40.12483311518269],
+                                [116.24837263176843, 40.12114340934373],
+                                [116.25425492777657, 40.12114340934373],
+                                [116.25425492777657, 40.12483311518269]]
+                        }
+                    }]
+                }
+                map.addSource("lineSource", {
+                    "type": "geojson",
+                    "data": pp
+                });
+
+            }
+
+            function addLayers2() {
+                map.addLayer({
+                    "id": "lineLayer",
+                    "type": "line",//图层类型为"line"
+                    "source": "lineSource",
+                    "layout": {
+                        "line-join": "round",
+                        "line-cap": "round"
+                    },
+                    "paint": {
+                        // "line-width": 11,
+                        // "line-color": {
+                        //     "type": "categorical",
+                        //     "property": "kind",
+                        //     "stops": [[1, "#ff0000"], [2, "#00ff00"]],
+                        //     "default": "#ff0000"
+                        // }
+
+                        "line-width": 15,
+                        "line-color": "#d88339",
+                        // "fillOutlineColor": "",
+                        // "fillColor": "",
+                        // "fillOpacity": 0.1,
+                        // "fillOutlineWidth": 0
+                    },
+                    "minzoom": 1,
+                    "maxzoom": 20.5
+                });
+
+
+            }
+
+            addSources2()
+            addLayers2()
+
+        }
+    </script>
+</body>

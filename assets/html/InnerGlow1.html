@@ -1,0 +1,828 @@
+<!--
+ * @Author: liwei
+ * @Date: 2023-04-03 15:36:40
+ * @LastEditTime: 2026-02-02 11:23:18
+ * @LastEditors: defineconst
+ * @Description:
+ * @FilePath: \MineMap3DEngine\demo\html\EarthCrate.html
+-->
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+	<title>内发光效果1</title>
+	<link rel="stylesheet" href="../style/demo.css">
+	<!-- 引入MineMap API插件 -->
+	<link rel="stylesheet" href="../../dist/minemap.css">
+	<script src="../../dist/minemap-dev.js"></script>
+	<script src="../js/lil-gui.umd.min.js"></script>
+	<script src="../data/geojson/provincePositions.js"></script>
+	<style>
+		#map {
+			width: 100%;
+			height: 100%;
+		}
+
+		/* Cockpit UI Styles - Sci-Fi Digital Twin Theme */
+		:root {
+			--tech-primary: #00f3ff;
+			--tech-secondary: #0066cc;
+			--tech-bg-dark: rgba(2, 12, 30, 0.85);
+			--tech-bg-light: rgba(0, 243, 255, 0.15);
+			--tech-border: rgba(0, 243, 255, 0.6);
+		}
+
+		.cockpit-title {
+			position: absolute;
+			top: 0;
+			left: 50%;
+			transform: translateX(-50%);
+			width: 60%;
+			height: 70px;
+			display: flex;
+			justify-content: center;
+			align-items: center;
+			z-index: 1000;
+			pointer-events: none;
+			background:
+				linear-gradient(to bottom, var(--tech-bg-dark), transparent),
+				linear-gradient(to right, transparent 0%, var(--tech-bg-dark) 20%, var(--tech-bg-dark) 80%, transparent 100%);
+		}
+
+		.cockpit-title::before {
+			content: '';
+			position: absolute;
+			bottom: 10px;
+			left: 20%;
+			right: 20%;
+			height: 2px;
+			background: linear-gradient(90deg, transparent, var(--tech-primary), transparent);
+			box-shadow: 0 0 10px var(--tech-primary);
+		}
+
+		.cockpit-title::after {
+			content: '';
+			position: absolute;
+			bottom: 5px;
+			left: 25%;
+			right: 25%;
+			height: 4px;
+			background: var(--tech-primary);
+			clip-path: polygon(0 0, 100% 0, 95% 100%, 5% 100%);
+			opacity: 0.5;
+		}
+
+		.cockpit-title-text {
+			font-size: 32px;
+			font-weight: bold;
+			color: #fff;
+			text-shadow: 0 0 15px var(--tech-primary);
+			letter-spacing: 6px;
+			font-family: "Microsoft YaHei", sans-serif;
+			position: relative;
+			top: -5px;
+			background: linear-gradient(to bottom, #fff, #aee);
+			-webkit-background-clip: text;
+			-webkit-text-fill-color: transparent;
+		}
+
+		.cockpit-panel {
+			position: absolute;
+			top: 100px;
+			width: 280px;
+			display: flex;
+			flex-direction: column;
+			gap: 15px;
+			z-index: 1000;
+			padding: 20px;
+			pointer-events: none;
+		}
+
+		.cockpit-left {
+			left: 20px;
+			background: linear-gradient(90deg, rgba(0, 20, 50, 0.6) 0%, transparent 100%);
+			border-left: 2px solid rgba(0, 243, 255, 0.3);
+		}
+
+		.cockpit-right {
+			right: 20px;
+			align-items: flex-end;
+			background: linear-gradient(-90deg, rgba(0, 20, 50, 0.6) 0%, transparent 100%);
+			border-right: 2px solid rgba(0, 243, 255, 0.3);
+		}
+
+		.cockpit-btn {
+			position: relative;
+			width: 100%;
+			height: 45px;
+			line-height: 45px;
+			padding-left: 20px;
+			padding-right: 20px;
+			box-sizing: border-box;
+			background: linear-gradient(90deg, var(--tech-bg-light), transparent);
+			border: 1px solid transparent;
+			border-left: 4px solid var(--tech-primary);
+			color: #fff;
+			font-size: 16px;
+			cursor: pointer;
+			pointer-events: auto;
+			transition: all 0.3s ease;
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			clip-path: polygon(0 0, 100% 0, 100% 80%, 95% 100%, 0 100%);
+		}
+
+		.cockpit-right .cockpit-btn {
+			background: linear-gradient(-90deg, var(--tech-bg-light), transparent);
+			border-left: none;
+			border-right: 4px solid var(--tech-primary);
+			padding-left: 20px;
+			text-align: right;
+			justify-content: flex-end;
+			clip-path: polygon(0 0, 100% 0, 100% 100%, 5% 100%, 0 80%);
+		}
+
+		.cockpit-btn:hover {
+			background: linear-gradient(90deg, rgba(0, 243, 255, 0.4), transparent);
+			padding-left: 30px;
+			text-shadow: 0 0 8px #fff;
+			box-shadow: 0 0 15px rgba(0, 243, 255, 0.2);
+		}
+
+		.cockpit-right .cockpit-btn:hover {
+			background: linear-gradient(-90deg, rgba(0, 243, 255, 0.4), transparent);
+			padding-left: 20px;
+			padding-right: 30px;
+		}
+
+		.cockpit-btn::before {
+			content: '';
+			position: absolute;
+			top: 0;
+			left: 0;
+			width: 100%;
+			height: 1px;
+			background: linear-gradient(90deg, var(--tech-primary), transparent);
+			opacity: 0.5;
+		}
+
+		.cockpit-btn-value {
+			font-family: 'Impact', sans-serif;
+			color: var(--tech-primary);
+			font-size: 20px;
+			margin-left: 10px;
+		}
+
+		/* Bottom Bar */
+		.cockpit-bottom {
+			position: absolute;
+			bottom: 30px;
+			left: 50%;
+			transform: translateX(-50%);
+			width: 60%;
+			height: 60px;
+			display: flex;
+			justify-content: center;
+			gap: 40px;
+			z-index: 1000;
+			background: linear-gradient(to top, rgba(0, 20, 50, 0.9), transparent);
+			border-bottom: 2px solid var(--tech-secondary);
+			pointer-events: none;
+		}
+
+		.bottom-btn {
+			pointer-events: auto;
+			width: 120px;
+			height: 40px;
+			margin-top: 10px;
+			background: rgba(0, 20, 40, 0.8);
+			border: 1px solid var(--tech-secondary);
+			color: var(--tech-primary);
+			display: flex;
+			justify-content: center;
+			align-items: center;
+			font-size: 14px;
+			cursor: pointer;
+			transform: skewX(-20deg);
+			transition: all 0.3s;
+			box-shadow: 0 0 5px var(--tech-secondary);
+		}
+
+		.bottom-btn span {
+			transform: skewX(20deg); /* Unskew text */
+		}
+
+		.bottom-btn:hover {
+			background: var(--tech-secondary);
+			color: #fff;
+			box-shadow: 0 0 20px var(--tech-secondary);
+		}
+
+		.bottom-btn.active {
+			background: var(--tech-primary);
+			color: #000;
+			border-color: #fff;
+			box-shadow: 0 0 20px var(--tech-primary);
+		}
+	</style>
+</head>
+
+<body>
+<div id="map"></div>
+
+<!-- Cockpit UI Elements -->
+<div class="cockpit-title">
+	<div class="cockpit-title-text">长江航运智能管理驾驶舱</div>
+</div>
+
+<div class="cockpit-panel cockpit-left">
+	<div class="cockpit-btn">
+		<span>岸电码头</span>
+		<span class="cockpit-btn-value">4770</span>
+	</div>
+	<div class="cockpit-btn">
+		<span>岸电设施</span>
+		<span class="cockpit-btn-value">9719</span>
+	</div>
+	<div class="cockpit-btn">
+		<span>污染物接收</span>
+		<span class="cockpit-btn-value">518</span>
+	</div>
+	<div class="cockpit-btn">
+		<span>作业设备</span>
+		<span class="cockpit-btn-value">7981</span>
+	</div>
+</div>
+
+<div class="cockpit-panel cockpit-right">
+	<div class="cockpit-btn">
+		<span class="cockpit-btn-value">10595</span>
+		<span>岸电泊位</span>
+	</div>
+	<div class="cockpit-btn">
+		<span class="cockpit-btn-value">17757</span>
+		<span>用电船舶</span>
+	</div>
+	<div class="cockpit-btn">
+		<span class="cockpit-btn-value">9179</span>
+		<span>用电总量</span>
+	</div>
+	<div class="cockpit-btn">
+		<span class="cockpit-btn-value">8480</span>
+		<span>生活污水</span>
+	</div>
+</div>
+
+<div class="cockpit-bottom">
+	<div class="bottom-btn active" onclick="resetToPanorama(this)"><span>全景总览</span></div>
+	<div class="bottom-btn" onclick="switchToTilt(this)"><span>倾斜摄影</span></div>
+	<div class="bottom-btn"><span>航运安全</span></div>
+	<div class="bottom-btn"><span>绿色长江</span></div>
+</div>
+
+<script>
+		/**
+		 * 全局参数设置
+		 */
+		minemap.domainUrl = 'https://minemap.minedata.cn';
+		minemap.dataDomainUrl = 'https://minemap.minedata.cn';
+		minemap.serverDomainUrl = 'https://sd-data.minedata.cn';
+		minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+		minemap.serviceUrl = 'https://service.minedata.cn/service';
+
+		minemap.key = '0c6ac62182404e5ebc7a789981f6db72';
+		minemap.solution = 11001;
+
+		// 定义空底图样式
+		var style = {
+			"glyphs": "minemap://fonts/{fontstack}/{range}",
+			"sprite": "minemap://sprite/sprite",
+			"sources": {},
+			"layers": [],
+			"version": 8
+		};
+		var map = new minemap.Map({
+			container: 'map',
+			style,
+			center: [112.07166225692141, 32.62387915003289],
+			zoom: 4.903221160379135,
+			pitch: 56.64801392011508,
+			maxZoom: 22,
+			minZoom: 1,
+			bearing:-1.3648653903861572,
+			projection: 'MERCATOR',
+		});
+
+		map.repaint = true;
+		map.enableLight();
+
+		window.minemapCDN = "https://minedata.cn/minemapapi/minemap-CDN"; // minemapCDN 配置
+
+		map.on('load', function () {
+			map.addSource("IMAGERY_SOURCE", {
+				"type": "raster",
+				"tiles": ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"],
+				"tileSize": 512,
+			});
+			map.setInnerGlow(true)
+			map.addLayer({
+				"id": "IMAGERY",
+				"type": "raster",
+				"source": "IMAGERY_SOURCE",
+				"minzoom": 0,
+				"maxzoom": 23,
+			});
+
+			// Add 3D Tiles (Tilt)
+			add3DTiles();
+			// Add ripple effect for 3D Tiles location
+			addRippleEffect();
+
+			// Add Yangtze River Glowing Line
+			addYangtzeRiver();
+
+			// Add Independent Administrative Divisions
+			createMaskLayer();
+			addHubeiLayers();
+			add3DEffect();
+
+			initializeGUI();
+		})
+
+		// ----- 3D Tiles (Tilt) -----
+		let tileset = null;
+		const tilesLocation = [108.94140782039169, 34.315097824473604];
+
+		function add3DTiles() {
+			tileset = map.addSceneComponent({
+				id: "serve",
+				type: "3d-tiles",
+				show: true,
+				translation: new minemap.Math.Vector3(0, 0, 0),
+				minzoom: 1,
+				maxzoom: 22,
+				url: "https://staticdata-b.minedata.cn:14434/oblique/tileset.json",
+				skipLevelOfDetail: false,
+				maximumScreenSpaceError: 8,
+				allowPick: true
+			});
+			window.tileset = tileset;
+		}
+
+		function addRippleEffect() {
+			// Ripple Circle
+			const positionWorld = minemap.Math.Vector3.fromDegrees(tilesLocation[0], tilesLocation[1], 400);
+			let matrix = minemap.Transforms.cartesianToFixedFrame(positionWorld);
+			map.addPrimitive(
+				new minemap.Primitive({
+					modelMatrix: matrix,
+					geometry: new minemap.Geometries.CircleGeometry({
+						radius: 500, // Radius
+						segments: 128, // Segments
+						thetaStart: 0, // Start angle
+						thetaLength: Math.PI * 2 // End angle
+					}),
+					material: minemap.StandardMaterial.fromType("CircleWave", {
+						color: "#ffff00", // Color
+						speed: 1, // Speed
+						waveCount: 3, // Wave count
+						gradient: 0.5 // Gradient
+					})
+				})
+			);
+		}
+
+		function switchToTilt(el) {
+			updateBottomBtnState(el);
+
+			// 1. Disable Inner Glow
+			map.setInnerGlow(false);
+
+			// 2. Disable Mask and Wall
+			setMaskVisibility(false);
+			wallEnabled = false;
+			removeWall();
+
+			// 3. Fly to Tiles
+			flyToTiles();
+		}
+
+		function resetToPanorama(el) {
+			updateBottomBtnState(el);
+
+			// 1. Enable Inner Glow
+			map.setInnerGlow(true, hexToRgb(commonParams["内发光颜色"]));
+
+			// 2. Enable Mask and Wall
+			setMaskVisibility(true);
+			wallEnabled = true;
+			add3DEffect();
+
+			// 3. Fly to initial view (Hubei Overview)
+			map.flyTo({
+				center: [112.07166225692141, 32.62387915003289],
+				zoom: 4.903221160379135,
+				pitch: 56.64801392011508,
+				bearing: -1.3648653903861572,
+				duration: 2000
+			});
+		}
+
+		function updateBottomBtnState(activeEl) {
+			const btns = document.querySelectorAll('.bottom-btn');
+			btns.forEach(btn => btn.classList.remove('active'));
+			if(activeEl) activeEl.classList.add('active');
+		}
+
+		function flyToTiles() {
+			map.flyTo({
+				"center": [108.94140782039169, 34.315097824473604],
+				"zoom": 12.998990448102564,
+				"pitch": 71.71198146942176,
+				"bearing": -91.62204255510915,
+				"roll": -0.00023851347404051595
+			});
+		}
+
+		let yangtzeLocation = null;
+		let yangtzeCoordinates = [];
+		let flowPrimitives = [];
+		// Define multiple flow instances with different start positions and speeds
+		let flowInstances = [
+			{ currentFlowIndex: 0, speed: 5 },
+			{ currentFlowIndex: -500, speed: 5 }, // Start later
+			{ currentFlowIndex: -1000, speed: 5 }, // Start even later
+			{ currentFlowIndex: -1500, speed: 6 }, // Faster
+			{ currentFlowIndex: -200, speed: 4 }   // Slower
+		];
+
+		function addYangtzeRiver() {
+			fetch('http://192.168.152.123:11187/demo-data/yangtze_smooth_2000.geojson')
+				.then(response => response.json())
+				.then(data => {
+					let coordinates = [];
+					if (data.type === 'FeatureCollection') {
+						data.features.forEach(feature => {
+							if (feature.geometry.type === 'LineString') {
+								coordinates = coordinates.concat(feature.geometry.coordinates);
+							} else if (feature.geometry.type === 'MultiLineString') {
+								feature.geometry.coordinates.forEach(line => {
+									coordinates = coordinates.concat(line);
+								});
+							}
+						});
+					} else if (data.type === 'Feature') {
+						if (data.geometry.type === 'LineString') {
+							coordinates = data.geometry.coordinates;
+						}
+					}
+
+					if (coordinates.length === 0) return;
+
+					// Store coordinates for animation
+					yangtzeCoordinates = coordinates;
+					yangtzeLocation = coordinates[Math.floor(coordinates.length / 2)];
+
+					// Start animation
+					requestAnimationFrame(animateFlow);
+				})
+				.catch(err => console.error("Failed to load Yangtze River data", err));
+		}
+
+		function animateFlow() {
+			// Clear previous primitives
+			flowPrimitives.forEach(p => map.removePrimitive(p));
+			flowPrimitives = [];
+
+			if (yangtzeCoordinates.length < 2) return;
+
+			const segmentLength = 150; // Length of each glowing segment
+			const totalPoints = yangtzeCoordinates.length;
+
+			// Draw Base Line (Static background)
+			// Only creating it once per frame here for simplicity with the clear logic.
+			// Ideally, this should be a separate static primitive added once globally.
+			const fullCoords = [];
+			yangtzeCoordinates.forEach(c => fullCoords.push(c[0], c[1], 5000));
+
+			const basePolyline = new minemap.Geometries.PolylineGeometry({
+				positions: minemap.Math.Vector3.fromDegreesArrayHeights(fullCoords),
+				width: 5,
+				arcType: minemap.ARCTYPE.GEODESIC
+			});
+
+			const baseMaterial = minemap.PolylineMaterial.fromType("Color", {
+				color: "#004444",
+				opacity: 0.3,
+				depthTest: false
+			});
+
+			const basePrimitive = new minemap.Primitive({
+				geometry: basePolyline,
+				material: baseMaterial
+			});
+			map.addPrimitive(basePrimitive);
+			flowPrimitives.push(basePrimitive);
+
+			// Update and Draw Each Flow Instance
+			flowInstances.forEach(instance => {
+				// Update position
+				instance.currentFlowIndex += instance.speed;
+
+				// Loop logic
+				if (instance.currentFlowIndex >= totalPoints) {
+					instance.currentFlowIndex = -Math.random() * 500; // Random delay before restarting
+				}
+
+				// Skip if currently in delay period (negative index)
+				if (instance.currentFlowIndex < 0) return;
+
+				let start = Math.floor(instance.currentFlowIndex);
+				let end = Math.min(start + segmentLength, totalPoints);
+
+				// Create segment coordinates
+				const segmentCoords = [];
+				for (let i = start; i < end; i++) {
+					segmentCoords.push(yangtzeCoordinates[i][0], yangtzeCoordinates[i][1], 5000);
+				}
+
+				if (segmentCoords.length > 1) {
+					const polyline = new minemap.Geometries.PolylineGeometry({
+						positions: minemap.Math.Vector3.fromDegreesArrayHeights(segmentCoords),
+						width: 15,
+						arcType: minemap.ARCTYPE.GEODESIC
+					});
+
+					const material = minemap.PolylineMaterial.fromType("Glow", {
+						color: "#00ffff",
+						glowPower: 0.4,
+						taperPower: 0.5,
+						opacity: 1.0,
+						depthTest: false
+					});
+
+					const primitive = new minemap.Primitive({
+						geometry: polyline,
+						material: material
+					});
+
+					map.addPrimitive(primitive);
+					flowPrimitives.push(primitive);
+				}
+			});
+
+			requestAnimationFrame(animateFlow);
+		}
+
+		function flyToYangtze() {
+			if (yangtzeLocation) {
+				map.flyTo({
+					center: yangtzeLocation,
+					zoom: 8,
+					pitch: 0,
+					duration: 2000
+				});
+			} else {
+				alert("长江数据尚未加载或加载失败");
+			}
+		}
+
+		// ----- Independent Administrative Divisions (ProvinceView) -----
+		let maskEnabled = true;
+		let wallEnabled = true;
+		let wallPrimitive = null;
+		const maskLayerIds = ['global_mask_layer', 'province_border', 'province_fill'];
+
+		function processCoordinates(coords) {
+			if (!Array.isArray(coords) || coords.length === 0) return [];
+			if (Array.isArray(coords[0]) && Array.isArray(coords[0][0])) {
+				return coords[0];
+			}
+			if (Array.isArray(coords) && coords.length % 2 === 0) {
+				const result = [];
+				for (let i = 0; i < coords.length; i += 2) {
+					result.push([coords[i], coords[i + 1]]);
+				}
+				const first = result[0], last = result[result.length - 1];
+				if (first && (first[0] !== last[0] || first[1] !== last[1])) {
+					result.push([first[0], first[1]]);
+				}
+				return result;
+			}
+			return [];
+		}
+
+		function createMaskLayer() {
+			const targetCoords = processCoordinates(typeof provincePositions !== 'undefined' ? provincePositions : []);
+			if (targetCoords.length === 0) return;
+
+			const worldRing = [[-180, -90], [180, -90], [180, 90], [-180, 90], [-180, -90]];
+
+			const maskData = {
+				type: 'Feature',
+				geometry: {
+					type: 'Polygon',
+					coordinates: [worldRing, targetCoords.slice().reverse()]
+				}
+			};
+
+			const provinceData = {
+				type: 'Feature',
+				geometry: { type: 'Polygon', coordinates: [targetCoords] }
+			};
+
+			map.addSource('global_mask', { type: 'geojson', data: maskData });
+			map.addSource('province_area', { type: 'geojson', data: provinceData });
+
+			map.addLayer({
+				id: 'global_mask_layer',
+				type: 'fill',
+				source: 'global_mask',
+				paint: {
+					'fill-color': '#000000',
+					'fill-opacity': 0.7
+				}
+			});
+
+			map.addLayer({
+				id: 'province_border',
+				type: 'line',
+				source: 'province_area',
+				paint: {
+					'line-color': '#ff0000',
+					'line-width': 2
+				},
+				classificationType: minemap.ClassificationType.FORCE_VECTOR_OVER_MODEL
+			});
+
+			map.addLayer({
+				id: 'province_fill',
+				type: 'fill',
+				source: 'province_area',
+				paint: {
+					'fill-color': '#ffc170',
+					'fill-opacity': 0.7
+				},
+				classificationType: minemap.ClassificationType.FORCE_VECTOR_OVER_MODEL
+			});
+
+			setMaskVisibility(maskEnabled);
+		}
+
+		function setMaskVisibility(show) {
+			maskEnabled = !!show;
+			maskLayerIds.forEach(id => {
+				if (map.getLayer && map.getLayer(id)) {
+					map.setLayoutProperty(id, 'visibility', show ? 'visible' : 'none');
+				}
+			});
+		}
+
+		function addHubeiLayers() {
+			map.addSource('hubei', {
+				type: 'geojson',
+				data: '../data/geojson/hubei.geojson',
+				promoteId: 'adcode'
+			});
+
+			map.addLayer({
+				id: 'hubei_layer',
+				type: 'fill',
+				source: 'hubei',
+				paint: {
+					'fill-color': '#3B83F1',
+					'fill-outline-color': '#02FCFC',
+					'fill-opacity': [
+						'case',
+						['boolean', ['feature-state', 'hover'], false],
+						0.7,
+						0.5
+					]
+				},
+				classificationType: minemap.ClassificationType.FORCE_VECTOR_OVER_MODEL
+			});
+
+			map.addLayer({
+				id: 'hubei_line',
+				type: 'line',
+				source: 'hubei',
+				paint: {
+					'line-color': '#02FCFC',
+					'line-width': 1.5
+				},
+				classificationType: minemap.ClassificationType.FORCE_VECTOR_OVER_MODEL
+			});
+
+			map.addLayer({
+				id: 'hubei_label',
+				type: 'symbol',
+				source: 'hubei',
+				layout: {
+					'text-field': '{name}',
+					'text-size': 12
+				},
+				paint: { 'text-color': '#ffffff' },
+				classificationType: minemap.ClassificationType.FORCE_VECTOR_OVER_MODEL
+			});
+		}
+
+		function add3DEffect() {
+			if (!Array.isArray(provincePositions)) return;
+			if (!wallEnabled) return;
+			createWall();
+		}
+
+		function createWall() {
+			if (wallPrimitive) {
+				wallPrimitive.visible = true;
+				return;
+			}
+
+			let positionsArray = [];
+			if (Array.isArray(provincePositions) && provincePositions.length > 0) {
+				if (typeof provincePositions[0] === 'number') {
+					positionsArray = provincePositions;
+				} else if (Array.isArray(provincePositions[0])) {
+					for (let i = 0; i < provincePositions.length; i++) {
+						const p = provincePositions[i];
+						if (Array.isArray(p) && p.length >= 2) {
+							positionsArray.push(p[0], p[1]);
+						}
+					}
+				}
+			}
+
+			if (positionsArray.length === 0) return;
+
+			const wallGeometry = minemap.Geometries.WallGeometry.fromConstantHeights({
+				positions: minemap.Math.Vector3.fromDegreesArray(positionsArray),
+				maximumHeight: 0,
+				minimumHeight: -20000
+			});
+
+			const material = minemap.StandardMaterial.fromType('Color', {
+				color: new minemap.Color(0.0, 0.0, 1.0, 0.7),
+				opacity: 0.7,
+				doubleSided: true
+			});
+
+			wallPrimitive = new minemap.Primitive({ geometry: wallGeometry, material });
+			if (typeof map.addPrimitive === 'function') {
+				map.addPrimitive(wallPrimitive);
+			}
+		}
+
+		function removeWall() {
+			if (!wallPrimitive) return;
+			wallPrimitive.visible = false;
+		}
+
+		const commonParams = {
+			"开启内发光": function () {
+				map.setInnerGlow(true, hexToRgb(commonParams["内发光颜色"]));
+			},
+			"关闭内发光": function () { map.setInnerGlow(false); },
+			"内发光颜色": "#ff0000",
+			"飞行到倾斜": flyToTiles,
+			"飞行到长江": flyToYangtze,
+			"显示遮罩": true,
+			"显示围墙": true,
+			"显示3D Tiles": true
+		};
+
+		function hexToRgb(hex) {
+			const r = parseInt(hex.slice(1, 3), 16);
+			const g = parseInt(hex.slice(3, 5), 16);
+			const b = parseInt(hex.slice(5, 7), 16);
+			return [r, g, b];
+		}
+
+		function initializeGUI() {
+			const gui = new lil.GUI({ width: 300 });
+			const common = gui.addFolder("参数");
+			common.add(commonParams, "开启内发光");
+			common.add(commonParams, "关闭内发光");
+			common.addColor(commonParams, "内发光颜色").onChange(v => {
+				map.setInnerGlow(true, hexToRgb(v));
+			});
+			common.add(commonParams, "飞行到倾斜");
+			common.add(commonParams, "飞行到长江");
+
+			const layerFolder = gui.addFolder("图层控制");
+			layerFolder.add(commonParams, "显示遮罩").onChange(v => setMaskVisibility(v));
+			layerFolder.add(commonParams, "显示围墙").onChange(v => {
+				wallEnabled = v;
+				if (v) add3DEffect(); else removeWall();
+			});
+			layerFolder.add(commonParams, "显示3D Tiles").onChange(v => {
+				if (tileset) tileset.show = v;
+			});
+
+			gui.close(); // Close the GUI by default
+		}
+
+	</script>
+</body>

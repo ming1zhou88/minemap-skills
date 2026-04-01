@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+	<title>Plane</title>
+	<script src="../js/lil-gui.umd.min.js"></script>
+	<script src="../../dist/minemap-dev.js"></script>
+	<style>
+		html,
+		body,
+		#map {
+			margin: 0;
+			padding: 0;
+			width: 100%;
+			height: 100%;
+		}
+	</style>
+</head>
+
+<body>
+<div id="map"></div>
+<script>
+	window.minemapCDN = 'https://minedata.cn/minemapapi/minemap-CDN';
+	minemap.domainUrl = 'https://minemap.minedata.cn';
+	minemap.serverDomainUrl = 'https://sd-data.minedata.cn';
+	minemap.key = '<您的 key>';
+
+	const style = {
+		glyphs: "minemap://fonts/{fontstack}/{range}",
+		sprite: "minemap://sprite/sprite",
+		sources: {},
+		layers: [],
+		version: 8
+	};
+
+	const map = new minemap.Map({
+		container: "map",
+		style,
+		center: [100.00215978690952, 40.016289834840855],
+		zoom: 12,
+		pitch: 25,
+		maxZoom: 22,
+		minZoom: 1,
+		projection: "MERCATOR"
+	});
+	map.repaint = true;
+
+	const { PlaneGeometry, PlaneOutlineGeometry, StandardMaterial, Primitive, Transforms, TextureLoader, Color, ModelTransformationControl } = minemap;
+	const { Euler, Matrix4, Vector3, Vector2 } = minemap.Math;
+
+	const GUIParams = {
+		texRotation: 0,
+		texAdaptive: true,
+		planeRotationX: 0,
+		planeRotationY: 0,
+		planeRotationZ: 0,
+	};
+
+	const planeTexture = TextureLoader.load({ map, texUrl: "../data/image/uv.jpg", useMipmap: true });
+	const planeRotation = new Euler(GUIParams.planeRotationX, GUIParams.planeRotationY, GUIParams.planeRotationZ);
+	const planeRotationMat = new Matrix4();
+	const planeWidth = 4000;
+	const planeHeight = 3000;
+	const modelMatrix = Transforms.eastNorthUpToFixedFrame(Vector3.fromDegrees(100.0, 40.0, 5000.0));
+	let planeGeometry, planeMaterial, planePrimitive, outlineGeometry, outlineMaterial, outlinePrimitive;
+
+	initializeGUI();
+	initializePlane();
+	initializeController();
+
+	function initializeGUI() {
+		const gui = new lil.GUI({ width: 300 });
+		const materialControl = gui.addFolder("Material Control");
+		materialControl.open();
+		materialControl.add(GUIParams, "texRotation").name("纹理旋转").min(-360).max(360).step(1).onChange((value) => {
+			planeMaterial.texRotation = value;
+		});
+		materialControl.add(GUIParams, "texAdaptive").name("纹理适应面板").onChange((value) => {
+			planeMaterial.texAdaptive = value;
+		});
+
+		// 使用TransformController的时候不使用此GUI，因为暂时没有同步GUI和目标旋转量数据的方法
+		// const planeControl = gui.addFolder("Plane Control");
+		// planeControl.open();
+		// planeControl.add(GUIParams, "planeRotationX").name("X").min(-360).max(360).step(1).onChange((value) => {
+		// 	planeRotation.x = value / 180 * Math.PI;
+		// 	Matrix4.multiply(planeRotationMat, modelMatrix, planeRotation.getRotationMatrix());
+		//
+		// 	planePrimitive.setRotationFromMatrix(planeRotationMat);
+		// 	planePrimitive.updateMatrixWorld();
+		//
+		// 	outlinePrimitive.setRotationFromMatrix(planeRotationMat);
+		// 	outlinePrimitive.updateMatrixWorld();
+		// });
+		// planeControl.add(GUIParams, "planeRotationY").name("Y").min(-360).max(360).step(1).onChange((value) => {
+		// 	planeRotation.y = value / 180 * Math.PI;
+		// 	Matrix4.multiply(planeRotationMat, modelMatrix, planeRotation.getRotationMatrix());
+		//
+		// 	planePrimitive.setRotationFromMatrix(planeRotationMat);
+		// 	planePrimitive.updateMatrixWorld();
+		//
+		// 	outlinePrimitive.setRotationFromMatrix(planeRotationMat);
+		// 	outlinePrimitive.updateMatrixWorld();
+		// });
+		// planeControl.add(GUIParams, "planeRotationZ").name("Z").min(-360).max(360).step(1).onChange((value) => {
+		// 	planeRotation.z = value / 180 * Math.PI;
+		// 	Matrix4.multiply(planeRotationMat, modelMatrix, planeRotation.getRotationMatrix());
+		//
+		// 	planePrimitive.setRotationFromMatrix(planeRotationMat);
+		// 	planePrimitive.updateMatrixWorld();
+		//
+		// 	outlinePrimitive.setRotationFromMatrix(planeRotationMat);
+		// 	outlinePrimitive.updateMatrixWorld();
+		// });
+	}
+	function initializePlane() {
+		planeGeometry = new PlaneGeometry({
+			normal: Vector3.UNIT_Z,
+			distance: 0,
+			dimensions: new Vector2(planeWidth, planeHeight)
+		});
+		planeMaterial = StandardMaterial.fromType("Texture", {
+			baseColorMap: planeTexture,
+			color: Color.transparent,
+			opacity: 1.0,
+			doubleSided: true,
+			texRepeat: [1, 1],
+			texRotation: GUIParams.texRotation,
+			texAdaptive: true,
+			planeAspectRatio: planeWidth / planeHeight
+		});
+		planePrimitive = new Primitive({
+			modelMatrix,
+			geometry: planeGeometry,
+			material: planeMaterial,
+			allowPick: true
+		});
+		map.addPrimitive(planePrimitive);
+		outlineGeometry = new PlaneOutlineGeometry({
+			normal: Vector3.UNIT_Z,
+			distance: 0,
+			dimensions: new Vector2(planeWidth, planeHeight)
+		});
+		outlineMaterial = StandardMaterial.fromType("Color", {
+			color: new Color(1.0, 0.0, 0.0, 1),
+			doubleSided: true
+		});
+		outlinePrimitive = new Primitive({
+			geometry: outlineGeometry,
+			material: outlineMaterial
+		});
+		planePrimitive.add(outlinePrimitive);
+		outlinePrimitive.updateMatrixWorld();
+		map.addPrimitive(outlinePrimitive);
+	}
+	function initializeController() {
+		new ModelTransformationControl(map);
+	}
+
+	map.on("load", function () {
+		map.addSource("IMAGERY_SOURCE", {
+			type: "raster",
+			tiles: ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"],
+			maxzoom: 15,
+			tileSize: 512
+		});
+
+		map.addLayer({
+			id: "IMAGERY",
+			type: "raster",
+			source: "IMAGERY_SOURCE",
+			minzoom: 1,
+			maxzoom: 23,
+			paint: {
+				"raster-opacity": 1
+			},
+			"depth-test": true
+		});
+	});
+</script>
+</body>
+</html>

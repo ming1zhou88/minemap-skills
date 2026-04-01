@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+		<title>雾与矢量</title>
+		<!-- demo样式文件 -->
+		<link rel="stylesheet" href="../style/demo.css" />
+		<!-- 引入MineMap API插件 -->
+		<link rel="stylesheet" href="../../dist/minemap.css" />
+		<script src="../../dist/minemap-dev.js"></script>
+		<script src="../js/lil-gui.umd.min.js"></script>
+		<style>
+			#map {
+				width: 100%;
+				height: 100%;
+			}
+		</style>
+	</head>
+
+	<body>
+		<div id="map"></div>
+
+		<script>
+			/**
+			 * 全局参数设置
+			 */
+			minemap.domainUrl = "https://minemap.minedata.cn";
+			minemap.dataDomainUrl = "https://minemap.minedata.cn";
+			minemap.serverDomainUrl = "https://sd-data.minedata.cn";
+			minemap.spriteUrl = "http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite";
+			minemap.serviceUrl = "https://service.minedata.cn/service";
+
+			minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+			minemap.solution = 11001;
+
+			/*定义空底图样式*/
+			var style = {
+				glyphs: "minemap://fonts/{fontstack}/{range}",
+				sprite: "minemap://sprite/sprite",
+				sources: {},
+				layers: [],
+				version: 8
+			};
+
+			/*初始化地图实例*/
+			var map = new minemap.Map({
+				container: "map",
+				style: "https://service.minedata.cn/map/solu/style/11001",
+				center: [108.96415456897843, 34.22518462507623] /*地图中心点*/,
+				zoom: 15.6, //地图默认缩放等级
+				pitch: 80, //地图俯仰角度
+				projection: "MERCATOR"
+			});
+			map.repaint = true;
+
+			map.on("load", function () {
+				initializeGUI();
+				createFogPostProcess();
+			});
+
+			const fogParams = {
+				enabled: true,
+				color: "#FFFFFF",
+				nearDistance: 10,
+				farDistance: 5000
+			};
+			function initializeGUI() {
+				const gui = new lil.GUI({ width: 300 });
+				const fogGUI = gui.addFolder("Fog");
+
+				fogGUI.open();
+				fogGUI.add({ enabled: true }, "enabled").onChange((value) => {
+					fogPostProcess.enabled = value;
+				});
+
+				fogGUI.addColor(fogParams, "color").onChange((value) => {
+					fogPostProcess.color = value;
+				});
+				fogGUI
+					.add(fogParams, "nearDistance")
+					.min(1)
+					.max(1000)
+					.step(1)
+					.onChange((value) => {
+						fogPostProcess.nearDistance = value;
+					});
+				fogGUI
+					.add(fogParams, "farDistance")
+					.min(1)
+					.max(10000)
+					.step(1)
+					.onChange((value) => {
+						fogPostProcess.farDistance = value;
+					});
+			}
+
+			let fogPostProcess;
+			function createFogPostProcess() {
+				// 创建后处理雾效果
+				fogPostProcess = minemap.PostProcessStageLibrary.createFogEffect({
+					enabled: fogParams.enabled, //是否开启雾效
+					fogColor: fogParams.color, //雾颜色，通常设置黑或白
+					nearDistance: fogParams.nearDistance, //雾开始距离
+					farDistance: fogParams.farDistance //雾结束距离
+				});
+				map.postProcessStages.add(fogPostProcess);
+			}
+		</script>
+	</body>
+</html>

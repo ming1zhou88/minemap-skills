@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+	<title>模型内置框线兼容示例（_crease_edge）</title>
+	<link rel="stylesheet" href="../style/demo.css">
+	<link rel="stylesheet" href="../../dist/minemap.css">
+	<script src="../../dist/minemap-dev.js"></script>
+	<script src="../js/lil-gui.umd.min.js"></script>
+	<link rel="stylesheet" href="../lib/jquery/ztree/css/demo.css">
+	<link rel="stylesheet" href="../lib/jquery/ztree/css/metroStyle/metroStyle.css" />
+	<script type="text/javascript" src="../lib/jquery/jquery-3.6.0.js"></script>
+	<script type="text/javascript" src="../lib/jquery/ztree/js/jquery.ztree.all.min.js"></script>
+	<style>
+		html,
+		body {
+			margin: 0;
+			padding: 0;
+			width: 100%;
+			height: 100%;
+			overflow: hidden;
+		}
+
+		#map {
+			width: 100%;
+			height: 100%;
+		}
+
+		.demo-panel {
+			position: absolute;
+			left: 20px;
+			top: 20px;
+			z-index: 99999;
+			width: 320px;
+			height: calc(100% - 40px);
+			display: flex;
+			flex-direction: column;
+			background: rgba(255, 255, 255, 0.96);
+			border-radius: 12px;
+			box-shadow: 0 10px 28px rgba(0, 0, 0, 0.16);
+			overflow: hidden;
+			backdrop-filter: blur(8px);
+		}
+
+		.panel-header {
+			padding: 16px 16px 12px;
+			border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+		}
+
+		.panel-title {
+			margin: 0 0 8px 0;
+			font-size: 16px;
+			font-weight: 600;
+			color: #1f2937;
+		}
+
+		.panel-desc {
+			margin: 0;
+			font-size: 12px;
+			line-height: 1.6;
+			color: #4b5563;
+		}
+
+		.panel-body {
+			padding: 12px 12px 14px;
+			flex: 1;
+			min-height: 0;
+			display: flex;
+			flex-direction: column;
+		}
+
+		.panel-subtitle {
+			margin: 0 0 10px 4px;
+			font-size: 12px;
+			font-weight: 600;
+			color: #374151;
+		}
+
+		.tree-wrapper {
+			flex: 1;
+			min-height: 0;
+			overflow: auto;
+			border-radius: 8px;
+			background: #f8fafc;
+			border: 1px solid rgba(0, 0, 0, 0.06);
+			padding: 8px;
+		}
+
+		.ztree {
+			width: 100% !important;
+			height: auto !important;
+			min-height: 100%;
+		}
+
+		.panel-footer {
+			margin-top: 10px;
+			padding: 10px 12px;
+			border-radius: 8px;
+			background: #f3f4f6;
+			font-size: 12px;
+			line-height: 1.6;
+			color: #4b5563;
+		}
+	</style>
+</head>
+
+<body>
+	<div class="demo-panel">
+		<div class="panel-header">
+			<h1 class="panel-title">内置框线兼容示例</h1>
+			<p class="panel-desc">仅演示数据内置 `_wireframe` / `_crease_edge` 的显示控制，不启用引擎自动生成框线。</p>
+		</div>
+		<div class="panel-body">
+			<div class="panel-subtitle">节点树控制</div>
+			<div class="tree-wrapper">
+				<ul id="tree" class="ztree"></ul>
+			</div>
+			<div class="panel-footer">
+				左侧树控制单个节点显隐；右侧控制面板负责整体控制模型、非框线 Mesh 与内置框线。
+			</div>
+		</div>
+	</div>
+	<div id="map"></div>
+
+	<script>
+		var globalNodeId = 1;
+		var zTreeObj;
+		var modelTree = {};
+		var lastPrimitive = null;
+		var controller;
+		var modelInstance = null;
+		var modelRootNodeId = null;
+		var modelPrimitives = [];
+
+		const HIGHLIGHT_COLOR = [1.0, 0.0, 0.0, 0.4];
+		const MODEL_ID = "CreaseEdgeModel";
+		const MODEL_URL = "../data/creased_edge_gltf/Infra-Landscaping_with_creaseEdges.gltf";
+		const MODEL_FOLDER = "../data/creased_edge_gltf/";
+		const center = [116.4631201845521, 39.91980220492439];
+
+		const viewState = {
+			showModel: true,
+			showMesh: true,
+			showEmbeddedWireframe: true,
+			focusModel: function () {
+				if (!modelInstance) {
+					return;
+				}
+				map.flyTo({
+					target: modelInstance,
+					bearing: 1.231132343387515,
+					pitch: 71.69377362758019,
+					duration: 1200,
+					range: 180
+				});
+			}
+		};
+
+		function isEmbeddedWireframeName(name) {
+			if (typeof name !== "string") {
+				return false;
+			}
+			const lowerName = name.toLowerCase();
+			return lowerName.endsWith("_wireframe") || lowerName.endsWith("_crease_edge");
+		}
+
+		function colorToArray(colorLike) {
+			if (!colorLike) return null;
+			const r = colorLike.r ?? colorLike.x;
+			const g = colorLike.g ?? colorLike.y;
+			const b = colorLike.b ?? colorLike.z;
+			const a = colorLike.a ?? colorLike.w;
+			if (r === undefined || g === undefined || b === undefined || a === undefined) return null;
+			return [r, g, b, a];
+		}
+
+		function backupPrimitiveColor(primitive) {
+			if (!primitive) return;
+			const currentColor = colorToArray(primitive.color);
+			if (currentColor) {
+				primitive.__oldHighlightColor = currentColor;
+			}
+		}
+
+		function restorePrimitiveColor(primitive) {
+			if (!primitive || !primitive.__oldHighlightColor) return;
+			primitive.color = primitive.__oldHighlightColor;
+			primitive.__oldHighlightColor = undefined;
+		}
+
+		function setNodeVisibility(target, isVisible) {
+			if (!target) {
+				return;
+			}
+			target.show = isVisible;
+			target.visible = isVisible;
+			target.visibility = isVisible ? "visible" : "none";
+		}
+
+		function getTreeVisible(target) {
+			return target && target.__treeVisible !== false;
+		}
+
+		function collectModelPrimitives() {
+			if (!modelInstance) {
+				modelPrimitives = [];
+				return;
+			}
+			modelPrimitives = []
+				.concat(modelInstance.opaqueList || [])
+				.concat(modelInstance.translucentList || []);
+		}
+
+		function applyPrimitiveVisibility() {
+			if (!modelInstance) {
+				return;
+			}
+
+			modelPrimitives.forEach(function (primitive) {
+				const primitiveNode = primitive?.node;
+				const treeVisible = getTreeVisible(primitiveNode);
+				const isWireframe = primitive.isEmbeddedWireframe || isEmbeddedWireframeName(primitiveNode?.properties?.name);
+				const groupVisible = isWireframe ? viewState.showEmbeddedWireframe : viewState.showMesh;
+				primitive.show = viewState.showModel && treeVisible && groupVisible;
+			});
+		}
+
+		function applyTargetVisibility(target) {
+			if (!target) {
+				return;
+			}
+
+			if (target === modelInstance) {
+				setNodeVisibility(target, viewState.showModel);
+				return;
+			}
+
+			setNodeVisibility(target, viewState.showModel && getTreeVisible(target));
+		}
+
+		function applyAllNodeVisibility() {
+			if (!modelInstance) {
+				return;
+			}
+
+			applyTargetVisibility(modelInstance);
+			Object.keys(modelTree).forEach(function (nodeId) {
+				if (Number(nodeId) === modelRootNodeId) {
+					return;
+				}
+				applyTargetVisibility(modelTree[nodeId]);
+			});
+			applyPrimitiveVisibility();
+		}
+
+		function selectPrimitive(primitive) {
+			if (!(primitive instanceof minemap.Primitive)) return;
+
+			if (lastPrimitive) {
+				restorePrimitiveColor(lastPrimitive);
+			}
+
+			backupPrimitiveColor(primitive);
+			primitive.color = HIGHLIGHT_COLOR;
+			lastPrimitive = primitive;
+
+			if (controller && primitive.properties) {
+				controller.setValue(primitive.properties.name || "");
+			}
+		}
+
+		function onCheck(event, treeId, treeNode) {
+			const target = modelTree[treeNode.id];
+			if (!target) {
+				return;
+			}
+			target.__treeVisible = treeNode.checked;
+			if (treeNode.id === modelRootNodeId) {
+				viewState.showModel = treeNode.checked;
+			}
+			applyAllNodeVisibility();
+		}
+
+		function onClick(event, treeId, treeNode) {
+			selectPrimitive(modelTree[treeNode.id]);
+		}
+
+		var setting = {
+			view: {
+				selectedMulti: true
+			},
+			check: {
+				enable: true,
+			},
+			data: {
+				simpleData: {
+					enable: true,
+					idKey: "id",
+					pIdKey: "pid",
+				}
+			},
+			callback: {
+				onCheck: onCheck,
+				onClick: onClick
+			}
+		};
+
+		zTreeObj = $.fn.zTree.init($("#tree"), setting, []);
+
+		minemap.domainUrl = 'https://minemap.minedata.cn';
+		minemap.dataDomainUrl = 'https://minemap.minedata.cn';
+		minemap.serverDomainUrl = 'https://sd-data.minedata.cn';
+		minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+		minemap.serviceUrl = 'https://service.minedata.cn/service';
+		minemap.key = '0c6ac62182404e5ebc7a789981f6db72';
+		minemap.solution = 11001;
+
+		var style = {
+			"glyphs": "minemap://fonts/{fontstack}/{range}",
+			"sprite": "minemap://sprite/sprite",
+			"sources": {},
+			"layers": [],
+			"version": 8
+		};
+		window.minemapCDN = 'https://minemap.minedata.cn/minemapapi/minemap-CDN';
+
+		var map = new minemap.Map({
+			container: 'map',
+			style: style,
+			center: center,
+			bearing: 1.231132343387515,
+			zoom: 18.620140000643016,
+			pitch: 71.69377362758019,
+			maxZoom: 22,
+			minZoom: 1,
+			projection: 'MERCATOR',
+			MSAASamples: 4,
+		});
+
+		map.repaint = true;
+		map.enableLight();
+
+		initializeGUI();
+
+		map.on('load', function () {
+			map.addSource("IMAGERY_SOURCE", {
+				"type": "raster",
+				"tiles": ["http://192.168.152.227:18105/raster/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"],
+				"tileSize": 512,
+				"maxzoom": 15
+			});
+
+			map.addLayer({
+				"id": "IMAGERY",
+				"type": "raster",
+				"source": "IMAGERY_SOURCE",
+				"minzoom": 1,
+				"maxzoom": 23,
+			});
+
+			addModel();
+		});
+
+		function addModel() {
+			modelInstance = map.addSceneComponent({
+				id: MODEL_ID,
+				type: "3d-model",
+				data: MODEL_URL,
+				modelFolder: MODEL_FOLDER,
+				scale: [1, 1, 1],
+				rotation: [0, 0, 0],
+				position: [...center, 10],
+				lightingModel: minemap.LightingModelType.PBR,
+				visibility: viewState.showModel ? "visible" : "none",
+				showEmbeddedWireframe: viewState.showEmbeddedWireframe,
+				generateWireframe: false,
+				showGeneratedWireframe: false,
+				activeAnimation: true,
+				accurateBounding: true,
+				loaded: loaded
+			});
+		}
+
+		function loaded() {
+			applyGlobalState();
+
+			var rootId = globalNodeId++;
+			modelRootNodeId = rootId;
+			var nodes = [{
+				pid: -1,
+				id: rootId,
+				name: MODEL_ID,
+				open: true,
+				checked: viewState.showModel
+			}];
+
+			modelTree[rootId] = modelInstance;
+			modelInstance.__treeVisible = viewState.showModel;
+			collectModelPrimitives();
+
+			if (modelInstance._gltfJson && modelInstance._gltfJson.scene && modelInstance._gltfJson.scene.nodes) {
+				for (var j = 0; j < modelInstance._gltfJson.scene.nodes.length; j++) {
+					var node = modelInstance._gltfJson.scene.nodes[j];
+					appendNodeTree(node, rootId, nodes);
+				}
+			}
+
+			zTreeObj.addNodes(null, nodes);
+			applyAllNodeVisibility();
+		}
+
+		function appendNodeTree(node, pid, nodes) {
+			var nodeId = globalNodeId++;
+			var nodeName = node.properties.name || "Node";
+			var isWireframe = isEmbeddedWireframeName(nodeName);
+
+			nodes.push({
+				pid: pid,
+				id: nodeId,
+				name: isWireframe ? "[线框] " + nodeName : nodeName,
+				open: false,
+				checked: true,
+				nocheck: !!node.isJoint
+			});
+
+			modelTree[nodeId] = node;
+			node.__treeVisible = true;
+
+			if (!node.children) {
+				return;
+			}
+
+			for (var i = 0; i < node.children.length; i++) {
+				appendNodeTree(node.children[i], nodeId, nodes);
+			}
+		}
+
+		function applyGlobalState() {
+			if (!modelInstance) {
+				return;
+			}
+			modelInstance.showEmbeddedWireframe = viewState.showEmbeddedWireframe;
+			applyAllNodeVisibility();
+
+			if (modelRootNodeId !== null) {
+				const rootNode = zTreeObj.getNodeByParam("id", modelRootNodeId, null);
+				if (rootNode && rootNode.checked !== viewState.showModel) {
+					zTreeObj.checkNode(rootNode, viewState.showModel, false, false);
+				}
+			}
+		}
+
+		map.on("click", function (e) {
+			const instance = map.getFeatureByGPUPick(e.point);
+			if (instance instanceof minemap.Primitive) {
+				selectPrimitive(instance);
+			}
+		});
+
+		function initializeGUI() {
+			const gui = new lil.GUI({ width: 320 });
+			const props = {
+				"部件名称": '',
+				"数据框线": '_wireframe / _crease_edge',
+				"自动生成框线": '关闭'
+			};
+
+			controller = gui.add(props, "部件名称");
+			const introFolder = gui.addFolder("说明");
+			introFolder.add(props, "数据框线");
+			introFolder.add(props, "自动生成框线");
+			introFolder.open();
+
+			const wireframeFolder = gui.addFolder("线框控制");
+			wireframeFolder
+				.add(viewState, "showModel")
+				.name("显示模型")
+				.onChange(applyGlobalState);
+			wireframeFolder
+				.add(viewState, "showMesh")
+				.name("显示Mesh(非框线)")
+				.onChange(applyGlobalState);
+			wireframeFolder
+				.add(viewState, "showEmbeddedWireframe")
+				.name("整条框线开关(_wireframe/_crease_edge)")
+				.onChange(applyGlobalState);
+			wireframeFolder
+				.add(viewState, "focusModel")
+				.name("飞到模型");
+			wireframeFolder.open();
+		}
+	</script>
+</body>
+
+</html>

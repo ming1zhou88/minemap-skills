@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>3D柱状图区域分析 - 简化版 (基于 ECharts Layer)</title>
+	<!-- 引入MineMap API插件 -->
+	<link rel="stylesheet" href="../../dist/minemap.css">
+	<script src="../../dist/minemap-dev.js"></script>
+	<!-- 引入ECharts -->
+	<script src="https://cdn.jsdelivr.net/npm/echarts@5.2.2/dist/echarts.min.js"></script>
+	<script src="https://cdn.jsdelivr.net/npm/echarts-gl@2.0.8/dist/echarts-gl.min.js"></script>
+	<!-- 引入MineMap ECharts Layer -->
+	<script src="../js/minemap-echarts-layer.js"></script>
+	<style>
+		body, html {
+			width: 100%;
+			height: 100%;
+			margin: 0;
+			padding: 0;
+			font-family: 'Microsoft YaHei', Arial, sans-serif;
+		}
+
+		#map {
+			width: 100%;
+			height: 100%;
+		}
+
+		.info-panel {
+			position: absolute;
+			top: 20px;
+			left: 20px;
+			background: rgba(255, 255, 255, 0.95);
+			padding: 20px;
+			border-radius: 8px;
+			box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+			max-width: 300px;
+			z-index: 1000;
+		}
+
+		.info-panel h3 {
+			margin: 0 0 10px 0;
+			color: #333;
+			font-size: 16px;
+		}
+
+		.info-panel p {
+			margin: 5px 0;
+			color: #666;
+			font-size: 12px;
+			line-height: 1.4;
+		}
+
+		.stats {
+			display: flex;
+			gap: 15px;
+			margin: 10px 0;
+		}
+
+		.stat-item {
+			text-align: center;
+		}
+
+		.stat-value {
+			font-size: 18px;
+			font-weight: bold;
+			color: #e74c3c;
+		}
+
+		.stat-label {
+			font-size: 10px;
+			color: #999;
+		}
+
+		.control-panel {
+			position: absolute;
+			top: 20px;
+			right: 20px;
+			background: rgba(255, 255, 255, 0.95);
+			padding: 15px;
+			border-radius: 8px;
+			box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+			z-index: 1000;
+		}
+
+		.control-group {
+			margin-bottom: 10px;
+		}
+
+		.control-group label {
+			display: block;
+			margin-bottom: 5px;
+			font-size: 12px;
+			color: #333;
+		}
+
+		.control-group select {
+			width: 100%;
+			padding: 5px;
+			border: 1px solid #ddd;
+			border-radius: 4px;
+			font-size: 12px;
+		}
+
+		#chart-container {
+			position: absolute;
+			bottom: 20px;
+			right: 20px;
+			width: 400px;
+			height: 300px;
+			background: rgba(255, 255, 255, 0.95);
+			border-radius: 8px;
+			box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+			z-index: 1000;
+		}
+	</style>
+</head>
+<body>
+<div id="map"></div>
+
+<div class="info-panel">
+	<h3>📊 区域经济数据3D分析</h3>
+	<div class="stats">
+		<div class="stat-item">
+			<div class="stat-value">8</div>
+			<div class="stat-label">经济区域</div>
+		</div>
+		<div class="stat-item">
+			<div class="stat-value">4</div>
+			<div class="stat-label">指标维度</div>
+		</div>
+	</div>
+	<p><strong>数据说明：</strong>展示中国主要经济区域的GDP、人口、投资、消费等多维度数据对比分析。</p>
+	<p><strong>技术栈：</strong>MineMap + ECharts Layer + 3D柱状图 + 区域标记</p>
+</div>
+
+<div class="control-panel">
+	<div class="control-group">
+		<label for="indicator-select">选择指标:</label>
+		<select id="indicator-select">
+			<option value="gdp">GDP (万亿元)</option>
+			<option value="population">人口 (千万人)</option>
+			<option value="investment">投资 (万亿元)</option>
+			<option value="consumption">消费 (万亿元)</option>
+		</select>
+	</div>
+	<div class="control-group">
+		<label for="view-mode">视图模式:</label>
+		<select id="view-mode">
+			<option value="auto">自动旋转</option>
+			<option value="manual">手动控制</option>
+		</select>
+	</div>
+</div>
+
+<div id="chart-container"></div>
+
+<script>
+	/**
+	 * ========================================
+	 * MineMap + ECharts Layer 3D柱状图简化示例
+	 * ========================================
+	 * 使用 MinemapEChartsLayer 简化3D柱状图标记实现
+	 * 开发者只需关注 ECharts 配置，坐标转换自动处理
+	 */
+
+	// ==================== 1. 全局参数设置 ====================
+	minemap.domainUrl = "https://minedata.cn";
+	minemap.dataDomainUrl = "https://minedata.cn";
+	minemap.serverDomainUrl = "https://minedata.cn";
+	minemap.spriteUrl = "http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite";
+	minemap.serviceUrl = "https://service.minedata.cn/service";
+	minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+	minemap.solution = 11001;
+
+	// ==================== 2. 数据源定义 ====================
+	// 区域经济数据 - 请根据实际需求替换区域信息和经济指标
+	const regionData = [
+		{
+			name: '长三角经济区',
+			coord: [120.19, 31.26],
+			gdp: 24.47,
+			population: 2.35,
+			investment: 8.5,
+			consumption: 12.8
+		},
+		{
+			name: '珠三角经济区',
+			coord: [113.23, 23.16],
+			gdp: 11.59,
+			population: 7.2,
+			investment: 4.2,
+			consumption: 6.8
+		},
+		{
+			name: '京津冀经济区',
+			coord: [116.46, 39.92],
+			gdp: 9.64,
+			population: 11.2,
+			investment: 3.8,
+			consumption: 5.9
+		},
+		{
+			name: '成渝经济区',
+			coord: [104.06, 30.67],
+			gdp: 7.39,
+			population: 9.6,
+			investment: 2.9,
+			consumption: 4.2
+		},
+		{
+			name: '中部经济区',
+			coord: [114.31, 30.52],
+			gdp: 5.82,
+			population: 8.9,
+			investment: 2.3,
+			consumption: 3.5
+		},
+		{
+			name: '东北经济区',
+			coord: [123.38, 41.80],
+			gdp: 3.45,
+			population: 10.8,
+			investment: 1.4,
+			consumption: 2.1
+		},
+		{
+			name: '西北经济区',
+			coord: [108.95, 34.27],
+			gdp: 2.98,
+			population: 7.5,
+			investment: 1.2,
+			consumption: 1.8
+		},
+		{
+			name: '西南经济区',
+			coord: [102.73, 25.04],
+			gdp: 4.16,
+			population: 8.2,
+			investment: 1.8,
+			consumption: 2.6
+		}
+	];
+
+	// 指标配置
+	const indicators = {
+		gdp: { name: 'GDP', unit: '万亿元', color: '#ff6b6b' },
+		population: { name: '人口', unit: '千万人', color: '#4ecdc4' },
+		investment: { name: '投资', unit: '万亿元', color: '#45b7d1' },
+		consumption: { name: '消费', unit: '万亿元', color: '#96ceb4' }
+	};
+
+	let mapLayer, chartInstance;
+	let currentIndicator = 'gdp';
+	let autoRotate = true;
+
+	// ==================== 3. 地图初始化 ====================
+	const map = new minemap.Map({
+		container: "map",
+		style: "https://service.minedata.cn/map/solu/style/11001",
+		center: [110, 32],
+		zoom: 4.2,
+		pitch: 0,
+		bearing: 0
+	});
+
+	// ==================== 4. ECharts 配置 ====================
+	map.on('load', function () {
+		initMapLayer();
+		initChart();
+		bindEvents();
+	});
+
+	// 初始化地图图层 - 使用 ECharts Layer 显示区域标记
+	function initMapLayer() {
+		const option = {
+			tooltip: {
+				trigger: 'item',
+				formatter: function (params) {
+					const data = params.data;
+					const indicator = indicators[currentIndicator];
+					return `${data.name}<br/>${indicator.name}: ${data.value[2]} ${indicator.unit}`;
+				}
+			},
+			series: [{
+				name: '经济区域',
+				type: 'scatter',
+				coordinateSystem: 'minemap', // 使用 minemap 坐标系自动转换
+				data: regionData.map(region => ({
+					name: region.name,
+					value: [...region.coord, region[currentIndicator]], // [lng, lat, value]
+					region: region
+				})),
+				symbolSize: function (val) {
+					return Math.max(15, val[2] * 3); // 根据数值调整大小
+				},
+				itemStyle: {
+					color: indicators[currentIndicator].color,
+					borderColor: '#fff',
+					borderWidth: 2,
+					opacity: 0.8
+				},
+				label: {
+					show: true,
+					position: 'top',
+					formatter: '{b}',
+					color: '#333',
+					fontSize: 12,
+					fontWeight: 'bold'
+				},
+				emphasis: {
+					itemStyle: {
+						opacity: 1,
+						borderWidth: 3
+					},
+					label: {
+						fontSize: 14
+					}
+				}
+			}]
+		};
+
+		// 创建或更新地图图层
+		if (mapLayer) {
+			mapLayer.setOption(option);
+		} else {
+			mapLayer = new MinemapEChartsLayer(map, option);
+		}
+	}
+
+	// 初始化3D柱状图
+	function initChart() {
+		const container = document.getElementById('chart-container');
+		chartInstance = echarts.init(container);
+		updateChart();
+	}
+
+	// 更新3D柱状图
+	function updateChart() {
+		const indicator = indicators[currentIndicator];
+
+		// 准备3D柱状图数据
+		const data = regionData.map((region, index) => ({
+			name: region.name,
+			value: [index, 0, region[currentIndicator]],
+			rawValue: region[currentIndicator]
+		}));
+
+		const option = {
+			title: {
+				text: `${indicator.name}对比分析`,
+				left: 'center',
+				top: 10,
+				textStyle: {
+					fontSize: 14,
+					color: '#333'
+				}
+			},
+			tooltip: {
+				formatter: function (params) {
+					return `${params.name}<br/>${indicator.name}: ${params.data.rawValue}${indicator.unit}`;
+				}
+			},
+			xAxis3D: {
+				type: 'category',
+				data: regionData.map(r => r.name),
+				axisLabel: {
+					fontSize: 10,
+					interval: 0,
+					rotate: 45
+				}
+			},
+			yAxis3D: {
+				type: 'category',
+				data: ['数值']
+			},
+			zAxis3D: {
+				type: 'value',
+				name: `${indicator.name} (${indicator.unit})`,
+				nameTextStyle: {
+					fontSize: 10
+				}
+			},
+			grid3D: {
+				boxWidth: 200,
+				boxDepth: 80,
+				boxHeight: 120,
+				alpha: 15,
+				beta: 30,
+				viewControl: {
+					autoRotate: autoRotate,
+					autoRotateSpeed: 10
+				},
+				light: {
+					main: {
+						intensity: 1.2,
+						shadow: true
+					},
+					ambient: {
+						intensity: 0.3
+					}
+				}
+			},
+			series: [{
+				type: 'bar3D',
+				data: data,
+				shading: 'lambert',
+				itemStyle: {
+					color: indicator.color,
+					opacity: 0.8
+				},
+				emphasis: {
+					itemStyle: {
+						color: '#fff',
+						opacity: 1
+					},
+					label: {
+						show: true,
+						formatter: function (params) {
+							return `${params.name}\n${params.data.rawValue}${indicator.unit}`;
+						}
+					}
+				},
+				label: {
+					show: false
+				},
+				animationDurationUpdate: 1000,
+				animationEasingUpdate: 'cubicInOut'
+			}]
+		};
+
+		chartInstance.setOption(option, true);
+	}
+
+	// ==================== 5. 事件绑定 ====================
+	function bindEvents() {
+		// 指标选择
+		document.getElementById('indicator-select').addEventListener('change', function (e) {
+			currentIndicator = e.target.value;
+			initMapLayer(); // 更新地图标记
+			updateChart();  // 更新3D图表
+		});
+
+		// 视图模式
+		document.getElementById('view-mode').addEventListener('change', function (e) {
+			autoRotate = e.target.value === 'auto';
+			updateChart();
+		});
+
+		// 窗口大小变化
+		window.addEventListener('resize', function () {
+			if (chartInstance) {
+				chartInstance.resize();
+			}
+		});
+	}
+
+	// ==================== 6. 清理函数 ====================
+	window.addEventListener('beforeunload', function () {
+		if (mapLayer) {
+			mapLayer.dispose();
+		}
+		if (chartInstance) {
+			chartInstance.dispose();
+		}
+	});
+</script>
+</body>
+</html>

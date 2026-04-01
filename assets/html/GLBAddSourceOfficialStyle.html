@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+	<title>GLB加载（addSource方式）</title>
+	<link rel="stylesheet" href="../style/demo.css" />
+	<link rel="stylesheet" href="https://minemap.minedata.cn/minemapapi/v4.0.0/minemap.css" />
+	<script src="../../dist/minemap-dev.js"></script>
+	<style>
+		html,
+		body,
+		#map {
+			margin: 0;
+			width: 100%;
+			height: 100%;
+			font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+		}
+
+		#map {
+			background: #0b1220;
+		}
+
+		.panel {
+			position: absolute;
+			top: 16px;
+			left: 16px;
+			z-index: 10;
+			width: 360px;
+			padding: 14px 14px 12px;
+			border-radius: 12px;
+			background: rgba(255, 255, 255, 0.96);
+			box-shadow: 0 8px 22px rgba(15, 23, 42, 0.18);
+			backdrop-filter: blur(6px);
+		}
+
+		.panel-title {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			margin-bottom: 8px;
+		}
+
+		.panel-title h2 {
+			margin: 0;
+			font-size: 16px;
+			font-weight: 600;
+			color: #1f2d3d;
+		}
+
+		.badge {
+			padding: 2px 8px;
+			border-radius: 999px;
+			font-size: 12px;
+			font-weight: 600;
+			color: #0958d9;
+			background: #e6f4ff;
+			border: 1px solid #91caff;
+		}
+
+		.desc {
+			margin: 0 0 10px;
+			font-size: 12px;
+			line-height: 1.6;
+			color: #4b5563;
+		}
+
+		.kv {
+			display: grid;
+			grid-template-columns: 92px 1fr;
+			gap: 6px 8px;
+			padding: 10px;
+			border: 1px solid #e5e7eb;
+			border-radius: 10px;
+			background: #f8fafc;
+		}
+
+		.kv .k {
+			font-size: 12px;
+			color: #6b7280;
+		}
+
+		.kv .v {
+			font-size: 12px;
+			color: #111827;
+			word-break: break-all;
+		}
+
+		.status-row {
+			display: flex;
+			align-items: center;
+			gap: 8px;
+			margin-top: 10px;
+		}
+
+		.dot {
+			width: 8px;
+			height: 8px;
+			border-radius: 50%;
+			background: #9ca3af;
+			box-shadow: 0 0 0 2px rgba(156, 163, 175, 0.2);
+		}
+
+		.dot.loading {
+			background: #faad14;
+			box-shadow: 0 0 0 2px rgba(250, 173, 20, 0.25);
+		}
+
+		.dot.ready {
+			background: #16a34a;
+			box-shadow: 0 0 0 2px rgba(22, 163, 74, 0.25);
+		}
+
+		.dot.error {
+			background: #dc2626;
+			box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.25);
+		}
+
+		#statusText {
+			font-size: 12px;
+			color: #374151;
+		}
+
+		.actions {
+			display: flex;
+			gap: 8px;
+			margin-top: 10px;
+		}
+
+		.btn {
+			border: 1px solid #d1d5db;
+			background: #fff;
+			color: #1f2937;
+			height: 32px;
+			padding: 0 12px;
+			border-radius: 8px;
+			font-size: 12px;
+			cursor: pointer;
+			transition: all 0.2s ease;
+		}
+
+		.btn:hover {
+			border-color: #1677ff;
+			color: #1677ff;
+		}
+
+		.btn.primary {
+			border-color: #1677ff;
+			background: #1677ff;
+			color: #fff;
+		}
+
+		.btn.primary:hover {
+			background: #0958d9;
+			border-color: #0958d9;
+		}
+
+		.note {
+			margin-top: 8px;
+			font-size: 12px;
+			color: #6b7280;
+		}
+	</style>
+</head>
+
+<body>
+	<div id="map"></div>
+
+	<div class="panel">
+		<div class="panel-title">
+			<h2>GLB 模型加载示例</h2>
+			<span class="badge">addSource</span>
+		</div>
+		<p class="desc">本示例强调通过 <b>addSource + addLayer(type=3d-model)</b> 方式加载 GLB，而非 addSceneComponent。</p>
+
+		<div class="kv">
+			<div class="k">Source ID</div>
+			<div class="v">hd-road-source</div>
+			<div class="k">Layer ID</div>
+			<div class="v">hd-road-layer</div>
+			<div class="k">模型</div>
+			<div class="v">21ZJS051NA1.glb</div>
+			<div class="k">位置</div>
+			<div class="v">120.2469803142, 29.7161283297</div>
+		</div>
+
+		<div class="status-row">
+			<div id="statusDot" class="dot"></div>
+			<div id="statusText">等待地图加载…</div>
+		</div>
+
+		<div class="actions">
+			<button id="reloadBtn" class="btn primary">重新加载模型</button>
+			<button id="flyBtn" class="btn">飞到模型</button>
+		</div>
+
+		<div class="note" id="costText">耗时：--</div>
+	</div>
+
+	<script>
+		minemap.domainUrl = "https://minedata.cn";
+		minemap.dataDomainUrl = "https://minedata.cn";
+		minemap.serverDomainUrl = "https://minedata.cn";
+		minemap.spriteUrl = "http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite";
+		minemap.serviceUrl = "https://minedata.cn/service/";
+
+		minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+		minemap.solution = 11001;
+
+		const MODEL_SOURCE_ID = "hd-road-source";
+		const MODEL_LAYER_ID = "hd-road-layer";
+		const MODEL_LNG_LAT = [120.2469803142035, 29.71612832972716];
+		const MODEL_DATA_URL = "//192.168.152.227:18101/nce-static/support/demo/js-3d-ultra/zh/assets/trakingModels/HD/21ZJS051NA1.glb";
+		const MODEL_FOLDER_URL = "//192.168.152.227:18101/nce-static/support/demo/js-3d-ultra/zh/assets/trakingModels/HD/image";
+
+		let loadStartTime = 0;
+		let map;
+		let hasFinalizedLoad = false;
+		let finalizeTimer = 0;
+
+		const statusDot = document.getElementById("statusDot");
+		const statusText = document.getElementById("statusText");
+		const costText = document.getElementById("costText");
+
+		function setStatus(type, text) {
+			statusDot.className = "dot " + (type || "");
+			statusText.textContent = text;
+		}
+
+		function updateCost() {
+			if (!loadStartTime) return;
+			const cost = Math.max(0, Math.round(performance.now() - loadStartTime));
+			costText.textContent = "耗时：" + cost + " ms";
+		}
+
+		function finalizeLoad(statusMessage) {
+			if (hasFinalizedLoad) return;
+			hasFinalizedLoad = true;
+			updateCost();
+			setStatus("ready", statusMessage || "模型已加载并完成渲染触发");
+		}
+
+		function tryFinalizeLoad() {
+			const source = map && map.getSource(MODEL_SOURCE_ID);
+			const layer = map && map.getLayer(MODEL_LAYER_ID);
+			if (!source || !layer) return false;
+
+			if (source.state === "loaded") {
+				finalizeLoad("模型已加载并完成渲染触发");
+				return true;
+			}
+
+			return false;
+		}
+
+		function addBasemap() {
+			if (map.getSource("IMAGERY_SOURCE")) return;
+			map.addSource("IMAGERY_SOURCE", {
+				type: "raster",
+				tiles: ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"],
+				tileSize: 256
+			});
+
+			map.addLayer({
+				id: "IMAGERY",
+				type: "raster",
+				source: "IMAGERY_SOURCE",
+				minzoom: 1,
+				maxzoom: 23,
+				paint: {
+					"raster-opacity": 1
+				}
+			});
+		}
+
+		function removeModelIfExists() {
+			if (map.getLayer(MODEL_LAYER_ID)) {
+				map.removeLayer(MODEL_LAYER_ID);
+			}
+			if (map.getSource(MODEL_SOURCE_ID)) {
+				map.removeSource(MODEL_SOURCE_ID);
+			}
+		}
+
+		function addModelBySource() {
+			removeModelIfExists();
+			loadStartTime = performance.now();
+			hasFinalizedLoad = false;
+			if (finalizeTimer) {
+				clearTimeout(finalizeTimer);
+				finalizeTimer = 0;
+			}
+			setStatus("loading", "模型加载中（addSource）…");
+			costText.textContent = "耗时：计算中…";
+
+			map.addSource(MODEL_SOURCE_ID, {
+				type: "3d-model",
+				data: MODEL_DATA_URL,
+				modelFolder: MODEL_FOLDER_URL,
+				scale: [1, 1, 1],
+				rotation: [0, 0, 0],
+				location: MODEL_LNG_LAT,
+				useMipMap: true
+			});
+
+			map.addLayer({
+				id: MODEL_LAYER_ID,
+				type: "3d-model",
+				source: MODEL_SOURCE_ID,
+				useMipMap: true
+			});
+
+			map.needRepaint = true;
+
+			// 兜底：避免某些环境下事件未按预期回传导致耗时文本长期停留在“计算中”
+			finalizeTimer = setTimeout(function () {
+				if (!tryFinalizeLoad()) {
+					finalizeLoad("模型资源已就绪（渲染已触发）");
+				}
+			}, 12000);
+		}
+
+		function flyToModel() {
+			map.flyTo({
+				center: MODEL_LNG_LAT,
+				zoom: 18,
+				pitch: 60,
+				duration: 900
+			});
+		}
+
+		const style = {
+			glyphs: "minemap://fonts/{fontstack}/{range}",
+			sprite: "minemap://sprite/sprite",
+			sources: {},
+			layers: [],
+			version: 8
+		};
+
+		map = new minemap.Map({
+			container: "map",
+			style: style,
+			center: MODEL_LNG_LAT,
+			zoom: 17.7,
+			pitch: 58,
+			maxZoom: 22,
+			minZoom: 1,
+			projection: "MERCATOR"
+		});
+
+		map.repaint = true;
+
+		map.on("load", function () {
+			addBasemap();
+			addModelBySource();
+		});
+
+		map.on("sourcedata", function (e) {
+			if (!e || e.sourceId !== MODEL_SOURCE_ID) return;
+			map.needRepaint = true;
+			if (e.isSourceLoaded || tryFinalizeLoad()) {
+				finalizeLoad("模型已加载并完成渲染触发");
+			}
+		});
+
+		map.on("render", function () {
+			if (!hasFinalizedLoad) {
+				tryFinalizeLoad();
+			}
+		});
+
+		map.on("error", function (e) {
+			setStatus("error", "模型加载异常，请检查 URL 或跨域配置");
+			if (window.console) {
+				console.error("[GLBAddSourceOfficialStyle]", e && e.error ? e.error : e);
+			}
+		});
+
+		document.getElementById("reloadBtn").addEventListener("click", function () {
+			addModelBySource();
+		});
+
+		document.getElementById("flyBtn").addEventListener("click", function () {
+			flyToModel();
+		});
+	</script>
+</body>
+
+</html>

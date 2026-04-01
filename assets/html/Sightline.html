@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+	<title>通视分析</title>
+	<!-- demo样式文件 -->
+	<link rel="stylesheet" href="../style/demo.css">
+	<!-- 引入MineMap API插件 -->
+	<link rel="stylesheet" href="../../dist/minemap.css">
+	<script src="../../dist/minemap-dev.js"></script>
+	<script src="../js/lil-gui.umd.min.js"></script>
+	<style>
+		#map {
+			width: 100%;
+			height: 100%;
+		}
+	</style>
+</head>
+
+<body>
+<div id="map"></div>
+<script>
+	/**
+	 * 全局参数设
+	 */
+
+	minemap.domainUrl = 'https://minemap.minedata.cn';
+	minemap.serverDomainUrl = 'https://sd-data.minedata.cn';
+	minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+	window.minemapCDN = 'https://minedata.cn/minemapapi/minemap-CDN';
+
+	minemap.key = '0c6ac62182404e5ebc7a789981f6db72';
+	minemap.solution = 11001;
+
+	// 定义空底图样式
+	var style = {
+		"glyphs": "minemap://fonts/{fontstack}/{range}",
+		"sprite": "minemap://sprite/sprite",
+		"sources": {},
+		"layers": [],
+		"version": 8
+	};
+	/**
+	 * 初始化地图实例
+	 */
+	var map = new minemap.Map({
+		container: 'map',
+		style: style, /*球面矢量底图样式*/
+		center: [120.38113405246455,36.08710080598082], /*地图中心点*/
+		zoom: 16.5, //地图默认缩放等级
+		pitch: 67, //地图默认倾斜角度
+		bearing: 87, //地图默认旋转角度
+		projection: 'MERCATOR',
+		logDepth: true
+	});
+
+	//gui
+	var gui = new lil.GUI({title: "参数设置"});//外部UI
+	var options = {
+		'可见颜色': '#00ff00',
+		'不可见颜色': "#ff0000",
+		"添加通视分析": addSightLine,
+		"删除通视分析": removeSightLine,
+		"通视线宽度": 2,
+		"视点标记大小": 10,
+		"视点标记颜色": "#40c0f5",
+		"视点外边框颜色": "#1f102f",
+		"视点外边框宽度": 3,
+		"主相机不可见区域探查": true
+	};
+
+	map.repaint = true;
+
+	map.on('load', function () {
+		/*添加栅格图*/
+		map.addSource("IMAGERY_SOURCE", {
+			"type": "raster",
+			"tiles": ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+			"tileSize": 256,//瓦片尺寸
+		});
+
+		map.addLayer({
+			"id": "IMAGERY",
+			"type": "raster",
+			"source": "IMAGERY_SOURCE",
+		});
+
+		map.addSceneComponent({
+			id: 'serve',
+			type: "3d-tiles",
+			url: "https://minemap.minedata.cn/earth_data/oblique/QD/tileset.json", // 要加载的数据
+			translation: new minemap.Math.Vector3(0, 0, 0),
+			show: true,
+			// skipLevelOfDetail: true, //跨层调度
+			// maximumScreenSpaceError: 8,
+			sourceLoaded: (config) => {
+				console.log(config._geoCenters[0]);
+			},
+		});
+	})
+
+	var sightPointFlag = false; // 视点标记
+	var targetPointFlag = false; // 目标点标记
+
+	var isStartSightLine = false // 是否开始通视线
+	var sightLine = null // 通视线对象
+
+	var preStartTime = Date.now();
+	var preTargetPoint; // 上一个目标点
+
+	// 添加通视线
+	function addSightLine() {
+		sightPointFlag = true;
+		targetPointFlag = false;
+	}
+
+	// 移除通视线
+	function removeSightLine() {
+		// 也可以通过id进行单条的移除，详见api
+		map.analysis.sightlineCollection.removeAll();
+		sightLine = null
+		sightPointFlag = false
+		targetPointFlag = false
+		isStartSightLine = false
+	}
+
+	map.on('click', (e) => {
+		if (sightPointFlag && !isStartSightLine) {
+			const p = map.painter.getPositionByGPUPick(e.point);
+			/**
+			 * 添加 sightline
+			 * @type {Sightline}
+			 *
+			 * @param options
+			 * @param {Color|Array|String} options.visibleColor          可见处的线的颜色
+			 * @param {Color|Array|String} options.hiddenColor           不可见处线的颜色
+			 * @param {Vector3|Array} options.viewerPosition             视点位置
+			 * @param {number}  options.lineWidth                        通视线宽度
+			 * @param {string}  options.id                               通视线对象id
+			 * @param {Color|Array|String} options.indicatorColor        视点指示标记的颜色
+			 * @param {Color|Array|String} options.indicatorOutlineColor 视点指示标记的外边框颜色
+			 * @param {number}  options.indicatorOutlineWidth            视点指示标记外边框宽度 px
+			 * @param {number}  options.indicatorSize                    视点指示标记的像素大小 px
+			 * @param {boolean}  options.mainCameraInvisibleDetection    主相机不可见区域探查
+			 */
+			sightLine = new minemap.Sightline({
+				viewerPosition: p,
+				lineWidth: options["通视线宽度"],
+				visibleColor: options["可见颜色"],
+				hiddenColor: options["不可见颜色"],
+				mainCameraInvisibleDetection: options["主相机不可见区域探查"],
+				indicatorSize: options["视点标记大小"],
+				indicatorColor: options["视点标记颜色"],
+				indicatorOutlineColor: options["视点外边框颜色"],
+				indicatorOutlineWidth: options["视点外边框宽度"]
+			});
+			map.analysis.sightlineCollection.add(sightLine);
+			sightPointFlag = false;
+			targetPointFlag = true;
+			isStartSightLine = true;
+		} else {
+			if (isStartSightLine) {
+				const targetPosition = { name: Math.random(), position: map.painter.getPositionByGPUPick(e.point) };
+				sightLine.addTargetPoint(targetPosition);
+				preTargetPoint = targetPosition;
+			}
+		}
+	})
+
+	map.on("mousemove", (e) => {
+		if (isStartSightLine && targetPointFlag) {
+			if (Date.now() - preStartTime >= 200) {
+				preStartTime = Date.now();
+
+				const targetPosition = { name: Math.random(), position: map.painter.getPositionByGPUPick(e.point) };
+
+				if (preTargetPoint) {
+					sightLine.removeTargetPoint(preTargetPoint);
+				}
+				sightLine.addTargetPoint(targetPosition);
+				preTargetPoint = targetPosition;
+			}
+		}
+	});
+
+	// rightClick
+	map.on("contextmenu", (e) => {
+		isStartSightLine = false;
+		sightPointFlag = false;
+		targetPointFlag = false;
+	});
+
+
+	gui.addColor(options, "可见颜色").onChange(updateGui);
+	gui.addColor(options, "不可见颜色").onChange(updateGui);
+	gui.add(options, "通视线宽度", 1, 20).onChange(updateGui);
+	gui.add(options, "视点标记大小", 1, 50).onChange(updateGui);
+	gui.addColor(options, "视点标记颜色").onChange(updateGui);
+	gui.addColor(options, "视点外边框颜色").onChange(updateGui);
+	gui.add(options, "视点外边框宽度", 1, 10).onChange(updateGui);
+	gui.add(options, "主相机不可见区域探查").onChange(updateGui);
+	gui.add(options, "添加通视分析");
+	gui.add(options, "删除通视分析");
+
+	function updateGui(value){
+		if(sightLine){
+			sightLine.visibleColor = options["可见颜色"];
+			sightLine.hiddenColor = options["不可见颜色"];
+			sightLine.lineWidth = options["通视线宽度"];
+			sightLine.mainCameraInvisibleDetection = options["主相机不可见区域探查"];
+			sightLine.indicatorOutlineColor = options["视点外边框颜色"];
+			sightLine.indicatorSize = options["视点标记大小"];
+			sightLine.indicatorColor = options["视点标记颜色"];
+			sightLine.indicatorOutlineWidth = options["视点外边框宽度"];
+		}
+	}
+</script>
+</body>

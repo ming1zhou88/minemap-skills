@@ -1,0 +1,201 @@
+<!--
+ * @Author: liwei
+ * @Date: 2023-04-03 15:36:40
+ * @LastEditTime: 2023-06-08 17:54:21
+ * @LastEditors: liwei
+ * @Description:
+ * @FilePath: \MineMap3DEngine\demo\html\EarthCrate.html
+-->
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+	<title>天空盒和地球皮肤自定义设置</title>
+	<link rel="stylesheet" href="../style/demo.css">
+	<!-- 引入MineMap API插件 -->
+	<link rel="stylesheet" href="../../dist/minemap.css">
+	<script src="../../dist/minemap-dev.js"></script>
+	<script src="../js/lil-gui.umd.min.js"></script>
+	<style>
+		#map {
+			width: 100%;
+			height: 100%;
+		}
+	</style>
+</head>
+
+<body>
+<div id="map"></div>
+<script>
+	/**
+	 * 全局参数设置
+	 */
+	minemap.domainUrl = 'https://minemap.minedata.cn';
+	minemap.dataDomainUrl = 'https://minemap.minedata.cn';
+	minemap.serverDomainUrl = 'https://sd-data.minedata.cn';
+	minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+	minemap.serviceUrl = 'https://service.minedata.cn/service';
+
+	minemap.key = '0c6ac62182404e5ebc7a789981f6db72';
+	minemap.solution = 11001;
+
+	// 定义空底图样式
+	var style = {
+		"glyphs": "minemap://fonts/{fontstack}/{range}",
+		"sprite": "minemap://sprite/sprite",
+		"sources": {},
+		"layers": [],
+		"version": 8
+	};
+	var map = new minemap.Map({
+		container: 'map',
+		style,
+		center: [117.173528, 31.865383],
+		zoom: 1,
+		pitch: 0,
+		maxZoom: 22,
+		minZoom: 1,
+		projection: 'MERCATOR',
+		earthSkin: false, // 特别注意下这里，这里是不创建地球
+	});
+
+	map.repaint = true;
+	window.map = map;
+
+	const starryBaseUrl = "http://192.168.152.123/minemap-engine/EngineCanaryDemo-develop/img/skybox/";
+	const dayBaseUrl = "http://192.168.152.123/minemap-engine/EngineCanaryDemo-develop/img/skybox_near/";
+
+	const starryOptions = {
+		"清除天空盒": null,
+		"背景1": "1",
+		"背景2": "2",
+		"背景3": "3",
+		"背景4": "4",
+		"背景5": "5",
+		"背景6": "6"
+	};
+
+	const dayOptions = {
+		"清除天空盒": null,
+		"晴天": "qingtian",
+		"晚霞": "wanxia",
+		"蓝天": "lantian"
+	};
+
+	const params = {
+		starry: "1",
+		day: "wanxia",
+		cloudVisible: true
+	};
+
+	function getStarryUrls(key) {
+		if (!key) return null;
+		return {
+			nx: starryBaseUrl + key + "/tycho2t3_80_mx.jpg",
+			px: starryBaseUrl + key + "/tycho2t3_80_px.jpg",
+			ny: starryBaseUrl + key + "/tycho2t3_80_py.jpg",
+			py: starryBaseUrl + key + "/tycho2t3_80_my.jpg",
+			nz: starryBaseUrl + key + "/tycho2t3_80_mz.jpg",
+			pz: starryBaseUrl + key + "/tycho2t3_80_pz.jpg",
+		};
+	}
+
+	function getDayUrls(key) {
+		if (!key) return null;
+		if (key === "lantian") {
+			return {
+				nx: dayBaseUrl + key + "/Left.jpg",
+				px: dayBaseUrl + key + "/Right.jpg",
+				ny: dayBaseUrl + key + "/Front.jpg",
+				py: dayBaseUrl + key + "/Back.jpg",
+				nz: dayBaseUrl + key + "/Down.jpg",
+				pz: dayBaseUrl + key + "/Up.jpg",
+			};
+		} else if (key === "qingtian") {
+			return {
+				nx: dayBaseUrl + key + "/leftav9.jpg",
+				px: dayBaseUrl + key + "/rightav9.jpg",
+				ny: dayBaseUrl + key + "/frontav9.jpg",
+				py: dayBaseUrl + key + "/backav9.jpg",
+				nz: dayBaseUrl + key + "/bottomav9.jpg",
+				pz: dayBaseUrl + key + "/topav9.jpg",
+			};
+		} else if (key === "wanxia") {
+			return {
+				nx: dayBaseUrl + key + "/SunSetLeft.png",
+				px: dayBaseUrl + key + "/SunSetRight.png",
+				ny: dayBaseUrl + key + "/SunSetFront.png",
+				py: dayBaseUrl + key + "/SunSetBack.png",
+				nz: dayBaseUrl + key + "/SunSetDown.png",
+				pz: dayBaseUrl + key + "/SunSetUp.png",
+			};
+		}
+		return null;
+	}
+
+	function updateSkybox() {
+		const starryUrls = getStarryUrls(params.starry);
+		const dayUrls = getDayUrls(params.day);
+
+		if (!starryUrls && !dayUrls) {
+			map.removeSkyBoxTextures({starry: true, day: true});
+		} else {
+			const urls = {};
+			if (starryUrls) urls.starry = starryUrls;
+			if (dayUrls) urls.day = dayUrls;
+			map.setSkyBoxTextures(urls);
+
+			if (!starryUrls) map.removeSkyBoxTextures({starry: true});
+			if (!dayUrls) map.removeSkyBoxTextures({day: true});
+		}
+	}
+
+	// Initial load
+	updateSkybox();
+
+	const gui = new lil.GUI();
+	gui.add(params, 'starry', starryOptions).name('星空天空盒').onChange(updateSkybox);
+	gui.add(params, 'day', dayOptions).name('近地天空盒').onChange(updateSkybox);
+
+	const cloudFolder = gui.addFolder('云层控制');
+	const cloudParams = {
+		enableCloud: function() {
+			map.cloudVisible = true;
+		},
+		disableCloud: function() {
+			map.cloudVisible = false;
+		}
+	};
+	cloudFolder.add(cloudParams, 'enableCloud').name('开启云层');
+	cloudFolder.add(cloudParams, 'disableCloud').name('关闭云层');
+
+	const earthCrate = new minemap.Earth({
+		url: "https://minemap.minedata.cn/minemapapi/v4/latest/assets/earth_lights_2048.png", // 球体纹理
+		cloudImageUrl: "https://minemap.minedata.cn/minemapapi/v4.0.0/assets/Earth_Clouds4.png", // 大气云层纹理
+		widthSegments: 128, // 水平方向的平滑度
+		heightSegments: 64, // 竖直方向的平滑度
+		cloudSpeed: 1.0 // 云层转速
+	});
+
+	map.addSceneComponent(earthCrate);
+	map.on('load', function () {
+		map.addSource("IMAGERY_SOURCE", {
+			"type": "raster",
+			"tiles": ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"],
+			"tileSize": 512,
+		});
+
+		map.addLayer({
+			"id": "IMAGERY",
+			"type": "raster",
+			"source": "IMAGERY_SOURCE",
+			"minzoom": 3,
+			"maxzoom": 23,
+		});
+		//创建和添加自定义地球
+	})
+
+</script>
+</body>

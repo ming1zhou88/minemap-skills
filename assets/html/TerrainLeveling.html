@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+		<title>地形平整</title>
+		<link rel="stylesheet" href="https://minedata.cn/nce-static/support/demo/js-3d-ultra/zh/css/demo.css" />
+		<link rel="stylesheet" href="https://minemap.minedata.cn/minemapapi/v4.0.0/minemap.css" />
+		<script src="../../dist/minemap-dev.js"></script>
+		<script src="../js/lil-gui.umd.min.js"></script>
+		<style>
+			#map {
+				width: 100%;
+				height: 100%;
+			}
+		</style>
+	</head>
+	<body>
+		<div id="map"></div>
+		<script>
+			minemap.domainUrl = "http://192.168.152.123";
+			minemap.dataDomainUrl = "https://minemap.minedata.cn";
+			minemap.serverDomainUrl = "https://sd-data.minedata.cn";
+			minemap.spriteUrl = "http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite";
+			minemap.serviceUrl = "https://service.minedata.cn/service";
+
+			minemap.key = "<您的 key>";
+			minemap.solution = 11001;
+
+			const style = {
+				glyphs: "minemap://fonts/{fontstack}/{range}",
+				sprite: "minemap://sprite/sprite",
+				sources: {},
+				layers: [],
+				version: 8
+			};
+			const map = new minemap.Map({
+				container: "map",
+				style: style,
+				center: [89.11316017537729, 27.406653599021844],
+				zoom: 10.5,
+				pitch: 50,
+				bearing: 0,
+				maxZoom: 22,
+				minZoom: 1,
+				projection: "MERCATOR"
+			});
+			map.repaint = true;
+			map.showDebugBoundingBox = false;
+
+			map.on("load", function () {
+				map.setTerrain({
+					"tiles": ["http://192.168.153.47:20080/service/data/dem/china3857_02_ctb/{z}/{x}/{y}.terrain\n"],
+					"availabilities": ["http://192.168.153.47:20080/service/data/dem/china3857_02_ctb/layer.json"],
+					"tileSize": 512,
+					"maxzoom": 14
+				});
+				map.addSource("IMAGERY_SOURCE", {
+					type: "raster",
+					tiles: ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"],
+					tileSize: 512
+				});
+				map.addLayer({
+					id: "IMAGERY",
+					type: "raster",
+					source: "IMAGERY_SOURCE",
+					minzoom: 1,
+					maxzoom: 23,
+					paint: {
+						"raster-opacity": 1
+					},
+
+				});
+
+				initializeGUI();
+			});
+
+			const terrainLeveling = [];
+			const GUIOptions = {
+				add: () => startDraw(),
+				remove: () => removeTerrainLeveling(),
+				clear: () => clearTerrainLeveling(),
+				depth: 50.0
+			};
+			function initializeGUI() {
+				const GUI = new lil.GUI({ title: "控制菜单" });
+				const Handler = GUI.addFolder("操作");
+				Handler.add(GUIOptions, "add").name("开始添加");
+				Handler.add(GUIOptions, "remove").name("移除");
+				Handler.add(GUIOptions, "clear").name("清空");
+
+				const Parameter = GUI.addFolder("参数");
+				Parameter.add(GUIOptions, "depth").name("深度").min(0).max(1000).step(1).onChange((value) => {
+					if (terrainLeveling.length) {
+						terrainLeveling[terrainLeveling.length - 1].setDepth(value);
+					}
+				});
+			}
+			function addTerrainLeveling() {
+				/**
+				 * TerrainLeveling在实例化时接收两个参数，一个是区域范围，一个是平整深度
+				 * 使用方式可参考此示例和相关文档
+				 */
+				terrainLeveling.push(new minemap.TerrainLeveling({
+					region: geographicPositions,
+					depth: GUIOptions.depth
+				}))
+				map.addSceneComponent(terrainLeveling[terrainLeveling.length - 1]);
+			}
+			function removeTerrainLeveling() {
+				if (!terrainLeveling.length) return;
+				map.removeSceneComponent(terrainLeveling[terrainLeveling.length - 1].id);
+				terrainLeveling.splice(terrainLeveling.length - 1, 1);
+			}
+			function clearTerrainLeveling() {
+				if (!terrainLeveling.length) return;
+				for (let i = 0; i < terrainLeveling.length; i++) {
+					map.removeSceneComponent(terrainLeveling[i].id);
+				}
+				terrainLeveling.splice(0, terrainLeveling.length);
+			}
+
+			let primitive;
+			let drawing = false;
+			let movePosition = [];
+			let positions = [];
+			let geographicPositions = [];
+			function startDraw(e) {
+				drawing = true;
+				movePosition = [];
+				positions = [];
+				geographicPositions = [];
+
+				const geometry = new minemap.Geometries.PolygonGeometry({
+					polygonHierarchy: {
+						positions: () => {
+							const results = positions.concat(movePosition);
+							if (
+								results.length > 3 &&
+								minemap.Geometries.PolygonGeometry.isSelfIntersection(results, true)
+							) {
+								return positions;
+							} else {
+								return results;
+							}
+						}
+					},
+					perPositionHeight: true,
+					adaptTerrain: true
+				});
+				const material = minemap.StandardMaterial.fromType("Color", {
+						color: [1.0, 0.0, 0.5, 0.5],
+						doubleSided: true
+				});
+				primitive = new minemap.Primitive({
+					geometry: geometry,
+					material: material,
+					adaptTerrain: true
+				});
+				map.addPrimitive(primitive);
+			}
+
+			map.on("click", function (e) {
+				if (drawing) {
+					const point = map.painter.getPositionByGPUPick(e.point);
+					geographicPositions.push(point[0], point[1]);
+					positions.push(minemap.Math.Vector3.fromDegrees(point.x, point.y, point.z));
+				}
+			});
+
+			map.on("mousemove", function (e) {
+				if (drawing) {
+					movePosition = [];
+					const point = map.painter.getPositionByGPUPick(e.point);
+					if (point) {
+						movePosition.push(minemap.Math.Vector3.fromDegrees(point.x, point.y, point.z));
+					}
+				}
+			});
+
+			map.on("contextmenu", function (e) {
+				if (drawing) {
+					drawing = false;
+					map.removePrimitive(primitive);
+					if (positions.length > 3) {
+						addTerrainLeveling();
+					}
+				}
+			});
+		</script>
+	</body>
+</html>

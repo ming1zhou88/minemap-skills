@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+	<title>3DTiles透明度设置</title>
+	<!-- demo样式文件 -->
+	<link rel="stylesheet" href="../style/demo.css">
+	<!-- 引入MineMap API插件 -->
+	<link rel="stylesheet" href="../../dist/minemap.css">
+	<script src="../../dist/minemap-dev.js"></script>
+	<style>
+		#map {
+			width: 100%;
+			height: 100%;
+		}
+
+		.opacity-control {
+			position: absolute;
+			top: 20px;
+			right: 20px;
+			background: white;
+			padding: 15px;
+			border-radius: 4px;
+			box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+			z-index: 1;
+			width: 250px;
+		}
+
+		.model-control {
+			margin-bottom: 15px;
+			padding: 10px;
+			border: 1px solid #ddd;
+			border-radius: 4px;
+		}
+
+		.model-control h4 {
+			margin: 0 0 10px 0;
+			color: #333;
+		}
+
+		.opacity-control label {
+			display: block;
+			margin-bottom: 5px;
+			font-size: 12px;
+		}
+
+		.opacity-control input[type="range"] {
+			width: 100%;
+			margin-bottom: 5px;
+		}
+
+		.opacity-control input[type="checkbox"] {
+			margin-right: 5px;
+		}
+
+		.fly-button {
+			background: #007cba;
+			color: white;
+			border: none;
+			padding: 5px 10px;
+			border-radius: 3px;
+			cursor: pointer;
+			font-size: 12px;
+			width: 100%;
+		}
+
+		.fly-button:hover {
+			background: #005a87;
+		}
+	</style>
+</head>
+
+<body>
+<div id="map"></div>
+<div class="opacity-control">
+	<!-- BIM模型控制 -->
+	<div class="model-control">
+		<h4>BIM模型</h4>
+		<label>透明度：</label>
+		<input type="range" id="bimOpacitySlider" min="0" max="1" step="0.1" value="1">
+		<label>
+			<input type="checkbox" id="bimVisibilityCheckbox" checked>
+			显示/隐藏
+		</label>
+		<button class="fly-button" id="flyToBim">飞行到BIM模型</button>
+	</div>
+
+	<!-- HD模型控制 -->
+	<div class="model-control">
+		<h4>HD模型</h4>
+		<label>透明度：</label>
+		<input type="range" id="hdOpacitySlider" min="0" max="1" step="0.1" value="0.7">
+		<label>
+			<input type="checkbox" id="hdVisibilityCheckbox" checked>
+			显示/隐藏
+		</label>
+		<button class="fly-button" id="flyToHd">飞行到HD模型</button>
+	</div>
+
+	<!-- ARROW模型控制 -->
+	<div class="model-control">
+		<h4>ARROW模型</h4>
+		<label>透明度：</label>
+		<input type="range" id="arrowOpacitySlider" min="0" max="1" step="0.1" value="0.7">
+		<label>
+			<input type="checkbox" id="arrowVisibilityCheckbox" checked>
+			显示/隐藏
+		</label>
+		<button class="fly-button" id="flyToArrow">飞行到ARROW模型</button>
+	</div>
+</div>
+<script>
+	/*全局参数设置*/
+	minemap.domainUrl = 'https://minedata.cn';
+	minemap.serverDomainUrl = 'https://ol-data.minedata.cn';
+	window.minemapCDN = 'https://minedata.cn/minemapapi/minemap-CDN';
+
+	minemap.key = '<您的 key>';
+
+	/*定义空底图样式*/
+	const style = {
+		glyphs: 'minemap://fonts/{fontstack}/{range}',
+		sprite: 'minemap://sprite/sprite',
+		sources: {},
+		layers: [],
+		version: 8
+	};
+	/*初始化地图实例*/
+	const map = new minemap.Map({
+		container: 'map',
+		style: style,
+		center: [108.965014, 34.220905],
+		bearing: 0,
+		zoom: 14, //地图默认缩放等级
+		pitch: 0, //地图俯仰角度
+		maxZoom: 22, //地图最大缩放等级
+		minZoom: 1, //地图最小缩放等级
+		projection: 'MERCATOR'
+	});
+
+	map.on('load', function () {
+		/*添加栅格图*/
+		map.addSource('IMAGERY_SOURCE', {
+			type: 'raster', //数据源类型：栅格数据源
+			tiles: ['https://ol-data.minedata.cn/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg'], //瓦片服务地址
+			tileSize: 512 //瓦片尺寸
+		});
+
+		map.addLayer({
+			id: 'IMAGERY',
+			type: 'raster',
+			source: 'IMAGERY_SOURCE',
+			paint: {
+				'raster-opacity': 1
+			}
+		});
+
+		window.tileset = map.addSceneComponent({
+			id: 'serve',
+			type: '3d-tiles',
+			urls: [
+				{
+					url: 'https://minedata.cn/mine-support/assets/web/support-data/3d-tiles/dayanta-3dtiles-out-lab-glb/tileset.json',
+					name: "ARROW",
+					opacity: 0.7
+				},
+				{
+					url: 'https://minedata.cn/mine-support/assets/web/support-data/3d-tiles/hd/tileset.json',
+					name: "HD",
+					opacity: 0.9
+				},
+				{
+					url: 'https://minedata.cn/mine-support/assets/web/support-data/3d-tiles/天河科技园/tileset.json',
+					name: "BIM",
+					opacity: 1
+				}
+			],
+			translation: new minemap.Math.Vector3(0, 0, 0),
+			minzoom: 1,
+			maxzoom: 22,
+			sourceLoaded: config => {
+				// 设置初始透明度
+				// window.tileset.setOpacityByUrlName(0.7, "ARROW");
+				// window.tileset.setOpacityByUrlName(0.9, "HD");
+				// window.tileset.setOpacityByUrlName(1, "BIM");
+
+				// BIM模型控制事件
+				document.getElementById('bimOpacitySlider').addEventListener('input', function (e) {
+					console.log(parseFloat(e.target.value))
+					window.tileset.setOpacityByUrlName(parseFloat(e.target.value), "BIM");
+				});
+
+				document.getElementById('bimVisibilityCheckbox').addEventListener('change', function (e) {
+					window.tileset.setShowByUrlName(e.target.checked, "BIM");
+				});
+
+				document.getElementById('flyToBim').addEventListener('click', function () {
+					map.flyTo({
+						target: [
+							116.3918209754059, 39.90984826212655,
+							600
+						],
+						bearing: 0,
+						pitch: 0,
+						duration: 2000
+					});
+				});
+
+				// HD模型控制事件
+				document.getElementById('hdOpacitySlider').addEventListener('input', function (e) {
+					console.log(parseFloat(e.target.value))
+					window.tileset.setOpacityByUrlName(parseFloat(e.target.value), "HD");
+				});
+
+				document.getElementById('hdVisibilityCheckbox').addEventListener('change', function (e) {
+					window.tileset.setShowByUrlName(e.target.checked, "HD");
+				});
+
+				document.getElementById('flyToHd').addEventListener('click', function () {
+					map.flyTo({
+						target: [
+							113.17646937350722, 28.100439177465336,
+							10000
+						],
+						bearing: 0,
+						pitch: 0,
+						duration: 2000
+					});
+				});
+
+				// ARROW模型控制事件
+				document.getElementById('arrowOpacitySlider').addEventListener('input', function (e) {
+					console.log(parseFloat(e.target.value))
+					window.tileset.setOpacityByUrlName(parseFloat(e.target.value), "ARROW");
+				});
+
+				document.getElementById('arrowVisibilityCheckbox').addEventListener('change', function (e) {
+					window.tileset.setShowByUrlName(e.target.checked, "ARROW");
+				});
+
+				document.getElementById('flyToArrow').addEventListener('click', function () {
+					map.flyTo({
+						target: [
+							108.965014, 34.220905,
+							1000
+						],
+						bearing: 0,
+						pitch: 0,
+						duration: 2000
+					});
+				});
+			}
+		});
+	});
+</script>
+</body>
+
+</html>

@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+	<title>物体泛光效果</title>
+	<script src="../js/lil-gui.umd.min.js"></script>
+	<!-- 引入MineMap API插件 -->
+	<link rel="stylesheet" href="../../dist/minemap.css" />
+	<script src="../../dist/minemap-dev.js"></script>
+	<style>
+		html, body, #map {
+			margin: 0;
+			padding: 0;
+			width: 100%;
+			height: 100%;
+		}
+	</style>
+</head>
+<body>
+<div id="map"></div>
+<script>
+	/**
+	 * 全局参数设置
+	 */
+	minemap.domainUrl = 'https://minemap.minedata.cn';
+	minemap.dataDomainUrl = 'https://minemap.minedata.cn';
+	minemap.serverDomainUrl = 'https://sd-data.minedata.cn';
+	minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+	minemap.serviceUrl = 'https://service.minedata.cn/service';
+
+	minemap.key = '0c6ac62182404e5ebc7a789981f6db72';
+	minemap.solution = 11001;
+	window.minemapCDN = "http://192.168.152.123/minemap-engine/minemap-CDN/"; // minemapCDN 配置 http://192.168.152.123/
+
+	// 定义空底图样式
+	var style = {
+		"glyphs": "minemap://fonts/{fontstack}/{range}",
+		"sprite": "minemap://sprite/sprite",
+		"sources": {},
+		"layers": [],
+		"version": 8
+	};
+
+	/**
+	 * 初始化地图实例
+	 */
+	var map = new minemap.Map({
+		container: "map",
+		style: style,
+		/*球面矢量底图样式*/
+		center: [117.07345793078674, 31.655248159116724],
+		/*地图中心点*/
+		bearing: 0,
+		zoom: 15,
+		/*地图默认缩放等级*/
+		pitch: 70,
+		/*地图俯仰角度*/
+		maxZoom: 22,
+		/*地图最大缩放等级*/
+		minZoom: 1,
+		/*地图最小缩放等级*/
+		projection: "MERCATOR"
+	});
+	map.repaint = true;
+	let greenBox, redLine, bluePlane;
+	map.on('load', function () {
+		/*添加栅格图*/
+		map.addSource("IMAGERY_SOURCE", {
+			"type": "raster",//数据源类型：栅格数据源
+			"tiles": ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+			"tileSize": 512,//瓦片尺寸
+		});
+
+		map.addLayer({
+			"id": "IMAGERY",
+			"type": "raster", //图层类型为"raster"
+			"source": "IMAGERY_SOURCE",
+			"minzoom": 0,
+			"maxzoom": 23
+		});
+
+		const cartographicForGreen = new minemap.Math.Vector3([117.07545, 31.6562, 100]);
+		const matrixForGreen = minemap.Transforms.cartographicToFixedFrame(cartographicForGreen);
+		const rotX = new minemap.Math.Matrix4().rotateX(Math.PI / 2);
+		matrixForGreen.multiplyRight(rotX);
+
+		const greenBoxGeometry = new minemap.Geometries.BoxGeometry({
+			width: 100,
+			height: 100,
+			depth: 100
+		});
+		greenBox = new minemap.Primitive({
+			modelMatrix: matrixForGreen,
+			geometry: greenBoxGeometry,
+			material: minemap.StandardMaterial.fromType("Color", {
+				color: "green",
+				opacity: 1.0,
+				doubleSided: false,
+				hasNormal: false
+			}),
+			allowPick: true
+		})
+		map.addPrimitive(greenBox);
+
+		const polylineGeometry = new minemap.Geometries.PolylineGeometry({
+			positions: minemap.Math.Vector3.fromDegreesArrayHeights([
+				117.07345,
+				31.6572,
+				10,
+				117.07445,
+				31.6572,
+				10,
+				117.07445,
+				31.6582,
+				10
+			]),
+			width: 10,
+			arcType: minemap.ARCTYPE.GEODESIC
+		});
+
+		redLine = new minemap.Primitive({
+			geometry: polylineGeometry,
+			material: minemap.PolylineMaterial.fromType("Color", {
+				color: "red"
+			}),
+			name: "polyline",
+			allowPick: true
+		});
+		map.addPrimitive(redLine);
+
+		bluePlane = new minemap.Primitive({
+			geometry: new minemap.Geometries.PlaneGeometry({
+				normal: minemap.Math.Vector3.UNIT_Z,
+				distance: 0,
+				dimensions: new minemap.Math.Vector2(200.0, 200.0)
+			}),
+			material: minemap.StandardMaterial.fromType("Color", {
+				color: "blue",
+				opacity: 1.0,
+				doubleSided: true
+			}),
+			allowPick: true,
+			modelMatrix: minemap.Transforms.cartographicToFixedFrame([117.07, 31.6572, 50.0])
+		});
+		map.addPrimitive(bluePlane);
+
+		// 添加glb
+		sceneModel = map.addSceneComponent({
+			id: "glbModel",
+			type: "3d-model", // 数据类型为“3d-model”
+			data: "../data/test-gltf/GroundVehicle.glb",
+			modelFolder: "", // 该数据引用图片等资源的文件夹路径
+			scale: [50, 50, 50], // 在xyz轴方向上的缩放比例
+			rotation: [90, 0, 0], // 绕xyz轴方向上的旋转，单位为度
+			position: [117.07345793078674, 31.655248159116724], // 锚点（模型局部坐标原点）的经纬度位置
+			allowPick: true
+		});
+
+		window.tileset = map.addSceneComponent({
+			id: "serve",
+			type: "3d-tiles",
+			show: true,
+			translation: new minemap.Math.Vector3(0, 0, 0),
+			// todo 来源于火星科技，后续使用自己生产的数据替换
+			url: "../data/3dtiles-next/tileset.json",
+			skipLevelOfDetail: true, //跨层调度
+			maximumScreenSpaceError: 8,
+			backCulling: false,
+			lightingModel: minemap.LightingModelType.PBR,
+			sourceLoaded: (tileset) => {
+				map.flyTo({
+					target: tileset,
+					bearing: 0,
+					pitch: 0,
+					duration: 2000,
+					range: 1000
+				});
+			},
+			/**
+			 * 飞行选择
+			 * index: 指定飞行目标(优先)
+			 * combine: 合并bounds为飞行目标
+			 */
+			geoBoundsOptions: {
+				index: 0,
+				combine: false
+			}
+		});
+
+		map.on("click", function (e) {
+			const selected = {
+				primitives: [],
+				tileFeatures: [],
+				tileset: tileset
+			}
+			const feature = map.getFeatureByGPUPick(e.point);
+			console.log(feature);
+			if(feature){
+				// 点击出来的对象有_content属性，则说明他是一个tileFeature
+				if(feature._content){
+					selected.tileFeatures.push(feature)
+				}else{
+					selected.primitives.push(feature)
+				}
+				map.postProcessStages.bloom.setSelected(selected)
+			}
+			map.bloom = !!feature;
+			updateBloomParams(map.bloom)
+		});
+
+		initializeGUI();
+	})
+
+	const bloomParams = {
+		glowColor: "#ffff00",  // 发光颜色
+		glowColorIntensity: 0.8, // 发光颜色强度
+		contrast: 119, // 对比度
+		brightness: 0, // 亮度
+		delta: 0.9,
+		sigma: 3.78,
+		stepSize: 2 // 步长
+	};
+
+	let bloomGUI;
+	function initializeGUI() {
+		const gui = new lil.GUI({ width: 300 });
+		bloomGUI = gui.addFolder("Bloom");
+
+		bloomGUI.open();
+		bloomGUI.addColor(bloomParams, "glowColor").onChange((value) => {
+			map.postProcessStages.bloom.uniforms.glowColor = minemap.Math.Vector4.fromColor(minemap.Color.parse(value), false);
+		});
+		bloomGUI
+			.add(bloomParams, "glowColorIntensity")
+			.min(0)
+			.max(1)
+			.step(0.1)
+			.onChange((value) => {
+				map.postProcessStages.bloom.uniforms.glowColorIntensity = value;
+			});
+		bloomGUI
+			.add(bloomParams, "contrast")
+			.min(-255)
+			.max(255)
+			.step(1)
+			.onChange((value) => {
+				map.postProcessStages.bloom.uniforms.contrast = value;
+			});
+		bloomGUI
+			.add(bloomParams, "brightness")
+			.min(-1)
+			.max(1)
+			.step(0.01)
+			.onChange((value) => {
+				map.postProcessStages.bloom.uniforms.brightness = value;
+			});
+		bloomGUI
+			.add(bloomParams, "delta")
+			.min(0.1)
+			.max(1)
+			.step(0.01)
+			.onChange((value) => {
+				map.postProcessStages.bloom.uniforms.delta = value;
+			});
+		bloomGUI
+			.add(bloomParams, "sigma")
+			.min(1)
+			.max(5)
+			.step(0.01)
+			.onChange((value) => {
+				map.postProcessStages.bloom.uniforms.sigma = value;
+			});
+		bloomGUI
+			.add(bloomParams, "stepSize")
+			.min(1)
+			.max(5)
+			.step(0.01)
+			.onChange((value) => {
+				map.postProcessStages.bloom.uniforms.stepSize = value;
+			});
+	}
+
+	function updateBloomParams(value) {
+		map.bloom = value;
+		if (value) {
+			map.postProcessStages.bloom.uniforms.glowColor = minemap.Math.Vector4.fromColor(minemap.Color.parse(bloomParams.glowColor), false);
+			map.postProcessStages.bloom.uniforms.glowColorIntensity = bloomParams.glowColorIntensity;
+			map.postProcessStages.bloom.uniforms.contrast = bloomParams.contrast;
+			map.postProcessStages.bloom.uniforms.brightness = bloomParams.brightness;
+			map.postProcessStages.bloom.uniforms.delta = bloomParams.delta;
+			map.postProcessStages.bloom.uniforms.sigma = bloomParams.sigma;
+			map.postProcessStages.bloom.uniforms.stepSize = bloomParams.stepSize;
+		}
+	}
+</script>
+</body>
+</html>

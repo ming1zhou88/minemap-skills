@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+		<title>分层分户动态效果</title>
+		<link rel="stylesheet" href="../style/demo.css" />
+		<link
+			rel="stylesheet"
+			href="http://192.168.152.123/minemapapi/minemap-CDN/jquery.json-viewer/json-viewer/jquery.json-viewer.css"
+		/>
+		<!-- 引入MineMap API插件 -->
+		<link rel="stylesheet" href="../../dist/minemap.css" />
+		<script src="../../dist/minemap-dev.js"></script>
+		<script src="../js/turf.min.js"></script>
+		<style>
+			html,
+			body,
+			#map {
+				margin: 0;
+				padding: 0;
+				width: 100%;
+				height: 100%;
+			}
+
+			.toolContainer {
+				position: absolute;
+				top: 0;
+				left: 0;
+				z-index: 999;
+			}
+
+			#info-banner {
+				position: fixed;
+				top: 0;
+				left: 60px;
+				z-index: 9999;
+				color: red;
+				font-size: 24px;
+				background-color: gray;
+				border: 1px solid black;
+				border-radius: 3px;
+			}
+		</style>
+	</head>
+	<body>
+		<div id="map"></div>
+		<script>
+			minemap.domainUrl = "https://minedata.cn";
+			minemap.dataDomainUrl = "https://minedata.cn";
+			minemap.serverDomainUrl = "https://minedata.cn";
+			minemap.spriteUrl = "http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite";
+			minemap.serviceUrl = "https://minedata.cn/service/";
+
+			minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+			minemap.solution = 11001;
+			window.minemapCDN = "https://minedata.cn/minemapapi/minemap-CDN"; // minemapCDN 配置
+
+			var tilesUrl = "http://192.168.152.123/minemap-engine/EngineCanaryDemo/data/classification/tileset.json";
+			var tilesJson = null;
+
+			// 定义空底图样式
+			var style = {
+				glyphs: "minemap://fonts/{fontstack}/{range}",
+				sprite: "minemap://sprite/sprite",
+				sources: {},
+				layers: [],
+				version: 8
+			};
+			/**
+			 * 初始化地图实例
+			 */
+
+			var map = new minemap.Map({
+				container: "map",
+				style: style,
+				bearing: 0,
+				position: [115.88477221757876, 39.03234170809695, 52.42720735643691],
+				pitch: 64,
+				maxZoom: 22 /*地图最大缩放等级*/,
+				minZoom: 1 /*地图最小缩放等级*/,
+			});
+			map.repaint = true;
+			map.enableLight();
+
+			map.setTerrain({
+				tiles: ["https://staticdata-b.minedata.cn:14434/dem/{z}/{r}/{c}/{z}_{x}_{y}.terrain"], //瓦片服务地址
+				tileSize: 512, //瓦片大小
+				maxzoom: 14 //dem最高切分zoom，30米一般是14级；12.5米一般是16级
+			});
+
+			map.on("load", function () {
+				/*添加栅格图*/
+				map.addSource("IMAGERY_SOURCE", {
+					type: "raster", //数据源类型：栅格数据源
+					tiles: ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+					tileSize: 512 //瓦片尺寸
+				});
+
+				map.addLayer({
+					id: "IMAGERY",
+					type: "raster", //图层类型为"raster"
+					source: "IMAGERY_SOURCE",
+					minzoom: 1,
+					maxzoom: 23,
+					"depth-test": true
+				});
+
+				// 3dtiles
+				const tileset = map.addSceneComponent({
+					id: "serve",
+					type: "3d-tiles",
+					url: tilesUrl, //荣成倾斜数据 bd"https://staticdata-b.minedata.cn:14434/oblique-lab/960-SD-QD1_result_20220615_02_DDK/tileset.json",
+					skipLevelOfDetail: false, //跨层调度
+					maximumScreenSpaceError: 8,
+					translation: [0, 0, 0],
+					sourceLoaded: (tileset) => {},
+					allowPick: true,
+					lightingModel: minemap.LightingModelType.NONE
+				});
+				window.tileset = tileset;
+
+				window.floorModel = map.addSceneComponent({
+					id: "floor", // 唯一标识
+					position: new minemap.Math.Vector3(115.88469533193773, 39.033051271022366, 10),
+					rotation: [90, 0, 0],
+					scale: [10, 10, 10],
+					type: "3d-model",
+					data: "../data/floor.glb"
+				});
+				addProp();
+			});
+
+			function addProp() {
+				var el = document.createElement("div");
+				var p1 = document.createElement("div");
+				p1.style.width = "200px";
+				p1.style.height = "100px";
+				p1.style.backgroundColor = "#87CEEB";
+				p1.classList = "close";
+				p1.innerHTML = "点击楼面查看分层分户的动态效果";
+				p1.style.fontFamily = "Arial, sans-serif";
+				p1.style.fontSize = "16px";
+				p1.style.fontWeight = "bold";
+				p1.style.cursor = "pointer";
+				el.appendChild(p1);
+
+				popup = new minemap.Popup({
+					className: "test",
+					closeOnClick: false,
+					closeButton: false,
+					offset: [0, 0]
+				})
+					.setLngLat([115.88473343757764, 39.03304847538704])
+					.setAltitude(31)
+					.setDOMContent(el)
+					.addTo(map);
+			}
+
+			map.on("click", function (e) {
+				const pickPosition = map.painter.getPositionByGPUPick(e.point);
+				showAnimation(pickPosition);
+			});
+
+			let model;
+			let shouldRetraction = false;
+			let floorCenterHeight = -1;
+			const duration = 2000;
+			let startTime,
+				lastTime,
+				frameId,
+				hasAnimation = false;
+
+			function showAnimation(pickPosition) {
+				const numberOfFloor = isPointInPolygon([pickPosition.x, pickPosition.y]);
+				floorCenterHeight = computerFloorCenterHeight(pickPosition);
+				if (!hasAnimation) {
+					if (!shouldRetraction) {
+						if (numberOfFloor > -1 && floorCenterHeight > -1) {
+							const newPosition = computerCenterPosition(numberOfFloor);
+							floorModel.visibility = "visible";
+							floorModel.position = minemap.Math.Vector3.fromDegrees(
+								newPosition[0],
+								newPosition[1],
+								floorCenterHeight
+							);
+							openModelToExplodedView();
+							shouldRetraction = true;
+							modelHighlight(numberOfFloor, floorCenterHeight);
+						}
+					} else {
+						closeModelToExplodedView();
+						shouldRetraction = false;
+					}
+				}
+			}
+
+			function openModelToExplodedView() {
+				if (!startTime) {
+					startTime = Date.now();
+					lastTime = Date.now();
+				}
+
+				if (Date.now() - startTime > duration) {
+					startTime = undefined;
+					hasAnimation = false;
+					if (frameId) {
+						cancelAnimationFrame(frameId);
+						frameId = undefined;
+					}
+					return;
+				}
+
+				hasAnimation = true;
+
+				processMovement("extend");
+
+				frameId = requestAnimationFrame(openModelToExplodedView);
+			}
+
+			function closeModelToExplodedView() {
+				if (!startTime) {
+					startTime = Date.now();
+					lastTime = Date.now();
+				}
+
+				if (Date.now() - startTime > duration) {
+					startTime = undefined;
+					hasAnimation = false;
+					if (frameId) {
+						cancelAnimationFrame(frameId);
+						frameId = undefined;
+						removePrimitives();
+					}
+					floorModel.visibility = "none";
+					return;
+				}
+
+				hasAnimation = true;
+
+				processMovement("retraction");
+
+				frameId = requestAnimationFrame(closeModelToExplodedView);
+			}
+
+			function processMovement(direction) {
+				let directionFactor = 1;
+				if (direction === "extend") {
+					directionFactor = -1;
+				}
+
+				let moveFactor = ((Date.now() - lastTime) / duration) * 10;
+				lastTime = Date.now();
+				let translation = new minemap.Math.Vector3(0, directionFactor, 0).multiplyByScalar(moveFactor);
+				const positionMatrix = minemap.Transforms.cartographicToFixedFrame(
+					minemap.Math.Vector3.unpack(floorModel.cartographicPosition)
+				);
+
+				const localTranslationMatrix = new minemap.Math.Matrix4();
+				localTranslationMatrix[12] = translation[0];
+				localTranslationMatrix[13] = translation[1];
+				localTranslationMatrix[14] = translation[2];
+				const finalMatrix = positionMatrix.clone().multiplyRight(localTranslationMatrix);
+				floorModel.position = new minemap.Math.Vector3(finalMatrix[12], finalMatrix[13], finalMatrix[14]);
+			}
+
+			// 楼层投影的多边形
+			const floorBoundary = [
+				//一单元01室
+				[
+					[115.88431257369241, 39.032993790175745],
+					[115.8844073857871, 39.0329901793307],
+					[115.88440500039053, 39.03313156473319],
+					[115.88430561689877, 39.03313775788716],
+					[115.88431257369241, 39.032993790175745]
+				],
+				//一单元02室
+				[
+					[115.88444079862784, 39.03298729052126],
+					[115.88452977563621, 39.0329885324327],
+					[115.8845276047013, 39.033132030941104],
+					[115.88443841797614, 39.03313705147741],
+					[115.88444079862784, 39.03298729052126]
+				],
+				//二单元01室
+				[
+					[115.88452977563621, 39.0329885324327],
+					[115.88461672743247, 39.03299419723435],
+					[115.88461762780157, 39.03314156996059],
+					[115.8845276047013, 39.033132030941104],
+					[115.88452977563621, 39.0329885324327]
+				],
+				//二单元02室
+				[
+					[115.88465376871093, 39.03299552413381],
+					[115.88473531326514, 39.03299805140362],
+					[115.88473231122397, 39.033135726963074],
+					[115.88464846412423, 39.03313985189],
+					[115.88465376871093, 39.03299552413381]
+				],
+				//三单元01室
+				[
+					[115.88473506224128, 39.032999022545965],
+					[115.88481679146442, 39.03299234196202],
+					[115.88481938824214, 39.03314170507965],
+					[115.88472967879791, 39.03314169949302],
+					[115.88473506224128, 39.032999022545965]
+				],
+				//三单元02室
+				[
+					[115.88485355737261, 39.03299393670205],
+					[115.8849415528609, 39.03299885078156],
+					[115.8849383308987, 39.033138874461194],
+					[115.88484845015817, 39.033142827219564],
+					[115.88485355737261, 39.03299393670205]
+				],
+				//四单元01室
+				[
+					[115.88494111707428, 39.03299976113698],
+					[115.8850276978407, 39.03299629900459],
+					[115.8850241233875, 39.03314442295393],
+					[115.88493683493354, 39.03314088895364],
+					[115.88494111707428, 39.03299976113698]
+				],
+				//四单元02室
+				[
+					[115.88506514421971, 39.03299780635444],
+					[115.88516085441857, 39.033001166186665],
+					[115.8851512590427, 39.033141947420035],
+					[115.88506181997647, 39.0331431021016],
+					[115.88506514421971, 39.03299780635444]
+				]
+			];
+
+			// 楼层高度
+			const floorHeight = [
+				[8.6, 11.5], //1层
+				[11.5, 14.4], //2层
+				[14.4, 17.3], //3层
+				[17.3, 20.2], //4层
+				[20.2, 23.1], //5层
+				[23.1, 26], //6层
+				[26, 28.9] //7层
+			];
+
+			// 判断点是否在楼层投影的多边形内部，楼梯间不计算在内
+			function isPointInPolygon(point) {
+				let floor = -1;
+				for (let i = 0; i < floorBoundary.length; i++) {
+					const pt = turf.point(point);
+					const poly = turf.polygon([floorBoundary[i]]);
+					if (turf.booleanPointInPolygon(pt, poly)) {
+						floor = i;
+						break;
+					}
+				}
+				return floor;
+			}
+
+			function computerCenterPosition(index) {
+				const floorPositions = floorBoundary[index];
+				let lonLat;
+				if (floorPositions !== undefined) {
+					lonLat = turf.centroid(turf.polygon([floorPositions])).geometry.coordinates;
+				}
+
+				return lonLat;
+			}
+
+			function computerFloorCenterHeight(position) {
+				floorCenterHeight = -1;
+				for (let i = 0; i < floorHeight.length; i++) {
+					const heightRange = floorHeight[i];
+					if (position.z > heightRange[0] && position.z < heightRange[1]) {
+						floorCenterHeight = (heightRange[0] + heightRange[1]) / 2;
+						break;
+					}
+				}
+
+				return floorCenterHeight;
+			}
+
+			let primitives = [];
+			function modelHighlight(numberOfFloor, floorCenterHeight) {
+				removePrimitives();
+				const data = floorBoundary[numberOfFloor];
+
+				primitives = [];
+				if (!data) return;
+
+				const minMaxHeight = [floorCenterHeight - 1.45, floorCenterHeight + 1.45];
+				const polygonPositions = [];
+				for (let i = 0; i < data.length; i++) {
+					polygonPositions.push(data[i][0]);
+					polygonPositions.push(data[i][1]);
+					polygonPositions.push(minMaxHeight[1]);
+				}
+
+				const polygonGeometry = new minemap.Geometries.PolygonGeometry({
+					polygonHierarchy: {
+						positions: minemap.Math.Vector3.fromDegreesArrayHeights(polygonPositions)
+					},
+					extrudedHeight: minMaxHeight[0],
+					perPositionHeight: true
+				});
+				const polygonMaterial = minemap.StandardMaterial.fromType("Color", {
+					color: new minemap.Color(1, 0, 0, 0.5),
+					doubleSided: true
+				});
+				const polygonPrimitive = new minemap.Primitive({
+					geometry: polygonGeometry,
+					material: polygonMaterial,
+					allowPick: true
+				});
+				map.addPrimitive(polygonPrimitive);
+				primitives.push(polygonPrimitive);
+			}
+
+			function removePrimitives() {
+				primitives.forEach((item) => {
+					map.removePrimitive(item);
+				});
+			}
+		</script>
+	</body>
+</html>

@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8" />
+	<title>粒子系统-火焰</title>
+	<link
+		rel="stylesheet"
+		href="../style/demo.css"
+	/>
+	<link rel="stylesheet" href="../../dist/minemap.css" />
+	<script src="../../dist/minemap-dev.js"></script>
+	<script src="../js/lil-gui.umd.min.js"></script>
+	<style>
+		#map {
+			width: 100%;
+			height: 100%;
+		}
+	</style>
+</head>
+<body>
+<div id="map"></div>
+<script>
+	/**
+	 * 全局参数设置
+	 */
+	minemap.domainUrl = "https://minedata.cn";
+	minemap.dataDomainUrl = "https://minedata.cn";
+	minemap.serverDomainUrl = "https://minedata.cn";
+	minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+	minemap.serviceUrl = "https://minedata.cn/service/";
+
+	minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+	minemap.solution = 11001;
+	window.minemapCDN = "https://minedata.cn/minemapapi/minemap-CDN";
+
+	// 定义空底图样式
+	var style = {
+		glyphs: "minemap://fonts/{fontstack}/{range}",
+		sprite: "minemap://sprite/sprite",
+		sources: {},
+		layers: [],
+		version: 8
+	};
+
+	/**
+	 * 初始化地图实例
+	 */
+	var map = new minemap.Map({
+		container: "map",
+		style: style,
+		/*球面矢量底图样式*/
+		position: [108.9607594956354, 34.21819059315598, 10.283513220452917],
+		/*地图中心点*/
+		bearing: -51.85538546707883,
+		/*地图默认缩放等级*/
+		pitch: 77.66770894469668,
+		/*地图俯仰角度*/
+		maxZoom: 22,
+		/*地图最大缩放等级*/
+		minZoom: 1,
+		/*地图最小缩放等级*/
+		projection: "MERCATOR"
+	});
+	map.repaint = true;
+
+	map.on("load", function() {
+		/*添加栅格图*/
+		map.addSource("IMAGERY_SOURCE", {
+			type: "raster", //数据源类型：栅格数据源
+			tiles: ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+			tileSize: 512 //瓦片尺寸
+		});
+
+		map.addLayer({
+			id: "IMAGERY",
+			type: "raster", //图层类型为"raster"
+			source: "IMAGERY_SOURCE",
+			minzoom: 1,
+			maxzoom: 23,
+			paint: {
+				"raster-opacity": 1
+			}
+		});
+
+		const texture = minemap.TextureLoader.load({ map, texUrl: "../data/image/fire.png" });
+		const modelMatrix = minemap.Transforms.cartographicToFixedFrame(new minemap.Math.Vector3([108.9605960470355, 34.21830728693849, 0]));
+		// 构建粒子系统
+		const fireSystem = new minemap.ParticleSystem({
+			modelMatrix: modelMatrix, // 模型矩阵
+			duration: 5,
+			looping: true,
+			prewarm: true,
+
+			// 从指向上方的锥形发出
+			shape: new minemap.ConeEmitter({
+				radius: 0.5,
+				angle: Math.PI / 8,
+				thickness: 0.8
+			}),
+
+			// 发射设置
+			emissionOverTime: new minemap.ParticleFunctions.ConstantValue(50),
+			emissionBursts: [
+				{
+					time: 1,
+					count: new minemap.ParticleFunctions.ConstantValue(10),
+					probability: 0.8
+				}
+			],
+
+			// 初始化粒子属性
+			startLife: new minemap.ParticleFunctions.IntervalValue(1, 2),
+			startSpeed: new minemap.ParticleFunctions.IntervalValue(2, 5),
+			startSize: new minemap.ParticleFunctions.IntervalValue(0.5, 1.0),
+			startColor: new minemap.ParticleFunctions.ConstantColor(new minemap.Math.Vector4(1, 0.5, 0.1, 1)),
+
+			// 渲染设置
+			worldSpace: true,
+			material: new minemap.BasicMaterial({
+				baseColorMap: texture,
+				transparent: true,
+				doubleSided: true,
+				renderState: {
+					cull: {
+						enabled: true
+					},
+					depthTest: {
+						enabled: true,
+						func: minemap.WebGLConstants.LEQUAL
+					},
+					depthMask: false
+				}
+			}),
+			renderMode: minemap.RenderMode.BillBoard,
+
+			// 行为设置
+			behaviors: [
+				// 尺寸先增大后减小
+				new minemap.ParticleBehaviors.SizeOverLife(new minemap.ParticleFunctions.PiecewiseBezier([[new minemap.ParticleFunctions.Bezier(0.5, 1, 1, 0), 0]])),
+
+				// 颜色从黄色到红色再到黑色
+				new minemap.ParticleBehaviors.ColorOverLife(
+					new minemap.ParticleFunctions.Gradient(
+						[
+							[new minemap.Math.Vector3(1, 0.8, 0.2), 0],
+							[new minemap.Math.Vector3(1, 0.2, 0.1), 0.5],
+							[new minemap.Math.Vector3(0.1, 0.1, 0.1), 1]
+						],
+						[
+							[1, 0],
+							[0.8, 0.5],
+							[0, 1]
+						]
+					)
+				),
+
+				// 应用向上的恒定力
+				new minemap.ParticleBehaviors.ApplyForce(new minemap.Math.Vector3(0, 5, 0), new minemap.ParticleFunctions.ConstantValue(1)),
+
+				// 旋转
+				new minemap.ParticleBehaviors.RotationOverLife(new minemap.ParticleFunctions.IntervalValue(-Math.PI, Math.PI)),
+
+				// 湍流场
+				new minemap.ParticleBehaviors.TurbulenceField(
+					new minemap.Math.Vector3(2, 2, 2),
+					2,
+					new minemap.Math.Vector3(1, 2, 1),
+					new minemap.Math.Vector3(0.1, 0.1, 0.1)
+				)
+			]
+		});
+		// 添加粒子系统到地图
+		map.addParticleSystem(fireSystem);
+
+		//gui
+		const gui = new lil.GUI({ title: "设置" });//外部UI
+		const options = {
+			"导出配置": exportConfig
+		};
+
+		gui.add(options, "导出配置");
+
+		function exportConfig() {
+			const jsonData = fireSystem.emitter.toJSON();
+			saveJsonToFile(jsonData);
+		}
+	});
+
+	// 将JSON对象保存为文件并下载
+	function saveJsonToFile(jsonData, fileName = "ps.json") {
+		try {
+			// 将JSON对象转换为字符串，第三个参数用于格式化
+			const jsonString = JSON.stringify(jsonData, null, 2);
+
+			// 创建Blob对象，指定MIME类型为application/json
+			const blob = new Blob([jsonString], { type: "application/json" });
+
+			// 创建下载链接
+			const url = URL.createObjectURL(blob);
+			const a = document.createElement("a");
+			a.href = url;
+			a.download = fileName; // 设置文件名
+
+			// 模拟点击下载
+			document.body.appendChild(a);
+			a.click();
+
+			// 清理资源
+			document.body.removeChild(a);
+			URL.revokeObjectURL(url);
+		} catch (error) {
+			console.error("保存JSON文件时出错:", error);
+		}
+	}
+
+</script>
+</body>
+</html>

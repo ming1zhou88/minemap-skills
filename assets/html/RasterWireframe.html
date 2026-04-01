@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+		<title>球体栅格图层线框模式</title>
+		<!-- 引入MineMap API插件 -->
+		<link rel="stylesheet" href="../../dist/minemap.css" />
+		<script src="../../dist/minemap-dev.js"></script>
+		<script src="../lib/dat.gui.min.js"></script>
+		<style>
+			html,
+			body,
+			#map {
+				margin: 0;
+				padding: 0;
+				width: 100%;
+				height: 100%;
+			}
+		</style>
+	</head>
+
+	<body>
+		<div id="map"></div>
+		<script>
+			/**
+			 * 全局参数设置
+			 */
+			minemap.domainUrl = "https://minemap.minedata.cn";
+			minemap.dataDomainUrl = "https://minemap.minedata.cn";
+			minemap.serverDomainUrl = "https://sd-data.minedata.cn";
+			minemap.spriteUrl = "http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite";
+			minemap.serviceUrl = "https://service.minedata.cn/service";
+
+			minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+			minemap.solution = 11001;
+
+			// 定义空底图样式
+			var style = {
+				glyphs: "minemap://fonts/{fontstack}/{range}",
+				sprite: "minemap://sprite/sprite",
+				sources: {},
+				layers: [],
+				version: 8
+			};
+
+			/**
+			 * 初始化地图实例
+			 */
+			var map = new minemap.Map({
+				container: "map",
+				style: style /*球面矢量底图样式*/,
+				center: [116.46, 39.92] /*地图中心点*/,
+				zoom: 1.5 /*地图默认缩放等级*/,
+				pitch: 0 /*地图俯仰角度*/,
+				maxZoom: 22 /*地图最大缩放等级*/,
+				minZoom: 1 /*地图最小缩放等级*/,
+				projection: "MERCATOR"
+			});
+
+			let id = "xyz";
+			map.on("load", function () {
+				// 构建ui控件
+				const rasterType = { type: "xyz" };
+				const gui = new dat.GUI();
+				const f = gui.addFolder("地图服务类型");
+				f.add(rasterType, "type", ["xyz", "tms", "wmts", "baidu"]).onChange((value) => {
+					id && map.removeLayer(id);
+					id = value;
+					addLayer(value);
+				});
+				f.open();
+				/*添加 xyz 类型栅格图*/
+				map.addSource("xyz", {
+					type: "raster", //数据源类型：栅格数据源
+					tiles: ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+					tileSize: 512 //瓦片尺寸
+					//"bounds": [113.70609172522181, 36.48878805534389, 114.61461308129726, 37.11474510334105],//要显示区域的外包框，按west，south，east，north填写
+				});
+				/*添加 tms 类型栅格图*/
+				map.addSource("tms", {
+					type: "raster", //数据源类型：栅格数据源
+					tiles: ["https://rt2.map.gtimg.com/tile?z={z}&x={x}&y={y}&styleid=1&scene=0"], //瓦片服务地址
+					tileSize: 256, //瓦片尺寸
+					scheme: "tms"
+					//"bounds": [113.70609172522181, 36.48878805534389, 114.61461308129726, 37.11474510334105],//要显示区域的外包框，按west，south，east，north填写
+				});
+				/*添加 baidu 类型栅格图*/
+				map.addSource("baidu", {
+					type: "raster", //DEM的数据类型为"raster"
+					tiles: [
+						"https://maponline1.bdimg.com/tile/?qt=vtile&x={x}&y={y}&z={z}&styles=pl&scaler=2&udt=&from=jsapi2_0"
+					],
+					tileSize: 256, //瓦片大小
+					scheme: "baidu"
+				});
+
+				addLayer("xyz");
+
+				function addLayer(id) {
+					if (id === "wmts") {
+						minemap.util.getString(
+							"https://mrdata.usgs.gov/mapcache/wmts?request=GetCapabilities&service=wmts",
+							function (error, data) {
+								if (!error) {
+									const parser = new minemap.WMTSCapabilities();
+									const capabilities = parser.read(data);
+									// 此处可以在控制台打印capabilities, 查看所有图层信息
+									// console.log(capabilities)
+									const result = minemap.optionsFromCapabilities(capabilities, {
+										requestEncoding: "REST", // 目前必须指定为REST todo: 需解决编码格式为KVP时，无法生成对应的url的bug
+										layer: "sgmc2", // 图层Identifier, 不是Title
+										matrixSet: "GoogleMapsCompatible" // 指定图层指向的TileMatrixSet的名称
+										// format: 'image/png' // 可选, 指定栅格的格式, 不输入则默认选择ResoureURL里的第一个url
+									});
+									/*添加 WMTS 类型栅格图*/
+									map.addSource("wmts", {
+										type: "raster", //数据源类型：栅格数据源
+										tiles: result.urls, //瓦片服务地址
+										scheme: "wmts", //以后可以扩展为WMS等服务
+										capabilities: result, //服务配置信息 todo: 考虑是否直接写入xml的访问链接, 在内部解析
+										tileSize: 256
+										// "bounds": [-104, 37, -100, 41],
+									});
+
+									map.flyTo({
+										center: [-95, 40],
+										zoom: 2.5,
+										pitch: 0,
+										bearing: 0,
+										duration: 0
+									});
+
+									map.addLayer({
+										id: id,
+										type: "raster", //图层类型为"raster"
+										source: id,
+										minzoom: 1,
+										maxzoom: 23,
+										wireframe: true
+									});
+								} else {
+									console.log(error);
+								}
+							}
+						);
+					} else {
+						map.addLayer({
+							id: id,
+							type: "raster", //图层类型为"raster"
+							source: id,
+							minzoom: 1,
+							maxzoom: 23,
+							wireframe: true
+						});
+					}
+				}
+			});
+		</script>
+	</body>
+</html>

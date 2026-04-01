@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no"/>
+	<title>城市综合评价雷达图 - 简化版 (MineMap ECharts Layer)</title>
+	<link rel="stylesheet" href="https://minedata.cn/nce-static/support/demo/js-3d-ultra/zh/css/demo.css">
+	<!-- 引入MineMap API插件 -->
+	<link rel="stylesheet" href="../../dist/minemap.css">
+	<script src="../../dist/minemap-dev.js"></script>
+	<!-- 引入ECharts -->
+	<script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+	<!-- 引入MineMap ECharts Layer -->
+	<script src="../js/minemap-echarts-layer.js"></script>
+	<style>
+		html, body, #map {
+			margin: 0;
+			padding: 0;
+			width: 100%;
+			height: 100%;
+		}
+
+		.info-panel {
+			position: absolute;
+			top: 20px;
+			left: 20px;
+			background: rgba(0, 0, 0, 0.85);
+			color: white;
+			padding: 20px;
+			border-radius: 10px;
+			z-index: 2000;
+			font-family: 'Microsoft YaHei', Arial, sans-serif;
+			box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+			backdrop-filter: blur(10px);
+			border: 1px solid rgba(255, 255, 255, 0.1);
+			max-width: 350px;
+		}
+
+		.info-panel h1 {
+			margin: 0 0 15px 0;
+			font-size: 18px;
+			font-weight: bold;
+			color: #FFD700;
+			text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+		}
+
+		.info-panel .subtitle {
+			margin: 0 0 15px 0;
+			font-size: 12px;
+			color: #ccc;
+			font-style: italic;
+		}
+
+		.stats {
+			display: grid;
+			grid-template-columns: 1fr 1fr;
+			gap: 10px;
+			margin: 15px 0;
+		}
+
+		.stat-item {
+			text-align: center;
+			padding: 8px;
+			background: rgba(255, 255, 255, 0.1);
+			border-radius: 5px;
+			border: 1px solid rgba(255, 255, 255, 0.2);
+		}
+
+		.stat-number {
+			font-size: 20px;
+			font-weight: bold;
+			color: #4CAF50;
+			display: block;
+		}
+
+		.stat-label {
+			font-size: 10px;
+			color: #ccc;
+			margin-top: 2px;
+		}
+
+		.description {
+			font-size: 11px;
+			line-height: 1.4;
+			color: #ddd;
+			margin-top: 15px;
+			padding-top: 15px;
+			border-top: 1px solid rgba(255, 255, 255, 0.2);
+		}
+
+		.tech-stack {
+			margin-top: 10px;
+			font-size: 10px;
+			color: #999;
+		}
+
+		.tech-stack span {
+			display: inline-block;
+			background: rgba(33, 150, 243, 0.2);
+			color: #2196F3;
+			padding: 2px 6px;
+			border-radius: 3px;
+			margin: 2px 2px 0 0;
+			border: 1px solid rgba(33, 150, 243, 0.3);
+		}
+
+		.radar-overlay {
+			position: absolute;
+			bottom: 30px;
+			right: 30px;
+			width: 420px;
+			height: 380px;
+			background: rgba(255, 255, 255, 0.95);
+			border-radius: 10px;
+			box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+			border: 1px solid rgba(255, 255, 255, 0.2);
+			backdrop-filter: blur(10px);
+			z-index: 1500;
+			pointer-events: auto;
+		}
+
+		.radar-header {
+			padding: 15px 20px 10px;
+			border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+			background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+			color: white;
+			border-radius: 10px 10px 0 0;
+		}
+
+		.radar-title {
+			font-size: 16px;
+			font-weight: bold;
+			margin: 0;
+		}
+
+		.radar-subtitle {
+			font-size: 12px;
+			opacity: 0.9;
+			margin: 5px 0 0;
+		}
+
+		#radar-chart {
+			width: 100%;
+			height: 320px;
+		}
+
+		.control-panel {
+			position: absolute;
+			top: 20px;
+			right: 20px;
+			background: rgba(255, 255, 255, 0.9);
+			padding: 15px;
+			border-radius: 8px;
+			box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+			z-index: 2100;
+			font-family: 'Microsoft YaHei', Arial, sans-serif;
+			min-width: 180px;
+		}
+
+		.control-panel h3 {
+			margin: 0 0 10px 0;
+			font-size: 14px;
+			color: #333;
+		}
+
+		.city-list {
+			max-height: 120px;
+			overflow-y: auto;
+			border: 1px solid #ddd;
+			border-radius: 4px;
+			background: #f9f9f9;
+		}
+
+		.city-item {
+			padding: 6px 10px;
+			cursor: pointer;
+			font-size: 11px;
+			border-bottom: 1px solid #eee;
+			transition: background-color 0.2s;
+		}
+
+		.city-item:hover {
+			background-color: #e3f2fd;
+		}
+
+		.city-item.selected {
+			background-color: #2196F3;
+			color: white;
+		}
+
+		.city-item:last-child {
+			border-bottom: none;
+		}
+	</style>
+</head>
+<body>
+<div id="map"></div>
+
+<div class="info-panel">
+	<h1>城市综合评价分析</h1>
+	<div class="subtitle">多维度雷达图可视化 (简化版)</div>
+
+	<div class="stats">
+		<div class="stat-item">
+			<span class="stat-number">8</span>
+			<div class="stat-label">重点城市</div>
+		</div>
+		<div class="stat-item">
+			<span class="stat-number">6</span>
+			<div class="stat-label">评价维度</div>
+		</div>
+	</div>
+
+	<div class="description">
+		本示例使用 MinemapEChartsLayer 简化了雷达图分析的实现。地图标记自动同步，开发者只需关注 ECharts 配置和业务逻辑。
+	</div>
+
+	<div class="tech-stack">
+		<span>MineMap</span>
+		<span>ECharts Layer</span>
+		<span>雷达图</span>
+		<span>多维分析</span>
+	</div>
+</div>
+
+<div class="control-panel">
+	<h3>城市选择</h3>
+	<div class="city-list" id="city-list">
+		<!-- 城市列表将通过JavaScript动态生成 -->
+	</div>
+</div>
+
+<div class="radar-overlay">
+	<div class="radar-header">
+		<div class="radar-title">城市综合评价雷达图</div>
+		<div class="radar-subtitle">2023年度综合竞争力分析</div>
+	</div>
+	<div id="radar-chart"></div>
+</div>
+
+<script>
+	/**
+	 * ========================================
+	 * MineMap + ECharts Layer 雷达图分析简化示例
+	 * ========================================
+	 * 使用 MinemapEChartsLayer 简化雷达图分析实现
+	 * 开发者只需关注 ECharts 配置，坐标转换自动处理
+	 */
+
+	// ==================== 1. MineMap 配置 ====================
+	minemap.domainUrl = "https://minedata.cn";
+	minemap.dataDomainUrl = "https://minedata.cn";
+	minemap.serverDomainUrl = "https://minedata.cn";
+	minemap.spriteUrl = "http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite";
+	minemap.serviceUrl = "https://service.minedata.cn/service";
+	minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+	minemap.solution = 11001;
+
+	// ==================== 2. 城市评价数据 ====================
+	const cityEvaluationData = [
+		{
+			name: '北京',
+			coord: [116.4074, 39.9042],
+			color: '#FF6B6B',
+			tier: '一线',
+			scores: {
+				economy: 95,      // 经济实力
+				innovation: 98,   // 创新能力
+				living: 85,       // 生活质量
+				environment: 72,  // 环境指数
+				transport: 92,    // 交通便利
+				education: 96     // 教育水平
+			}
+		},
+		{
+			name: '上海',
+			coord: [121.4737, 31.2304],
+			color: '#4ECDC4',
+			tier: '一线',
+			scores: {
+				economy: 98,
+				innovation: 94,
+				living: 88,
+				environment: 75,
+				transport: 95,
+				education: 92
+			}
+		},
+		{
+			name: '深圳',
+			coord: [114.0579, 22.5431],
+			color: '#45B7D1',
+			tier: '一线',
+			scores: {
+				economy: 92,
+				innovation: 96,
+				living: 82,
+				environment: 78,
+				transport: 88,
+				education: 85
+			}
+		},
+		{
+			name: '广州',
+			coord: [113.2644, 23.1291],
+			color: '#96CEB4',
+			tier: '一线',
+			scores: {
+				economy: 88,
+				innovation: 85,
+				living: 86,
+				environment: 76,
+				transport: 90,
+				education: 88
+			}
+		},
+		{
+			name: '杭州',
+			coord: [120.1551, 30.2741],
+			color: '#FFEAA7',
+			tier: '新一线',
+			scores: {
+				economy: 85,
+				innovation: 90,
+				living: 88,
+				environment: 82,
+				transport: 85,
+				education: 86
+			}
+		},
+		{
+			name: '成都',
+			coord: [104.0665, 30.5723],
+			color: '#DDA0DD',
+			tier: '新一线',
+			scores: {
+				economy: 82,
+				innovation: 78,
+				living: 92,
+				environment: 80,
+				transport: 82,
+				education: 84
+			}
+		},
+		{
+			name: '南京',
+			coord: [118.7969, 32.0603],
+			color: '#F0A500',
+			tier: '新一线',
+			scores: {
+				economy: 80,
+				innovation: 85,
+				living: 85,
+				environment: 84,
+				transport: 80,
+				education: 90
+			}
+		},
+		{
+			name: '武汉',
+			coord: [114.3054, 30.5931],
+			color: '#FF8C94',
+			tier: '新一线',
+			scores: {
+				economy: 78,
+				innovation: 82,
+				living: 83,
+				environment: 75,
+				transport: 85,
+				education: 88
+			}
+		}
+	];
+
+	// 评价指标定义
+	const indicators = [
+		{name: '经济实力', max: 100},
+		{name: '创新能力', max: 100},
+		{name: '生活质量', max: 100},
+		{name: '环境指数', max: 100},
+		{name: '交通便利', max: 100},
+		{name: '教育水平', max: 100}
+	];
+
+	// ==================== 3. 地图初始化 ====================
+	const map = new minemap.Map({
+		container: "map",
+		style: "https://service.minedata.cn/map/solu/style/11001",
+		center: [110, 32],
+		zoom: 4.5,
+		pitch: 0,
+		bearing: 0
+	});
+
+	let radarChartInstance;
+	let selectedCity = '北京';
+	let echartsLayer;
+
+	// ==================== 4. 初始化城市列表 ====================
+	function initCityList() {
+		const cityList = document.getElementById('city-list');
+		cityEvaluationData.forEach(city => {
+			const cityItem = document.createElement('div');
+			cityItem.className = 'city-item';
+			cityItem.textContent = `${city.name} (${city.tier})`;
+			if (city.name === selectedCity) {
+				cityItem.classList.add('selected');
+			}
+			cityItem.addEventListener('click', () => {
+				// 更新选中状态
+				document.querySelectorAll('.city-item').forEach(item => {
+					item.classList.remove('selected');
+				});
+				cityItem.classList.add('selected');
+				selectedCity = city.name;
+				updateRadarChart();
+				updateMapHighlight();
+			});
+			cityList.appendChild(cityItem);
+		});
+	}
+
+	// ==================== 5. 雷达图配置 ====================
+	function initRadarChart() {
+		radarChartInstance = echarts.init(document.getElementById('radar-chart'));
+		updateRadarChart();
+	}
+
+	function updateRadarChart() {
+		const selectedCityData = cityEvaluationData.find(city => city.name === selectedCity);
+		if (!selectedCityData) return;
+
+		const radarData = [
+			selectedCityData.scores.economy,
+			selectedCityData.scores.innovation,
+			selectedCityData.scores.living,
+			selectedCityData.scores.environment,
+			selectedCityData.scores.transport,
+			selectedCityData.scores.education
+		];
+
+		const option = {
+			radar: {
+				indicator: indicators,
+				radius: '70%',
+				center: ['50%', '55%'],
+				name: {
+					textStyle: {
+						color: '#333',
+						fontSize: 12
+					}
+				},
+				splitArea: {
+					areaStyle: {
+						color: ['rgba(114, 172, 209, 0.2)', 'rgba(114, 172, 209, 0.4)', 'rgba(114, 172, 209, 0.6)', 'rgba(114, 172, 209, 0.8)', 'rgba(114, 172, 209, 1)']
+					}
+				},
+				axisLine: {
+					lineStyle: {
+						color: 'rgba(114, 172, 209, 0.8)'
+					}
+				},
+				splitLine: {
+					lineStyle: {
+						color: 'rgba(114, 172, 209, 0.8)'
+					}
+				}
+			},
+			series: [{
+				type: 'radar',
+				data: [{
+					value: radarData,
+					name: selectedCityData.name,
+					itemStyle: {
+						color: selectedCityData.color
+					},
+					areaStyle: {
+						color: selectedCityData.color,
+						opacity: 0.3
+					},
+					lineStyle: {
+						color: selectedCityData.color,
+						width: 2
+					}
+				}],
+				symbol: 'circle',
+				symbolSize: 6,
+				label: {
+					show: true,
+					formatter: '{c}',
+					color: '#333',
+					fontSize: 10
+				}
+			}],
+			tooltip: {
+				trigger: 'item',
+				formatter: function(params) {
+					const data = params.data;
+					let result = `<strong>${data.name}</strong><br/>`;
+					indicators.forEach((indicator, index) => {
+						result += `${indicator.name}: ${data.value[index]}<br/>`;
+					});
+					return result;
+				}
+			}
+		};
+
+		radarChartInstance.setOption(option);
+	}
+
+	// ==================== 6. 地图标记更新 ====================
+	function updateMapHighlight() {
+		if (!echartsLayer) return;
+
+		// 重新设置地图标记，高亮选中城市
+		const scatterData = cityEvaluationData.map(city => ({
+			value: city.coord,
+			name: city.name,
+			itemStyle: {
+				color: city.name === selectedCity ? city.color : 'rgba(128, 128, 128, 0.6)',
+				borderColor: '#fff',
+				borderWidth: city.name === selectedCity ? 3 : 1
+			},
+			symbolSize: city.name === selectedCity ? 20 : 12
+		}));
+
+		const option = {
+			series: [{
+				type: 'scatter',
+				coordinateSystem: 'minemap',
+				data: scatterData,
+				label: {
+					show: true,
+					position: 'bottom',
+					formatter: '{b}',
+					fontSize: 12,
+					fontWeight: 'bold',
+					color: '#333',
+					backgroundColor: 'rgba(255, 255, 255, 0.8)',
+					borderColor: '#ddd',
+					borderWidth: 1,
+					borderRadius: 4,
+					padding: [2, 6]
+				}
+			}],
+			tooltip: {
+				trigger: 'item',
+				formatter: function(params) {
+					const cityData = cityEvaluationData.find(city => city.name === params.name);
+					if (!cityData) return params.name;
+					return `<strong>${cityData.name}</strong><br/>
+							城市等级: ${cityData.tier}<br/>
+							综合评分: ${Object.values(cityData.scores).reduce((a, b) => a + b, 0) / 6}`;
+				}
+			}
+		};
+
+		echartsLayer.setOption(option);
+	}
+
+	// ==================== 7. 地图加载完成后初始化 ====================
+	map.on('load', function() {
+		// 初始化城市列表
+		initCityList();
+
+		// 初始化雷达图
+		initRadarChart();
+
+		// 创建地图标记
+		const scatterData = cityEvaluationData.map(city => ({
+			value: city.coord,
+			name: city.name,
+			itemStyle: {
+				color: city.name === selectedCity ? city.color : 'rgba(128, 128, 128, 0.6)',
+				borderColor: '#fff',
+				borderWidth: city.name === selectedCity ? 3 : 1
+			},
+			symbolSize: city.name === selectedCity ? 20 : 12
+		}));
+
+		const option = {
+			series: [{
+				type: 'scatter',
+				coordinateSystem: 'minemap',
+				data: scatterData,
+				label: {
+					show: true,
+					position: 'bottom',
+					formatter: '{b}',
+					fontSize: 12,
+					fontWeight: 'bold',
+					color: '#333',
+					backgroundColor: 'rgba(255, 255, 255, 0.8)',
+					borderColor: '#ddd',
+					borderWidth: 1,
+					borderRadius: 4,
+					padding: [2, 6]
+				}
+			}],
+			tooltip: {
+				trigger: 'item',
+				formatter: function(params) {
+					const cityData = cityEvaluationData.find(city => city.name === params.name);
+					if (!cityData) return params.name;
+					return `<strong>${cityData.name}</strong><br/>
+							城市等级: ${cityData.tier}<br/>
+							综合评分: ${(Object.values(cityData.scores).reduce((a, b) => a + b, 0) / 6).toFixed(1)}`;
+				}
+			}
+		};
+
+		// 创建 ECharts Layer
+		echartsLayer = new MinemapEChartsLayer(map, option);
+
+		// 监听点击事件
+		echartsLayer.getEChartsInstance().on('click', function(params) {
+			if (params.componentType === 'series') {
+				selectedCity = params.name;
+				// 更新城市列表选中状态
+				document.querySelectorAll('.city-item').forEach(item => {
+					item.classList.remove('selected');
+					if (item.textContent.includes(selectedCity)) {
+						item.classList.add('selected');
+					}
+				});
+				updateRadarChart();
+				updateMapHighlight();
+			}
+		});
+	});
+
+	// ==================== 8. 窗口大小调整 ====================
+	window.addEventListener('resize', function() {
+		if (radarChartInstance) {
+			radarChartInstance.resize();
+		}
+	});
+</script>
+</body>
+</html>

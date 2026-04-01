@@ -1,0 +1,159 @@
+<!--
+ * @Author: Lee_90125
+ * @Date: 2023-08-09 15:48:55
+ * @LastEditTime: 2023-08-09 17:20:54
+ * @LastEditors: Lee_90125
+ * @Description:
+ * @FilePath: \MineMap3DEngine\demo\html\ExtrusionPattern.html
+-->
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+	<title>Extrusion建筑物固定长度贴图</title>
+	<!-- demo样式文件 -->
+	<link rel="stylesheet" href="../style/demo.css" />
+	<!-- 引入MineMap API插件 -->
+	<link rel="stylesheet" href="https://minemap.minedata.cn/minemapapi/v4.0.0/minemap.css" />
+	<script src="https://minedata.cn/minemapapi/minemap-CDN/dat.gui/dat.gui.min.js"></script>
+	<script src="../../dist/minemap-dev.js"></script>
+	<style>
+		#map {
+			width: 100%;
+			height: 100%;
+		}
+	</style>
+</head>
+
+<body>
+	<div id="map"></div>
+	<script>
+		/**
+		 * 全局参数设置
+		 */
+		minemap.domainUrl = "https://minemap.minedata.cn";
+		minemap.dataDomainUrl = "https://minemap.minedata.cn";
+		minemap.serverDomainUrl = "https://sd-data.minedata.cn";
+		minemap.spriteUrl = "https://minemap.minedata.cn/minemapapi/v3.4.0/sprite/sprite";
+		minemap.serviceUrl = "https://service.minedata.cn/service";
+
+		minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+		minemap.solution = 11001;
+		// 定义空底图样式
+		var style = {
+			glyphs: "minemap://fonts/{fontstack}/{range}",
+			sprite: "minemap://sprite/sprite",
+			sources: {},
+			layers: [],
+			version: 8
+		};
+
+		/**
+		 * 初始化地图实例
+		 */
+		var map = new minemap.Map({
+			container: "map",
+			style: style /*球面矢量底图样式*/,
+			center: [114.04234237790797, 22.552380010224734] /*地图中心点*/,
+			zoom: 15 /*地图默认缩放等级*/,
+			pitch: 45 /*地图俯仰角度*/,
+			bearing: 0 /*地图旋转角度*/,
+			maxZoom: 22 /*地图最大缩放等级*/,
+			minZoom: 1 /*地图最小缩放等级*/,
+			projection: "MERCATOR"
+		});
+
+		/**
+		 * 添加基本球体图层，包括球体表面、天空盒、大气层
+		 *
+		 */
+		map.on("load", function () {
+			// 增加自定义数据源、自定义图层
+			const urls = [
+				"../image/extrusion-wall.png",
+			];
+			map.loadImages(urls, (error, images) => {
+				if (error) throw error;
+				map.addImage("extrusion-wall", images[urls[0]], { repeat: true });
+
+				/*添加建筑物数据*/
+				map.addSource("ROUGHBUILDING_SOURCE", {
+					type: "geojson",
+					data: "http://192.168.152.123:11187/demo-data/3d-ultra/assets/extrusion/building.geojson",
+					tileUsage: "sphere", // 瓦片用途
+					maxzoom: 22
+				});
+
+				map.addLayer({
+					id: "ROUGHBUILDING",
+					type: "extrusion", //图层类型为"extrusion"
+					source: "ROUGHBUILDING_SOURCE",
+					minzoom: 1,
+					maxzoom: 22,
+					layout: {
+						visibility: "visible"
+					},
+					paint: {
+						"extrusion-pattern": "extrusion-wall",                        // 纹理,如果需要贴图，加入此行参数
+						"extrusion-height": { property: "levels", type: "identity" }, // 高度
+						"extrusion-color": "#0c3b70",                                 // 颜色
+						"extrusion-base": 0,                                          // 基础高度
+						"extrusion-opacity": 0.8,                                     // 透明度
+						"extrusion-translate-anchor": "viewport",                     // 建筑物偏移锚点：值域map-正北，viewport--视野
+						"extrusion-offset": [0, 0],                                   // 建筑物贴图偏移
+						"extrusion-rotation": 0,                                      // 建筑物贴图旋转角度,单位为度,顺时针方向为正
+						"extrusion-scale": 14.0,                                      // 建筑物贴图缩放比例
+						"extrusion-top-pattern":"pattern_1",                          // 顶面纹理,如果需要贴图，加入此行参数
+						"extrusion-pattern-factor":[0, 0]                             // 建筑物贴图重复次数，如果此项设置为0,0，那么将会采用计算边长的实际距离进行纹理坐标计算贴图，
+						                                                              // 如果此项未设定，将会采用横纵向纹理均计算为1
+					}
+				});
+			});
+
+			/*添加栅格图*/
+			map.addSource("IMAGERY_SOURCE", {
+				type: "raster", //数据源类型：栅格数据源
+				tiles: ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+				maxzoom: 15,
+				tileSize: 256 //瓦片尺寸
+			});
+
+			map.addLayer({
+				id: "IMAGERY",
+				type: "raster", //图层类型为"raster"
+				source: "IMAGERY_SOURCE",
+				minzoom: 1,
+				maxzoom: 23,
+				paint: {
+					"raster-opacity": 1
+				}
+			});
+		});
+
+		var gui = new dat.GUI();//外部UI
+		var extrusionPattern = gui.addFolder("Extrusion Pattern Para");
+		var extrusionPatternPara = {
+			offsetX: 0,
+			offsetY: 0,
+			rotation: 0,
+			scale: 14.0
+		};
+		extrusionPattern.add(extrusionPatternPara, "offsetX", -1, 1).step(0.1).onChange(function (value) {
+			map.setPaintProperty("ROUGHBUILDING", "extrusion-offset", [value, extrusionPatternPara.offsetY]);
+		});
+		extrusionPattern.add(extrusionPatternPara, "offsetY", -1, 1).step(0.1).onChange(function (value) {
+			map.setPaintProperty("ROUGHBUILDING", "extrusion-offset", [extrusionPatternPara.offsetX, value]);
+		});
+		extrusionPattern.add(extrusionPatternPara, "rotation", 0, 360).step(1).onChange(function (value) {
+			map.setPaintProperty("ROUGHBUILDING", "extrusion-rotation", value);
+		});
+		extrusionPattern.add(extrusionPatternPara, "scale", 0, 20).step(0.1).onChange(function (value) {
+			map.setPaintProperty("ROUGHBUILDING", "extrusion-scale", value);
+		});
+	</script>
+</body>
+
+</html>

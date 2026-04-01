@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>线图层（沿线带符号）</title>
+
+  <!-- 引入 minemap 相关依赖 -->
+  <link rel="stylesheet" href="../style/demo.css" />
+  <link rel="stylesheet" href="https://minemap.minedata.cn/minemapapi/v4.0.0/minemap.css" />
+  <script src="../../dist/minemap-dev.js"></script>
+
+  <!-- 引入工具类 -->
+  <script src="https://minedata.cn/minemapapi/minemap-CDN/jquery/v3.6.3/jquery.min.js"></script>
+  <script
+    src="https://minedata.cn/minemapapi/minemap-CDN/jquery.json-viewer/json-viewer/jquery.json-viewer.js"></script>
+  <link rel="stylesheet"
+    href="https://minedata.cn/minemapapi/minemap-CDN/jquery.json-viewer/json-viewer/jquery.json-viewer.css" />
+
+  <script src="https://minedata.cn/nce-static/support/demo/js-web-api/zh/js/dat.gui.min.js"></script>
+  <script src="https://minedata.cn/minemapapi/minemap-CDN/turf/6.5.0/turf.min.js"></script>
+
+  <style>
+    #app {
+      width: 100%;
+      height: 100%;
+    }
+
+    #map {
+      width: 100%;
+      height: 100%;
+    }
+
+    #result-json {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background-color: #fff;
+      border-radius: 5px;
+      box-shadow: 0px 0px 10px 0px rgba(0, 0, 0, 0.2);
+      z-index: 999;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="app">
+    <div id="map"></div>
+    <div id="result-json"></div>
+  </div>
+
+  <script>
+	  minemap.domainUrl = 'https://minemap.minedata.cn';
+	  minemap.dataDomainUrl = 'https://minemap.minedata.cn';
+	  minemap.serverDomainUrl = 'https://sd-data.minedata.cn';
+	  minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+	  minemap.serviceUrl = 'https://service.minedata.cn/service';
+
+	  minemap.key = '0c6ac62182404e5ebc7a789981f6db72';
+	  minemap.solution = 11001;
+
+    // 定义空底图样式
+    var style = {
+      glyphs: "minemap://fonts/{fontstack}/{range}",
+      sprite: "minemap://sprite/sprite",
+      sources: {},
+      layers: [{
+        "id": "background",
+        "type": "background",
+        "source": "",
+        "paint": {
+          "background-color": "green",
+          "background-opacity": 0.1
+        }
+      }],
+      version: 8
+    };
+
+    var map = new minemap.Map({
+      container: "map",
+      style: 'https://service.minedata.cn/map/solu/style/11001',
+      center: [116.46, 39.92],
+      // center: [116.46, 39.92],
+      zoom: 10,
+      pitch: 0,
+      projection: "MERCATOR",
+    });
+
+    // 接口参数设置全局变量，api 文档地址如下：
+    // https://minedata.cn/nce-support/webServer/guide?type=driving2&id=39ccaa815b4448cc8304adefcf3978ff
+    var params = {
+      key: minemap.key,
+      origin: "116.3660, 39.9181",
+      heading: 0,
+      destination: "116.4190, 39.9027",
+      avoidpolygons: "",
+      avoidpoints: "",
+      waypoints: "",
+      strategy: 0,
+      ferry: 0,
+      alternatives: 0,
+      cartype: 0,
+      plate_number: "",
+      linkinfo: 0,
+      lang: 0,
+    };
+
+    map.once("load", () => {
+      loadGui();
+      loadImage();
+      loadResponse();
+    });
+
+    function loadImage() {
+      map.loadImage(
+        "https://minedata.cn/nce-static/support/demo/js-web-api/zh/images/arrow-path.png",
+        (error, image) => {
+          if (error) throw error;
+          // 添加自定义图标
+          map.addImage("arrow-path", image);
+        }
+      );
+    }
+
+    // 初始化右上角 gui 控件
+    var gui;
+    function loadGui() {
+      gui = new dat.GUI();
+      var folder = gui.addFolder("必填参数设置");
+      folder.open();
+
+      var folder2 = gui.addFolder("可选参数设置");
+
+      var guiKeys = [
+        {
+          key: "origin",
+          name: "起点",
+          type: "string",
+          folder: folder,
+        },
+        {
+          key: "heading",
+          name: "定位方向",
+          type: "number",
+          folder: folder2,
+          max: 359,
+          min: 0,
+          step: 1,
+        },
+        {
+          key: "destination",
+          name: "终点",
+          type: "string",
+          folder: folder,
+        },
+        {
+          key: "avoidpolygons", // 不做绘制展示
+          name: "避让区域",
+          type: "string",
+          folder: folder2,
+        },
+        {
+          key: "avoidpoints", // 不做绘制展示
+          name: "避让点",
+          type: "string",
+          folder: folder2,
+        },
+        {
+          key: "waypoints",
+          name: "途经点",
+          type: "string",
+          folder: folder2,
+        },
+        {
+          key: "strategy",
+          name: "策略",
+          type: "array",
+          folder: folder2,
+          options: [0, 1, 2, 3, 4], // 0: 默认(时间优先);1: 最短距离;2: 不走高速;3: 高速优先;4: 少收费;5: 躲避拥堵
+        },
+        {
+          key: "ferry",
+          name: "是否考虑轮渡",
+          type: "array",
+          folder: folder2,
+          options: [0, 1], // 0：使用渡轮(默认) ;1：不使用渡轮
+        },
+        {
+          key: "alternatives",
+          name: "是否返回备选路线",
+          type: "array",
+          folder: folder2,
+          options: [0, 1], // 0：返回1条路线（默认）；1：返回1-3条路线
+        },
+        {
+          key: "cartype",
+          name: "车辆类型",
+          type: "array",
+          folder: folder2,
+          options: [0, 1, 2], // 0：普通汽车(默认)；1：新能源；2：插电混动车
+        },
+        {
+          key: "plate_number",
+          name: "车牌号",
+          type: "string",
+          folder: folder2,
+        },
+        {
+          key: "linkinfo",
+          name: "是否返回link信息",
+          type: "array",
+          folder: folder2,
+          options: [0, 1], // 0：不返回（默认）；1：返回
+        },
+        {
+          key: "lang",
+          name: "返回结果语言",
+          type: "array",
+          folder: folder2,
+          options: [0, 1], // 0：中文（默认）；1：英文
+        },
+      ];
+
+      for (var i = 0; i < guiKeys.length; i++) {
+        var element = guiKeys[i];
+        switch (element.type) {
+          case "string":
+            element.folder
+              .add(params, element.key)
+              .name(element.name)
+              .onFinishChange(() => {
+                loadResponse();
+              });
+            break;
+          case "array":
+            element.folder
+              .add(params, element.key, element.options)
+              .name(element.name)
+              .onFinishChange(() => {
+                loadResponse();
+              });
+            break;
+          case "number":
+            element.folder
+              .add(params, element.key, element.min, element.max, element.step)
+              .name(element.name)
+              .onFinishChange(() => {
+                loadResponse();
+              });
+            break;
+
+          default:
+            break;
+        }
+      }
+    }
+
+    // 核心执行方法
+    function loadResponse() {
+      requestJson().then((res) => {
+        $("#result-json").jsonViewer(res, { collapsed: true });
+        showMapData(res.result);
+      });
+    }
+
+    // 请求接口
+    function requestJson() {
+      return new Promise((resolve, reject) => {
+        $.ajax({
+          url: "//service.minedata.cn/service/lbs/route/v2/driving",
+          type: "GET",
+          data: params,
+          dataType: "json",
+          success: function (data) {
+            resolve(data);
+          },
+          error: function (err) {
+            reject(err);
+          },
+        });
+      });
+    }
+
+    // 展示地图数据
+    function showMapData(data) {
+      if (data.routes) {
+        _removeMarkers();
+        _addRouteMarkers();
+
+        _loadPathLine(data.routes[0]);
+
+        _fitDataBounds();
+
+        map.on("mousemove", onMouseMove);
+        map.on("click", onMouseClick);
+      }
+
+      // 加载路线
+      function _loadPathLine(route) {
+        var lines = [];
+        route.steps.forEach((step, index) => {
+          // 解析道路数据
+          var points = step.polyline.split(";").map((item) => {
+            return item.split(",").map((str) => +str);
+          });
+
+          var info = {
+            instruction: step.instruction,
+            action: step.action,
+            assistant_action: step.assistant_action,
+            distance: step.distance,
+            roadname: step.roadname,
+          };
+
+          // 解析路况数据
+          if (step.tmc.length === 0) {
+            var line = turf.lineString(points, { status: 0, index });
+            lines.push(line);
+          } else {
+            if (step.tmc[0].startIdx !== 0) {
+              var link = points.slice(0, step.tmc[0].startIdx + 1);
+              var line = turf.lineString(link, { status: 0, index });
+              line.properties = {
+                ...line.properties,
+                ...info,
+              };
+              lines.push(line);
+            }
+
+            for (let i = 0; i < step.tmc.length; i++) {
+              var { status, startIdx, endIdx } = step.tmc[i];
+              var link = points.slice(startIdx === 0 ? startIdx : startIdx - 1, endIdx + 1);
+              var line = turf.lineString(link, { status, index });
+              line.properties = {
+                ...line.properties,
+                ...info,
+              };
+              lines.push(line);
+            }
+
+            if (step.tmc[step.tmc.length - 1].endIdx !== points.length - 1) {
+              var link = points.slice(step.tmc[step.tmc.length - 1].endIdx);
+			  if(link.length != 0){
+				  var line = turf.lineString(link, { status: 0, index });
+				  line.properties = {
+					  ...line.properties,
+					  ...info,
+				  };
+				  lines.push(line);
+			  }
+
+            }
+          }
+        });
+
+        var linesJson = turf.featureCollection(lines);
+
+        if (map.getSource("path-source")) {
+          map.getSource("path-source").setData(linesJson);
+        } else {
+          map.addSource("path-source", {
+            type: "geojson",
+            data: linesJson,
+          });
+
+          map.addLayer({
+            id: "path-layer",
+            type: "line",
+            source: "path-source",
+            layout: {
+              "line-join": "round",
+              "line-cap": "round",
+            },
+            paint: {
+              "line-width": 10,
+              "line-color": {
+                type: "categorical",
+                property: "status",
+                stops: [
+                  [0, "#00B33F"],
+                  [1, "#00B33F"],
+                  [2, "#FFaf50"],
+                  [3, "#f55252"],
+                  [4, "#d70c0c"],
+                ],
+                default: "#00B33F",
+              },
+            },
+          });
+
+          map.addLayer({
+            id: "path-arrow-layer",
+            type: "symbol",
+            source: "path-source",
+            layout: {
+              "icon-allow-overlap": true,
+              "icon-size": 0.8,
+              "icon-image": "arrow-path",
+              "symbol-placement": "line",
+              "symbol-spacing": 50,
+              "icon-text-fit": "both",
+            },
+          });
+        }
+      }
+
+      // 添加起点、终点、途经点标记
+      function _addRouteMarkers() {
+        _addMarker({
+          lnglat: params.origin,
+          icon: "https://minedata.cn/nce-static/support/demo/js-web-api/zh/images/path-origin.png",
+        });
+        _addMarker({
+          lnglat: params.destination,
+          icon: "https://minedata.cn/nce-static/support/demo/js-web-api/zh/images/path-destination.png",
+        });
+        if (params.waypoints) {
+          var waypoints = params.waypoints.split(";");
+          for (var i = 0; i < waypoints.length; i++) {
+            var element = waypoints[i];
+            _addMarker({
+              lnglat: element,
+              icon: "https://minedata.cn/nce-static/support/demo/js-web-api/zh/images/path-waypoints.png",
+            });
+          }
+        }
+      }
+
+      // 添加标记
+      function _addMarker({ lnglat, icon }) {
+        var element = document.createElement("div");
+        element.innerHTML = `<img src="${icon}" />`;
+
+        var marker = new minemap.Marker({
+          offset: [-6, -30],
+          element,
+        }).setLngLat(lnglat.split(",").map((item) => +item));
+
+        if (icon.includes("origin") || icon.includes("destination")) {
+          marker.enableDragging();
+
+          marker.on("dragend", (e) => {
+            var _center = e.target.getLngLat().toArray();
+            var _centerStr = [_center[0].toFixed(4), _center[1].toFixed(4)].join(",");
+            var controller;
+            if (icon.includes("origin")) {
+              controller = gui.__folders["必填参数设置"].__controllers.find((item) => item.property === "origin");
+            } else if (icon.includes("destination")) {
+              controller = gui.__folders["必填参数设置"].__controllers.find(
+                (item) => item.property === "destination"
+              );
+            }
+            controller.setValue(_centerStr);
+            loadResponse();
+          });
+        }
+
+        marker.addTo(map);
+      }
+
+      // 移除地图上的所有标记
+      function _removeMarkers() {
+        var markers = map.getAllMarkers();
+        for (var i = markers.length - 1; i >= 0; i--) {
+          var element = markers[i];
+          element.remove();
+        }
+      }
+
+      // 适配数据边界
+      function _fitDataBounds() {
+        var pathSource = map.getSource("path-source");
+        var bbox = turf.bbox(pathSource._data);
+        var bboxPolygon = turf.bboxPolygon(bbox);
+
+        map.fitBounds(bboxPolygon.bbox, { padding: 100 });
+      }
+    }
+
+    function onMouseMove(e) {
+      var features = map.queryRenderedFeatures(e.point, { layers: ["path-layer"] });
+      map.getCanvas().style.cursor = features.length ? "pointer" : "";
+    }
+
+    var popup = null;
+    function onMouseClick(e) {
+      if (popup) {
+        popup.remove();
+        popup = null;
+      }
+
+      var features = map.queryRenderedFeatures(e.point, { layers: ["path-layer"] });
+      if (!features.length) return;
+
+      var feature = features[0];
+      const status = {
+        0: "未知",
+        1: "畅通",
+        2: "缓行",
+        3: "拥堵",
+        4: "严重拥堵",
+      };
+      var content = "<div>";
+      content += "<div>路名：" + feature.properties.roadname + "</div>";
+      content += "<div>信息：" + feature.properties.instruction + "</div>";
+      // content += "<div>动作：" + feature.properties.action + "</div>";
+      content += "<div>拥堵状态：" + status[feature.properties.status] + "</div>";
+      content += "<div>距离：" + feature.properties.distance + "m</div>";
+      content += "</div>";
+
+      var popup = new minemap.Popup().setHTML(content);
+      popup.setLngLat(e.lngLat).addTo(map);
+    }
+  </script>
+</body>
+
+</html>

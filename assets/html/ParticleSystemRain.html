@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8" />
+	<title>粒子系统-下雨</title>
+	<link
+		rel="stylesheet"
+		href="../style/demo.css"
+	/>
+	<link rel="stylesheet" href="../../dist/minemap.css" />
+	<script src="../../dist/minemap-dev.js"></script>
+	<script src="../js/lil-gui.umd.min.js"></script>
+	<style>
+		#map {
+			width: 100%;
+			height: 100%;
+		}
+	</style>
+</head>
+<body>
+<div id="map"></div>
+<script>
+	/**
+	 * 全局参数设置
+	 */
+	minemap.domainUrl = "https://minedata.cn";
+	minemap.dataDomainUrl = "https://minedata.cn";
+	minemap.serverDomainUrl = "https://minedata.cn";
+	minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+	minemap.serviceUrl = "https://minedata.cn/service/";
+
+	minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+	minemap.solution = 11001;
+	window.minemapCDN = "https://minedata.cn/minemapapi/minemap-CDN";
+
+	// 定义空底图样式
+	var style = {
+		glyphs: "minemap://fonts/{fontstack}/{range}",
+		sprite: "minemap://sprite/sprite",
+		sources: {},
+		layers: [],
+		version: 8
+	};
+
+	/**
+	 * 初始化地图实例
+	 */
+	var map = new minemap.Map({
+		container: "map",
+		style: style,
+		/*球面矢量底图样式*/
+		position: [108.9607594956354, 34.21819059315598, 10.283513220452917],
+		/*地图中心点*/
+		bearing: -51.85538546707883,
+		/*地图默认缩放等级*/
+		pitch: 77.66770894469668,
+		/*地图俯仰角度*/
+		maxZoom: 22,
+		/*地图最大缩放等级*/
+		minZoom: 1,
+		/*地图最小缩放等级*/
+		projection: "MERCATOR"
+	});
+	map.repaint = true;
+
+	map.on("load", function () {
+		/*添加栅格图*/
+		map.addSource("IMAGERY_SOURCE", {
+			type: "raster", //数据源类型：栅格数据源
+			tiles: ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+			tileSize: 512 //瓦片尺寸
+		});
+
+		map.addLayer({
+			id: "IMAGERY",
+			type: "raster", //图层类型为"raster"
+			source: "IMAGERY_SOURCE",
+			minzoom: 1,
+			maxzoom: 23,
+			paint: {
+				"raster-opacity": 1
+			},
+			"depth-test": true
+		});
+
+		const texture = minemap.TextureLoader.load({ map, texUrl: "../image/rain.png" });
+		const modelMatrix = minemap.Transforms.cartographicToFixedFrame(new minemap.Math.Vector3([108.9605960470355, 34.21830728693849, 50]));
+		// 构建粒子系统
+		const fireSystem = new minemap.ParticleSystem({
+			modelMatrix: modelMatrix, // 模型矩阵
+			duration: 20,
+			looping: true,
+			prewarm: true,
+
+			// 从指向上方的矩形发射器发出的粒子
+			shape: new minemap.GridEmitter({
+				width: 100,
+				height: 100,
+				column: 1000,
+				row: 1000,
+				thickness: 0.8,
+			}),
+
+			// 发射设置
+			emissionOverTime: new minemap.ParticleFunctions.ConstantValue(100), // 发射粒子的频率, 每秒发射的粒子数
+
+			// 初始化粒子属性
+			startLife: new minemap.ParticleFunctions.IntervalValue(10, 20),
+			startSpeed: new minemap.ParticleFunctions.ConstantValue(0),
+			startSize: new minemap.ParticleFunctions.IntervalValue(0.5, 1.0),
+			startColor: new minemap.ParticleFunctions.ConstantColor(new minemap.Math.Vector4(1.0, 1.0, 1.0, 1.0)),
+			startRotation: new minemap.ParticleFunctions.ConstantValue(Math.PI),
+
+			// 渲染设置
+			worldSpace: true,
+			material: new minemap.BasicMaterial({
+				baseColorMap: texture,
+				transparent: true,
+				doubleSided: true,
+			}),
+			renderMode: minemap.RenderMode.BillBoard,
+
+			// 行为设置
+			behaviors: [
+				// 应用向下方向的恒定力
+				new minemap.ParticleBehaviors.ApplyForce(new minemap.Math.Vector3(0, 0, -1), new minemap.ParticleFunctions.ConstantValue(3)),
+			],
+		});
+		// 添加粒子系统到地图
+		map.addParticleSystem(fireSystem);
+	});
+
+</script>
+</body>
+</html>

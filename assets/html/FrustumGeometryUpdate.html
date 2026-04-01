@@ -1,0 +1,150 @@
+<!--
+ * @Author: lsw
+ * @Date: 2022-04-22 14:20:37
+ * @LastEditTime: 2023-06-16 15:21:23
+ * @LastEditors: liwei
+ * @Description:
+ * @FilePath: \MineMap3DEngine\demo\html\FrustumGeometry.html
+-->
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8" />
+	<title>视锥体几何对象数据更新</title>
+
+	<script src="../../dist/minemap-dev.js"></script>
+	<style>
+		html,
+		body,
+		#map {
+			margin: 0;
+			padding: 0;
+			width: 100%;
+			height: 100%;
+		}
+	</style>
+</head>
+
+<body>
+	<div id="map"></div>
+	<script>
+		/**
+		 * 全局参数设置
+		 */
+		minemap.domainUrl = "https://minedata.cn";
+		minemap.dataDomainUrl = "https://minedata.cn";
+		minemap.serverDomainUrl = "https://minedata.cn";
+		minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+		minemap.serviceUrl = "https://minedata.cn/service/";
+
+		minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+		minemap.solution = 11001;
+		window.minemapCDN = "https://minedata.cn/minemapapi/minemap-CDN";
+
+		// 定义空底图样式
+		var style = {
+			glyphs: "minemap://fonts/{fontstack}/{range}",
+			sprite: "minemap://sprite/sprite",
+			sources: {},
+			layers: [],
+			version: 8
+		};
+
+		/**
+		 * 初始化地图实例
+		 */
+		var map = new minemap.Map({
+			container: "map",
+			style: style,
+			/*球面矢量底图样式*/
+			center: [116.24487230680099, 40.07492989660957],
+			/*地图中心点*/
+			bearing: 0,
+			zoom: 14,
+			/*地图默认缩放等级*/
+			pitch: 50,
+			/*地图俯仰角度*/
+			maxZoom: 22,
+			/*地图最大缩放等级*/
+			minZoom: 1,
+			/*地图最小缩放等级*/
+			projection: "MERCATOR",
+			OIT: true, // 开启OIT
+		});
+		map.repaint = true;
+
+		//......................................这里可以切换不同的投影.....................................
+
+		// 透视投影
+		let camera = new minemap.PerspectiveCamera(30, 2, 100, 1000); // fov aspect near far
+
+		// 正交投影
+		// let camera = new minemap.OrthographicCamera(1000, 1, 1, 50000) // left, right, top, bottom, near, far
+
+		let heading = 0,
+			pitch = 0,
+			roll = 0,
+			height = 1000;
+		let cameraPosition = minemap.Math.Vector3.fromDegrees(116.24544236500333, 40.07254296210216, height); //投影相机位置
+		// 计算相机矩阵
+		let camTransformMatrix = minemap.Transforms.headingPitchRollToFixedFrame(
+			cameraPosition,
+			new minemap.Math.HeadingPitchRoll(
+				minemap.Math.toRadians(heading),
+				minemap.Math.toRadians(pitch),
+				minemap.Math.toRadians(roll)
+			)
+		);
+
+		camera.setMatrix(camTransformMatrix);
+		const frustumPrimitive = new minemap.Primitive({
+			geometry: new minemap.Geometries.FrustumGeometry(camera),
+			material: minemap.StandardMaterial.fromType("Color", {
+				color: new minemap.Color(0.0, 1.0, 1.0, 0.5),
+			}),
+			modelMatrix: camTransformMatrix
+		});
+		map.addPrimitive(frustumPrimitive);
+
+		const frustumOutline = new minemap.Primitive({
+			geometry: new minemap.Geometries.FrustumOutlineGeometry(camera),
+			material: minemap.StandardMaterial.fromType("Color", {
+				color: new minemap.Color(1.0, 0.0, 0.0, 1)
+			}),
+			modelMatrix: camTransformMatrix
+		});
+		map.addPrimitive(frustumOutline);
+
+		setTimeout(()=>{
+			// 透视投影
+			let camera = new minemap.PerspectiveCamera(40, 2, 300, 2000); // fov aspect near far
+
+			frustumPrimitive.geometry.setData(camera);
+			frustumOutline.geometry.setData(camera);
+		}, 3000)
+
+
+		map.on("load", function () {
+			/*添加栅格图*/
+			map.addSource("IMAGERY_SOURCE", {
+				type: "raster", //数据源类型：栅格数据源
+				tiles: ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+				tileSize: 512 //瓦片尺寸
+			});
+
+			map.addLayer({
+				id: "IMAGERY",
+				type: "raster", //图层类型为"raster"
+				source: "IMAGERY_SOURCE",
+				minzoom: 1,
+				maxzoom: 23,
+				paint: {
+					"raster-opacity": 1
+				}
+			});
+		});
+	</script>
+</body>
+
+</html>

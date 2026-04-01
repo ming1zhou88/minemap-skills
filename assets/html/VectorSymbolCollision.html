@@ -1,0 +1,144 @@
+<!--
+ * @Author: liwei
+ * @Date: 2023-07-07 13:57:38
+ * @LastEditTime: 2023-07-12 15:19:54
+ * @LastEditors: liwei
+ * @Description:
+ * @FilePath: \MineMap3DEngine\debug\pick copy.html
+-->
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+    <title>经纬度投影数据的symbol-collision</title>
+    <link rel="stylesheet" href="../style/demo.css">
+    <link rel="stylesheet" href="http://192.168.152.123:11187/demo-data/3d-ultra/css/iconfont/iconfont.css">
+    <script src="http://192.168.152.123:11187/demo-data/3d-ultra/js/demo.js"></script>
+    <!-- 引入MineMap API插件 -->
+    <link rel="stylesheet" href="https://minemap.minedata.cn/minemapapi/v4.0.0/minemap.css">
+    <script src='../../dist/minemap-dev.js'></script>
+    <style>
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="map"></div>
+
+
+
+    <script>
+        /*全局参数设置*/
+
+        minemap.domainUrl = 'https://minedata.cn';
+        minemap.dataDomainUrl = 'https://minedata.cn';
+        minemap.serverDomainUrl = 'https://minedata.cn';
+        minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+        minemap.serviceUrl = 'http://10.52.0.132:8006/service';
+
+        minemap.key = '0c6ac62182404e5ebc7a789981f6db72';
+        minemap.solution = 1118190986567643136;
+
+        var map = new minemap.Map({
+            container: 'map',
+            style: 'http://10.52.0.132:8006/map/solu/style/1118190986567643136',
+            center: [103.83981, 36.05455],
+            zoom: 13,
+            pitch: 0,
+            boxZoom: false,
+            maxZoom: 22,
+            minZoom: 1,
+            projection: 'LATLON',  //MERCATOR  LATLON
+            spaceErrorScale: 4
+        });
+        map.cameraController.enableCollisionDetection = false;
+        map.on("load", () => {
+
+            map.loadImage('https://minedata.cn/nce-static/support/demo/js-3d-ultra/zh/images/park.png', function (error, image) {
+                if (error) throw error;
+                // 添加自定义图标
+                map.addImage('park', image);
+
+                // 添加图层
+                map.addLayer({
+                    "id": "points",
+                    "type": "symbol",
+                    "source": {
+                        "type": "geojson",
+                        "data": {
+                            "type": "FeatureCollection",
+                            "features": [{
+                                "type": "Feature",
+                                "geometry": {
+                                    "type": "Point",
+                                    "coordinates": [103.83981, 36.05455]
+                                },
+                                "properties": {
+                                    "title": "公园",
+                                    "kind": "park",
+                                    "icon": "park"
+                                },
+                            },
+                            {
+                                "type": "Feature",
+                                "geometry": {
+                                    "type": "Point",
+                                    "coordinates": [103.83983, 36.05355]
+                                },
+                                "properties": {
+                                    "title": "公园",
+                                    "kind": "park",
+                                    "icon": "park"
+                                },
+                            }
+                            ]
+                        }
+                    },
+                    "layout": {
+                        // "icon-image": "park",
+                        "icon-image": "{icon}",
+                        "text-field": "{title}",
+                        "text-size": 14,
+                        "visibility": "visible",
+                        "icon-pitch-alignment": "viewport",
+                        "text-pitch-alignment": "viewport",
+                        "icon-anchor": "bottom",
+                        "icon-text-fit-padding": [10, 10, 10, 10],
+                        // "icon-size": 0.6,
+                        // "symbol-height-key": "height",
+                        "symbol-pick-color": true,
+                        "icon-allow-overlap": false,
+                        "text-allow-overlap": false,
+                        "text-ignore-placement": false,
+                        "icon-ignore-placement": false
+
+                    },
+                    "paint": {
+                        "icon-color": "#ff0000",
+                        "text-color": "red"
+                    },
+                });
+            });
+
+
+            map.on('click', function (e) {
+                const feature = map.getFeatureByGPUPick(e.point);
+                console.log(feature);
+
+                var features = map.queryRenderedFeatures(
+                    [
+                        [e.point.x - 1, e.point.y - 1],
+                        [e.point.x + 1, e.point.y + 1]
+                    ], { layers: ['points'] })
+                console.log('feature', features)
+                map.getCanvas().style.cursor = features.length ? 'pointer' : ''
+            })
+        })
+    </script>
+</body>

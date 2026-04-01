@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+	<title>设置source zoom对瓦片框选的限制</title>
+	<!-- 引入MineMap API插件 -->
+	<link rel="stylesheet" href="../../dist/minemap.css">
+	<script src="../../dist/minemap-dev.js"></script>
+	<style>
+		html, body, #map {
+			margin: 0;
+			padding: 0;
+			width: 100%;
+			height: 100%;
+		}
+	</style>
+</head>
+<body>
+<div id="map">
+</div>
+<script>
+	/**
+	 * 全局参数设置
+	 */
+	minemap.domainUrl = 'https://minemap.minedata.cn';
+	minemap.dataDomainUrl = 'https://minemap.minedata.cn';
+	minemap.serverDomainUrl = 'https://sd-data.minedata.cn';
+	minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+	minemap.serviceUrl = 'https://service.minedata.cn/service';
+
+	/**
+	 * token、solution设置
+	 */
+	minemap.key = '0c6ac62182404e5ebc7a789981f6db72';
+	minemap.solution = 11001;
+
+	// 定义空底图样式
+	var style = {
+		"glyphs": "minemap://fonts/{fontstack}/{range}",
+		"sprite": "minemap://sprite/sprite",
+		"sources": {},
+		"layers": [{
+			"id": "background",
+			"type": "background",
+			"source": "",
+			"paint": {
+				"background-color": "#005100"
+			}
+		}],
+		"version": 8
+	};
+
+	/**
+	 * 初始化地图实例
+	 */
+	var map = new minemap.Map({
+		container: 'map',
+		style: style, /*球面矢量底图样式*/
+		center: [115.15699396984743, 39.92121320248471], /*地图中心点*/
+		zoom: 12, /*地图默认缩放等级*/
+		pitch: 60, /*地图俯仰角度*/
+		bearing: 60,/*地图旋转角度*/
+		maxZoom: 22, /*地图最大缩放等级*/
+		minZoom: 1,  /*地图最小缩放等级*/
+	});
+
+	map.setTerrain({
+		"tiles": ["https://staticdata-b.minedata.cn:14434/dem/{z}/{r}/{c}/{z}_{x}_{y}.terrain"], //瓦片服务地址
+		"tileSize": 512,  //瓦片大小
+		"maxzoom": 14        //dem最高切分zoom，30米一般是14级；12.5米一般是16级
+	});
+
+	/**
+	 * 添加基本球体图层，包括球体表面、天空盒、大气层
+	 *
+	 */
+	map.on('load', function () {
+		/*添加DEM数字高程模型数据*/
+		map.addSource("3D_SOURCE", {
+			"type": "raster",//DEM的数据类型为"raster"
+			"tiles": ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+			"tileSize": 512,  //瓦片大小
+			"maxzoom": 20,
+			// "minzoom": 3
+		});
+		map.addLayer({
+			"type": "raster",//DEM的图层类型为"raster"
+			"id": "3d-layer",
+			"source": "3D_SOURCE",
+			"minzoom": 1,
+			"maxzoom": 20,
+			"layout": {}
+		})
+	});
+
+	function changeToRegularMesh(){
+		map.setTerrain({
+			"tiles": null,   //清空
+			"tileSize": 512
+		});
+	}
+
+	function changeToTerrainMesh(){
+		map.setTerrain({
+			"tiles": ["https://staticdata-b.minedata.cn:14434/dem/{z}/{r}/{c}/{z}_{x}_{y}.terrain"], //瓦片服务地址
+			"tileSize": 512,  //瓦片大小
+			"maxzoom": 14        //dem最高切分zoom，30米一般是14级；12.5米一般是16级
+		});
+	}
+</script>
+</body>

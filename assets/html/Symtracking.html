@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+	<title>粒子流&动态图标</title>
+	<link rel="stylesheet" href="../style/demo.css">
+	<!-- 引入MineMap API插件 -->
+	<link rel="stylesheet" href="../../dist/minemap.css">
+	<script src="../../dist/minemap-dev.js"></script>
+	<script src="../js/lil-gui.umd.min.js"></script>
+	<script src="https://minemap.minedata.cn/minemapapi/minemap-plugins/template/template.js"></script>
+	<style>
+		#map {
+			width: 100%;
+			height: 100%;
+		}
+	</style>
+</head>
+<body>
+<div id="map"></div>
+<script>
+	/**
+	 * 全局参数设置
+	 */
+	minemap.domainUrl = 'https://minemap.minedata.cn';
+	minemap.dataDomainUrl = 'https://minemap.minedata.cn';
+	minemap.serverDomainUrl = 'https://sd-data.minedata.cn';
+	minemap.spriteUrl = 'http://192.168.152.123/minemap-engine/v4.0.0/sprite/sprite';
+	minemap.serviceUrl = 'https://service.minedata.cn/service';
+
+	minemap.key = '0c6ac62182404e5ebc7a789981f6db72';
+	minemap.solution = 11001;
+
+	var map = new minemap.Map({
+		container: 'map',
+		style: 'https://service.minedata.cn/map/solu/style/11001',
+		center: [116.46,39.92],
+		zoom: 14,
+		pitch: 0,
+		maxZoom: 17,
+		minZoom: 3,
+		projection: 'MERCATOR'
+	});
+
+	map.repaint = true;
+
+	// // 定义一个外部与引擎内部的交互对象，用户改变resetToStartPos 来使得运动图标回到起始位置
+	// minemap.TRW = {
+	//     resetToStartPos: false
+	// };
+
+	/**
+	 * 创建地图对象后，开始加载地图资源，地图资源加载完成后触发load事件
+	 */
+	map.on('load', function () {
+		// 增加自定义数据源、自定义图层
+
+		addSources();
+		addLayers();
+	});
+
+	function addSources() {
+		var center = map.getCenter();
+		var route = [[center.lng, center.lat], [center.lng, center.lat + 0.008], [center.lng - 0.008, center.lat + 0.008], [center.lng - 0.008, center.lat], [center.lng, center.lat]];
+
+		/**
+		 * 生成动态粒子图层数据
+		 * @param data 数据，样例  [[116.38,49.9,3],[116.38,49.9,3]]
+		 * @param segDistance 每小段长度,默认值为10
+		 * @param speed 粒子速度，可选值为 1，2，3，4，默认为1，速度最快
+		 * @returns {{type: string, features: Array}}
+		 */
+		var jsonData1 = minemap.Template.util.pointArrayToSpriteGeoJson(route);
+
+		map.addSource('spriteSource', {
+			type: 'geojson',
+			data: jsonData1
+		});
+
+		/**
+		 * symtracking图层的geojson的方法，最关键的是生成的是线数据和包含link_seq这个属性
+		 * symtracking图层是能够展示沿着道路行走的图标展示图层
+		 *
+		 * @param data 数据样例 [[116.4066765, 39.9079326], [116.418049, 39.9081795], [116.4177486, 39.9155695], [116.4111611, 39.9154872], [116.4114186, 39.9105497]]
+		 * @param compatible 兼容模式，这个模式图标会丢失
+		 * @param segDistance 默认是10米一步
+		 * @returns {geojson}
+		 */
+		var jsonData2 = minemap.Template.util.pointArrayToSymtrackingGeoJson(route, false);
+		//如果想要小车移动更细腻，可以改变步长的值，
+		//注意：改变'步长'的同时也会改变小车运动的'点位总量'，在'步长'默认为10的情况下，此路径的'点位总量'为410
+		//在'步长'为5的情况下，此路径的'点位总量'为820
+		//改变'步长'的同时，一定要同时改变 'symtracking-fps' 和 'symtracking-time-segment'
+		map.addSource('symtrackingSource', {
+			type: 'geojson',
+			data: jsonData2
+		});
+	}
+
+	function addLayers() {
+		map.addLayer({
+			"id": 'spriteLayer',
+			"type": "sprite",
+			"source": 'spriteSource',
+			"layout": {},
+			"paint": {
+				"sprite-color": "#00ff00",
+				"sprite-width": 3,
+				"sprite-speed-factor": 1 /* 粒子速度，值域范围为1、2、3、4，需要和pointArrayToSpriteGeoJson方法中的粒子速度匹配 */
+			}
+		});
+
+		map.addLayer({
+			"type": "symtracking",
+			"source": 'symtrackingSource',
+			"id": 'symtrackingLayer',
+			"layout": {
+				"icon-image": "n-vehicle",
+				"icon-allow-overlap": true,
+				"icon-ignore-placement": true,
+				"icon-pitch-alignment": "map",
+				"icon-rotation-alignment": "map",
+				"symtracking-fps": 41,            //行动快慢，现在是1秒37个点位 symtracking-fps * symtracking-time-segment ≈ myGeojson.features.length(也就是总点位数量410)
+				"symtracking-time-segment": 10,   //总共要运行多少秒
+				"compatible-mode": false          //notice  采用新的数据样式，保证运动图标不消失
+			},
+			"paint": {
+				"icon-color": "#ff0000",
+				"symtracking-delay": 0            //notice 运动图标更新延迟为零，保证运动图标能够循环播放，运动图标循环播放的条件是：此项为零 并且 symtracking-fps * symtracking-time-segment ≈ myGeojson.features.length; 越近似越精准
+			}
+		});
+	}
+
+	function resetStart() {
+		map.setTimerCount(0) //设置map实例的全局计时器timer的计时时间，单位是秒
+	}
+
+	function pauseSymtracking() {
+		map.pauseTimerCount() //暂停map实例的全局计时器timer的计时时间，也就是计时器不再继续计时，暂停到当前计时
+	}
+
+	function resumeSymtracking() {
+		map.resumeTimerCount() //让map实例的全局计时器timer的计时时间继续开始计时
+	}
+
+	function stopSymtracking() {
+		map.stopTimerCount() //彻底停止map实例的全局计时器timer，此时resumeTimerCount方法将不能继续计时
+	}
+
+	function changeCarIcon() {
+		map.setLayoutProperty('symtrackingLayer', "icon-image", 'car-28')
+	}
+
+	function changeCarSpeed() {
+		// 改变速度的时候，symtracking-fps * symtracking-time-segment = total ,total的值一定要保持不变
+		map.setLayoutProperty('symtrackingLayer', "symtracking-fps", 102.5);
+		map.setLayoutProperty('symtrackingLayer', "symtracking-time-segment", 4);
+
+		setTimeout(function () {
+			map.setLayoutProperty('symtrackingLayer', "symtracking-fps", 205);
+			map.setLayoutProperty('symtrackingLayer', "symtracking-time-segment", 2);
+		}, 4000);
+
+		setTimeout(function () {
+			map.setLayoutProperty('symtrackingLayer', "symtracking-fps", 41);
+			map.setLayoutProperty('symtrackingLayer', "symtracking-time-segment", 10)
+		}, 7000)
+
+	}
+
+	let eventObj = {
+		// 全屏事件
+		resetStart,
+		pauseSymtracking,
+		resumeSymtracking,
+		changeCarIcon,
+		changeCarSpeed,
+		stopSymtracking
+	}
+	const gui = new lil.GUI({title: "参数调节面板"});
+	gui.add(eventObj,"resetStart").name("开始动画")
+	gui.add(eventObj,"pauseSymtracking").name("暂停动画")
+	gui.add(eventObj,"resumeSymtracking").name("继续动画")
+	gui.add(eventObj,"changeCarIcon").name("改变小车图标")
+	gui.add(eventObj,"changeCarSpeed").name("改变小车速度")
+	gui.add(eventObj,"stopSymtracking").name("停止动画")
+
+</script>
+</body>

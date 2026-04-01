@@ -1,0 +1,166 @@
+<!--
+ * @Author: wuhaoyuan
+ * @Date: 2021-10-15 14:38:30
+ * @LastEditTime: 2022-10-15 14:38:30
+ * @LastEditors: Lee_90125
+ * @Description:
+ * @FilePath: \MineMap3DEngine\demo\heatmap-layer\heatmap-layer.html
+*/
+-->
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>热力图图层</title>
+    <!-- 引入MineMap API插件 -->
+    <link rel="stylesheet" href="../../dist/minemap.css">
+    <script src="../../dist/minemap-dev.js"></script>
+    <style>
+        html,
+        body,
+        #map {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+		.toolContainer {
+			position: absolute;
+			top: 0;
+			left: 0;
+			z-index: 999;
+		}
+    </style>
+</head>
+
+<body>
+    <div class="toolContainer">
+      <button id="addTerrain" onclick="addTerrain()">添加地形</button>
+      <button id="removeTerrain" onclick="removeTerrain()">移除地形</button>
+    </div>
+    <div id="map">
+    </div>
+    <script>
+      /**
+       * 全局参数设置
+       */
+      minemap.domainUrl = "https://minedata.cn";
+      minemap.dataDomainUrl = "https://minedata.cn";
+      minemap.serverDomainUrl = "https://minedata.cn";
+      minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+      minemap.serviceUrl = "https://minedata.cn/service/";
+
+      minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+      minemap.solution = 11001;
+      window.minemapCDN = 'https://minedata.cn/minemapapi/minemap-CDN'; // minemapCDN 配置
+
+      var style = {
+        "glyphs": "minemap://fonts/{fontstack}/{range}",
+        "sprite": "minemap://sprite/sprite",
+        "sources": {},
+        "layers": [],
+        "version": 8
+      };
+
+      var map = new minemap.Map({
+          container: 'map',
+          style: style,
+          center: [108.6137897654982, 34.15753445130824],
+          zoom: 11,
+          pitch: 0,
+          maxZoom: 17,
+          minZoom: 3,
+          projection: 'MERCATOR'
+      });
+
+      /**
+       * 创建地图对象后，开始加载地图资源，地图资源加载完成后触发load事件
+       */
+      addTerrain();
+
+      map.on('load', function () {
+          map.addSource("3D_SOURCE", {
+            "type": "raster",//DEM的数据类型为"raster"
+            "tiles": ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+            "tileSize": 512,  //瓦片大小
+          });
+
+          map.addLayer({
+            "type": "raster",//DEM的图层类型为"raster"
+            "id": "3d-layer",
+            "source": "3D_SOURCE",
+            "minzoom": 1,
+            "maxzoom": 20,
+            "layout": {}
+          })
+          // 增加自定义数据源、自定义图层
+          addSources();
+          addLayers();
+      });
+
+      function addSources() {
+          //添加数据源,该热力图效果，数据源类型支持geojson或vector两种形式
+          map.addSource("heatmapSource", {
+              type: "geojson",
+              data: "../data/xi_an_heatmap.json",
+              adaptTerrain: true,
+              // buffer: 512
+          });
+      }
+
+      function addLayers() {
+          map.addLayer({
+              "id": "heatmapLayer",
+              "type": "heatmap",
+              "source": "heatmapSource",
+              "layout": {
+                  "visibility": "visible"
+              },
+              "paint": {
+                // 一个热力图数据点的模糊范围，单位是像素，默认值30；要求：值大于等于1，可根据zoom level进行插值设置
+                'heatmap-radius': 20,
+                //一个热力图单个数据点的热力程度，默认值为1；要求：值大于等于0，支持使用property中某个的热力值
+                'heatmap-weight': 1,
+                // 用于统一控制热力值的强度，默认值1；要求：值大于等于0，可根据zoom level进行插值设置
+                'heatmap-intensity': 1,
+                // 表示热力图颜色阶梯，阶梯的值域范围为0-1，默认值为["interpolate",["linear"],["heatmap-density"],0,"rgba(0, 0, 255, 0)",0.1,"royalblue",0.3,"cyan",0.5,"lime",0.7,"yellow",1,"red"]
+                'heatmap-color': [
+                  'interpolate',
+                  ['linear'],
+                  ['heatmap-density'],
+                  0,
+                  'rgba(0, 0, 255, 0)',
+                  0.1,
+                  '#36D56B',
+                  0.3,
+                  '#F8EA52',
+                  0.8,
+                  '#F6663A',
+                  1,
+                  '#B21710'
+                ],
+                // 表示热力图的不透明度，默认值1；值域范围0-1，可根据zoom level进行插值设置
+                'heatmap-opacity': 1
+              }
+          });
+      };
+
+      function addTerrain() {
+        map.setTerrain({
+          "tiles": ["https://staticdata-b.minedata.cn:14434/dem/{z}/{r}/{c}/{z}_{x}_{y}.terrain"], //瓦片服务地址
+          "tileSize": 512,  //瓦片大小
+          "availabilities": ["https://staticdata-b.minedata.cn:14434/dem/layer.json"], //索引文件是可选项
+        });
+      }
+
+      function removeTerrain() {
+        map.setTerrain({
+          "tiles": null, //瓦片服务地址
+          "tileSize": 512,  //瓦片大小
+        });
+      }
+    </script>
+</body>

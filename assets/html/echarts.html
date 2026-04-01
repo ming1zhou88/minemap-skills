@@ -1,0 +1,887 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no"/>
+	<title>中国航线网络可视化 - MineMap + ECharts 示例</title>
+	<link rel="stylesheet" href="https://minedata.cn/nce-static/support/demo/js-3d-ultra/zh/css/demo.css">
+	<!-- 引入MineMap API插件 -->
+	<link rel="stylesheet" href="../../dist/minemap.css">
+	<script src="../../dist/minemap-dev.js"></script>
+	<script src="https://minedata.cn/minemapapi/minemap-CDN/echarts/echarts.3.8.5.min.js"></script>
+	<style>
+		#map {
+			width: 100%;
+			height: 100%;
+			position: relative;
+		}
+
+		#echarts-container {
+			position: absolute;
+			top: 0;
+			left: 0;
+			width: 100%;
+			height: 100%;
+			z-index: 1000;
+		}
+
+		.info-panel {
+			position: absolute;
+			top: 20px;
+			left: 20px;
+			background: rgba(0, 0, 0, 0.85);
+			color: white;
+			padding: 20px;
+			border-radius: 10px;
+			z-index: 2000;
+			font-family: 'Microsoft YaHei', Arial, sans-serif;
+			box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+			backdrop-filter: blur(10px);
+			border: 1px solid rgba(255, 255, 255, 0.1);
+			max-width: 350px;
+		}
+
+		.info-panel h1 {
+			margin: 0 0 15px 0;
+			font-size: 18px;
+			font-weight: bold;
+			color: #FFD700;
+			text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+		}
+
+		.info-panel .subtitle {
+			margin: 0 0 15px 0;
+			font-size: 12px;
+			color: #ccc;
+			font-style: italic;
+		}
+
+		.stats {
+			display: grid;
+			grid-template-columns: 1fr 1fr;
+			gap: 10px;
+			margin: 15px 0;
+		}
+
+		.stat-item {
+			text-align: center;
+			padding: 8px;
+			background: rgba(255, 255, 255, 0.1);
+			border-radius: 5px;
+			border: 1px solid rgba(255, 255, 255, 0.2);
+		}
+
+		.stat-number {
+			font-size: 20px;
+			font-weight: bold;
+			color: #4CAF50;
+			display: block;
+		}
+
+		.stat-label {
+			font-size: 10px;
+			color: #ccc;
+			margin-top: 2px;
+		}
+
+		.description {
+			font-size: 11px;
+			line-height: 1.4;
+			color: #ddd;
+			margin-top: 15px;
+			padding-top: 15px;
+			border-top: 1px solid rgba(255, 255, 255, 0.2);
+		}
+
+		.tech-stack {
+			margin-top: 10px;
+			font-size: 10px;
+			color: #999;
+		}
+
+		.tech-stack span {
+			display: inline-block;
+			background: rgba(33, 150, 243, 0.2);
+			color: #2196F3;
+			padding: 2px 6px;
+			border-radius: 3px;
+			margin: 2px 2px 0 0;
+			border: 1px solid rgba(33, 150, 243, 0.3);
+		}
+	</style>
+</head>
+
+<body>
+<div id="map"></div>
+
+<div class="info-panel">
+	<h1>中国航线网络可视化</h1>
+	<div class="subtitle">MineMap + ECharts 集成示例</div>
+
+	<div class="stats">
+		<div class="stat-item">
+			<span class="stat-number">15</span>
+			<div class="stat-label">主要城市</div>
+		</div>
+		<div class="stat-item">
+			<span class="stat-number">28</span>
+			<div class="stat-label">航线连接</div>
+		</div>
+	</div>
+
+	<div class="description">
+		本示例展示了如何将 MineMap 地图与 ECharts 图表完美结合，实现地理坐标与屏幕坐标的精确转换。航线数据包含中国主要城市间的连接关系，支持动态缩放和交互操作。
+	</div>
+
+	<div class="tech-stack">
+		<span>MineMap</span>
+		<span>ECharts</span>
+		<span>WebGL</span>
+		<span>Canvas</span>
+	</div>
+</div>
+<script>
+	/**
+	 * ========================================
+	 * MineMap + ECharts 航线迁移图示例
+	 * ========================================
+	 * 本示例展示如何在地图上使用ECharts绘制航线迁移效果
+	 * 适用于：航线分析、人口迁移、物流路径等场景
+	 *
+	 * 🎯 快速上手指南：
+	 * 1. 替换API密钥：修改 minemap.key 和 minemap.solution
+	 * 2. 替换数据源：修改 cityData 和 migrationData 数组
+	 * 3. 自定义样式：重点关注 getEChartsOption() 函数中的 series 配置
+	 * 4. 调整地图：修改 map 初始化参数（center, zoom等）
+	 *
+	 * 📋 核心功能模块：
+	 * 1. 地图初始化配置
+	 * 2. 数据源定义（城市坐标、迁移路线）
+	 * 3. ECharts配置生成（重点：getEChartsOption函数）
+	 * 4. 坐标转换与实时更新
+	 * 5. 性能优化与事件处理
+	 *
+	 * 🔧 自定义ECharts配置重点：
+	 * - series[0]: 主干航线样式（线条粗细、颜色、动画效果）
+	 * - series[1]: 支线航线样式
+	 * - series[2-4]: 城市标记样式（大小、颜色、标签）
+	 * - tooltip: 悬浮提示内容和样式
+	 * - legend: 图例显示和位置
+	 */
+
+	// ==================== 1. 全局参数设置 ====================
+	// 【配置说明】请根据实际项目替换以下参数
+	minemap.domainUrl = "https://minedata.cn";
+	minemap.dataDomainUrl = "https://minedata.cn";
+	minemap.serverDomainUrl = "https://minedata.cn";
+	minemap.spriteUrl = "https://minedata.cn/minemapapi/v3.4.0/sprite/sprite";
+	minemap.serviceUrl = "https://mineservice.minedata.cn/service/";
+
+	// 【重要】请替换为您的API密钥和解决方案ID
+	minemap.key = "<your key>";
+	minemap.solution = 11003;
+
+	// 创建地图
+	var map = new minemap.Map({
+		container: "map",
+		style: "https://service.minedata.cn/map/solu/style/11001",
+		center: [121.461311, 37.444808], // 烟台坐标
+		minZoom: 0,
+		maxZoom: 22,
+		zoom: 3,
+		pitch: 0,
+		projection: "MERCATOR",
+	});
+
+	// 初始化ECharts
+	var echartsChart = null;
+	var isUpdating = false;
+	var animationFrameId = null;
+	var animationFrameIds = new Set(); // 存储所有动画帧ID
+
+	// 清除所有动画帧
+	function clearAllAnimationFrames() {
+		if (animationFrameId) {
+			cancelAnimationFrame(animationFrameId);
+			animationFrameId = null;
+		}
+		animationFrameIds.forEach(id => cancelAnimationFrame(id));
+		animationFrameIds.clear();
+	}
+
+	// 使用requestAnimationFrame替代setTimeout
+	function requestAnimationFrameWithDelay(callback, delay = 0) {
+		if (delay === 0) {
+			const id = requestAnimationFrame(callback);
+			animationFrameIds.add(id);
+			return id;
+		}
+
+		const startTime = performance.now();
+
+		function frame(currentTime) {
+			if (currentTime - startTime >= delay) {
+				callback();
+			} else {
+				const id = requestAnimationFrame(frame);
+				animationFrameIds.add(id);
+			}
+		}
+
+		const id = requestAnimationFrame(frame);
+		animationFrameIds.add(id);
+		return id;
+	}
+
+	// ==================== 2. 数据源定义 ====================
+	// 【数据替换区域】城市坐标数据 - 请根据实际需求替换城市信息
+	// 数据格式：{name: 城市名, coord: [经度, 纬度], value: 数值, category: 等级}
+	var cityData = [
+		// 一线城市
+		{name: "北京", coord: [116.407526, 39.904030], value: 100, category: "一线"},
+		{name: "上海", coord: [121.473701, 31.230416], value: 98, category: "一线"},
+		{name: "广州", coord: [113.280637, 23.125178], value: 95, category: "一线"},
+		{name: "深圳", coord: [114.085947, 22.547], value: 96, category: "一线"},
+
+		// 新一线城市
+		{name: "成都", coord: [104.065735, 30.659462], value: 88, category: "新一线"},
+		{name: "杭州", coord: [120.153576, 30.287459], value: 86, category: "新一线"},
+		{name: "重庆", coord: [106.504962, 29.533155], value: 85, category: "新一线"},
+		{name: "武汉", coord: [114.298572, 30.584355], value: 84, category: "新一线"},
+		{name: "西安", coord: [108.948024, 34.263161], value: 82, category: "新一线"},
+		{name: "苏州", coord: [120.619585, 31.299379], value: 80, category: "新一线"},
+		{name: "天津", coord: [117.190182, 39.125596], value: 79, category: "新一线"},
+		{name: "南京", coord: [118.767413, 32.041544], value: 78, category: "新一线"},
+		{name: "长沙", coord: [112.982279, 28.19409], value: 76, category: "新一线"},
+		{name: "郑州", coord: [113.665412, 34.757975], value: 75, category: "新一线"},
+		{name: "东莞", coord: [113.746262, 23.046237], value: 74, category: "新一线"},
+
+		// 二线城市
+		{name: "青岛", coord: [120.382639, 36.067082], value: 72, category: "二线"},
+		{name: "沈阳", coord: [123.429096, 41.796767], value: 70, category: "二线"},
+		{name: "宁波", coord: [121.549792, 29.868388], value: 69, category: "二线"},
+		{name: "昆明", coord: [102.712251, 25.040609], value: 68, category: "二线"},
+		{name: "福州", coord: [119.306239, 26.075302], value: 66, category: "二线"},
+		{name: "无锡", coord: [120.301663, 31.574729], value: 65, category: "二线"},
+		{name: "厦门", coord: [118.11022, 24.490474], value: 64, category: "二线"},
+		{name: "济南", coord: [117.000923, 36.675807], value: 63, category: "二线"},
+		{name: "大连", coord: [121.618622, 38.91459], value: 62, category: "二线"},
+		{name: "哈尔滨", coord: [126.642464, 45.756967], value: 60, category: "二线"},
+		{name: "温州", coord: [120.672111, 28.000575], value: 58, category: "二线"},
+		{name: "南昌", coord: [115.892151, 28.676493], value: 56, category: "二线"},
+		{name: "石家庄", coord: [114.502461, 38.045474], value: 55, category: "二线"},
+		{name: "泉州", coord: [118.589421, 24.908853], value: 54, category: "二线"},
+		{name: "贵阳", coord: [106.713478, 26.578343], value: 52, category: "二线"},
+		{name: "南宁", coord: [108.320004, 22.82402], value: 50, category: "二线"},
+		{name: "合肥", coord: [117.283042, 31.86119], value: 58, category: "二线"},
+		{name: "太原", coord: [112.549248, 37.857014], value: 48, category: "二线"},
+		{name: "长春", coord: [125.3245, 43.886841], value: 46, category: "二线"},
+		{name: "烟台", coord: [121.418373, 37.492712], value: 45, category: "二线"},
+		{name: "惠州", coord: [114.412599, 23.079404], value: 44, category: "二线"},
+	];
+
+	// 【数据替换区域】迁移路线数据 - 请根据实际业务场景替换路线信息
+	// 数据格式：{name: 路线名, coords: [[起点经度,起点纬度], [终点经度,终点纬度]], value: 数值, category: 类别}
+	var migrationData = [
+		// 北京枢纽航线
+		{name: "北京-上海", coords: [[116.407526, 39.904030], [121.473701, 31.230416]], value: 95, category: "主干线"},
+		{name: "北京-广州", coords: [[116.407526, 39.904030], [113.280637, 23.125178]], value: 90, category: "主干线"},
+		{name: "北京-深圳", coords: [[116.407526, 39.904030], [114.085947, 22.547]], value: 88, category: "主干线"},
+		{name: "北京-成都", coords: [[116.407526, 39.904030], [104.065735, 30.659462]], value: 85, category: "主干线"},
+		{name: "北京-杭州", coords: [[116.407526, 39.904030], [120.153576, 30.287459]], value: 82, category: "主干线"},
+		{name: "北京-重庆", coords: [[116.407526, 39.904030], [106.504962, 29.533155]], value: 80, category: "主干线"},
+		{name: "北京-武汉", coords: [[116.407526, 39.904030], [114.298572, 30.584355]], value: 78, category: "主干线"},
+		{name: "北京-西安", coords: [[116.407526, 39.904030], [108.948024, 34.263161]], value: 76, category: "主干线"},
+		{name: "北京-天津", coords: [[116.407526, 39.904030], [117.190182, 39.125596]], value: 92, category: "主干线"},
+		{name: "北京-青岛", coords: [[116.407526, 39.904030], [120.382639, 36.067082]], value: 70, category: "支线"},
+		{name: "北京-沈阳", coords: [[116.407526, 39.904030], [123.429096, 41.796767]], value: 68, category: "支线"},
+		{name: "北京-济南", coords: [[116.407526, 39.904030], [117.000923, 36.675807]], value: 65, category: "支线"},
+		{name: "北京-大连", coords: [[116.407526, 39.904030], [121.618622, 38.91459]], value: 62, category: "支线"},
+		{name: "北京-哈尔滨", coords: [[116.407526, 39.904030], [126.642464, 45.756967]], value: 58, category: "支线"},
+		{name: "北京-长春", coords: [[116.407526, 39.904030], [125.3245, 43.886841]], value: 55, category: "支线"},
+		{name: "北京-太原", coords: [[116.407526, 39.904030], [112.549248, 37.857014]], value: 52, category: "支线"},
+
+		// 上海枢纽航线
+		{name: "上海-广州", coords: [[121.473701, 31.230416], [113.280637, 23.125178]], value: 88, category: "主干线"},
+		{name: "上海-深圳", coords: [[121.473701, 31.230416], [114.085947, 22.547]], value: 86, category: "主干线"},
+		{name: "上海-成都", coords: [[121.473701, 31.230416], [104.065735, 30.659462]], value: 83, category: "主干线"},
+		{name: "上海-杭州", coords: [[121.473701, 31.230416], [120.153576, 30.287459]], value: 95, category: "主干线"},
+		{name: "上海-南京", coords: [[121.473701, 31.230416], [118.767413, 32.041544]], value: 90, category: "主干线"},
+		{name: "上海-苏州", coords: [[121.473701, 31.230416], [120.619585, 31.299379]], value: 88, category: "主干线"},
+		{name: "上海-武汉", coords: [[121.473701, 31.230416], [114.298572, 30.584355]], value: 75, category: "主干线"},
+		{name: "上海-重庆", coords: [[121.473701, 31.230416], [106.504962, 29.533155]], value: 72, category: "主干线"},
+		{name: "上海-宁波", coords: [[121.473701, 31.230416], [121.549792, 29.868388]], value: 85, category: "支线"},
+		{name: "上海-无锡", coords: [[121.473701, 31.230416], [120.301663, 31.574729]], value: 82, category: "支线"},
+		{name: "上海-温州", coords: [[121.473701, 31.230416], [120.672111, 28.000575]], value: 68, category: "支线"},
+		{name: "上海-合肥", coords: [[121.473701, 31.230416], [117.283042, 31.86119]], value: 65, category: "支线"},
+		{name: "上海-福州", coords: [[121.473701, 31.230416], [119.306239, 26.075302]], value: 62, category: "支线"},
+		{name: "上海-厦门", coords: [[121.473701, 31.230416], [118.11022, 24.490474]], value: 60, category: "支线"},
+
+		// 广州枢纽航线
+		{name: "广州-深圳", coords: [[113.280637, 23.125178], [114.085947, 22.547]], value: 98, category: "主干线"},
+		{name: "广州-东莞", coords: [[113.280637, 23.125178], [113.746262, 23.046237]], value: 95, category: "主干线"},
+		{name: "广州-惠州", coords: [[113.280637, 23.125178], [114.412599, 23.079404]], value: 85, category: "支线"},
+		{name: "广州-成都", coords: [[113.280637, 23.125178], [104.065735, 30.659462]], value: 78, category: "主干线"},
+		{name: "广州-重庆", coords: [[113.280637, 23.125178], [106.504962, 29.533155]], value: 75, category: "主干线"},
+		{name: "广州-武汉", coords: [[113.280637, 23.125178], [114.298572, 30.584355]], value: 72, category: "主干线"},
+		{name: "广州-长沙", coords: [[113.280637, 23.125178], [112.982279, 28.19409]], value: 80, category: "主干线"},
+		{name: "广州-南宁", coords: [[113.280637, 23.125178], [108.320004, 22.82402]], value: 70, category: "支线"},
+		{name: "广州-福州", coords: [[113.280637, 23.125178], [119.306239, 26.075302]], value: 65, category: "支线"},
+		{name: "广州-厦门", coords: [[113.280637, 23.125178], [118.11022, 24.490474]], value: 68, category: "支线"},
+		{name: "广州-泉州", coords: [[113.280637, 23.125178], [118.589421, 24.908853]], value: 58, category: "支线"},
+		{name: "广州-昆明", coords: [[113.280637, 23.125178], [102.712251, 25.040609]], value: 62, category: "支线"},
+		{name: "广州-贵阳", coords: [[113.280637, 23.125178], [106.713478, 26.578343]], value: 55, category: "支线"},
+
+		// 成都枢纽航线
+		{name: "成都-重庆", coords: [[104.065735, 30.659462], [106.504962, 29.533155]], value: 92, category: "主干线"},
+		{name: "成都-西安", coords: [[104.065735, 30.659462], [108.948024, 34.263161]], value: 78, category: "主干线"},
+		{name: "成都-昆明", coords: [[104.065735, 30.659462], [102.712251, 25.040609]], value: 75, category: "支线"},
+		{name: "成都-贵阳", coords: [[104.065735, 30.659462], [106.713478, 26.578343]], value: 70, category: "支线"},
+
+		// 其他重要航线
+		{name: "西安-郑州", coords: [[108.948024, 34.263161], [113.665412, 34.757975]], value: 68, category: "支线"},
+		{name: "武汉-长沙", coords: [[114.298572, 30.584355], [112.982279, 28.19409]], value: 75, category: "支线"},
+		{name: "武汉-南昌", coords: [[114.298572, 30.584355], [115.892151, 28.676493]], value: 65, category: "支线"},
+		{name: "杭州-宁波", coords: [[120.153576, 30.287459], [121.549792, 29.868388]], value: 85, category: "支线"},
+		{name: "杭州-温州", coords: [[120.153576, 30.287459], [120.672111, 28.000575]], value: 72, category: "支线"},
+		{name: "南京-合肥", coords: [[118.767413, 32.041544], [117.283042, 31.86119]], value: 70, category: "支线"},
+		{name: "青岛-济南", coords: [[120.382639, 36.067082], [117.000923, 36.675807]], value: 78, category: "支线"},
+		{name: "青岛-烟台", coords: [[120.382639, 36.067082], [121.418373, 37.492712]], value: 75, category: "支线"},
+		{name: "沈阳-大连", coords: [[123.429096, 41.796767], [121.618622, 38.91459]], value: 80, category: "支线"},
+		{name: "沈阳-哈尔滨", coords: [[123.429096, 41.796767], [126.642464, 45.756967]], value: 72, category: "支线"},
+		{name: "沈阳-长春", coords: [[123.429096, 41.796767], [125.3245, 43.886841]], value: 75, category: "支线"},
+	];
+
+	// ==================== 3. 核心工具函数 ====================
+	// 【核心函数】地理坐标转屏幕坐标 - 实现地图与ECharts的坐标同步
+	function convertGeoToScreen(geoCoords) {
+		var container = document.getElementById("echarts-container");
+		var containerHeight = container ? container.clientHeight : map.getContainer().clientHeight;
+		var containerWidth = container ? container.clientWidth : map.getContainer().clientWidth;
+
+		return geoCoords.map(function (coord) {
+			var screenCoord = map.project(coord);
+
+			return [screenCoord.x, containerHeight - screenCoord.y];
+		});
+	}
+
+	// ==================== 4. ECharts配置生成 ====================
+	// 【重点函数】ECharts配置生成器 - 这是您需要重点关注和自定义的核心函数
+	// 【自定义指南】
+	// 1. 修改series配置来改变图表类型和样式
+	// 2. 调整visualMap来改变数据映射和颜色
+	// 3. 自定义tooltip来改变悬浮提示内容
+	// 4. 修改legend来改变图例显示
+	function getEChartsOption() {
+		// 按类别分组航线数据
+		var mainLines = migrationData.filter(function (item) {
+			return item.category === '主干线';
+		});
+		var branchLines = migrationData.filter(function (item) {
+			return item.category === '支线';
+		});
+
+		// 转换主干线坐标
+		var convertedMainLines = mainLines.map(function (item) {
+			return {
+				name: item.name,
+				coords: convertGeoToScreen(item.coords),
+				value: item.value
+			};
+		});
+
+		// 转换支线坐标
+		var convertedBranchLines = branchLines.map(function (item) {
+			return {
+				name: item.name,
+				coords: convertGeoToScreen(item.coords),
+				value: item.value
+			};
+		});
+
+		// 按城市类别分组
+		var tier1Cities = cityData.filter(function (item) {
+			return item.category === '一线';
+		});
+		var newTier1Cities = cityData.filter(function (item) {
+			return item.category === '新一线';
+		});
+		var tier2Cities = cityData.filter(function (item) {
+			return item.category === '二线';
+		});
+
+		// 转换城市点坐标
+		function convertCityData(cities) {
+			return cities.map(function (item) {
+				var echartsContainer = document.getElementById("echarts-container");
+				var containerHeight = echartsContainer ? echartsContainer.clientHeight : map.getContainer().clientHeight;
+				var screenCoord = map.project(item.coord);
+				return {
+					name: item.name,
+					value: [screenCoord.x, containerHeight - screenCoord.y, item.value],
+					category: item.category
+				};
+			});
+		}
+
+		var convertedTier1Cities = convertCityData(tier1Cities);
+		var convertedNewTier1Cities = convertCityData(newTier1Cities);
+		var convertedTier2Cities = convertCityData(tier2Cities);
+
+		// 【配置说明】ECharts主配置对象 - 可根据需求调整
+		return {
+			backgroundColor: 'transparent',
+			// 性能优化配置
+			animation: false, // 禁用动画以提高性能和减少拖尾
+			animationDuration: 0,
+			animationEasing: 'linear',
+			// 启用渲染优化
+			useUTC: true,
+			//这个配置很重要，否则可能会造成地图移动时产生偏移
+			grid: {
+				left: 0,
+				top: 0,
+				right: 0,
+				bottom: 0,
+				containLabel: false
+			},
+			// 坐标轴配置（隐藏，用于坐标映射）
+			xAxis: {
+				type: "value",
+				show: false,
+				min: 0,
+				max: map.getContainer().clientWidth,
+			},
+			yAxis: {
+				type: "value",
+				show: false,
+				min: 0,
+				max: map.getContainer().clientHeight,
+			},
+			// 【重点配置】图表系列配置 - 这里定义了所有的可视化元素
+			// 【自定义提示】您可以：
+			// - 修改type来改变图表类型（lines/scatter/bar等）
+			// - 调整lineStyle来改变线条样式
+			// - 修改itemStyle来改变点的样式
+			// - 自定义label来改变标签显示
+			series: [
+				// 【系列1】主干线航线配置
+				{
+					name: "主干航线",
+					type: "lines",
+					coordinateSystem: "cartesian2d",
+					zlevel: 3,
+					data: convertedMainLines,
+					lineStyle: {
+						color: {
+							type: "linear",
+							x: 0,
+							y: 0,
+							x2: 1,
+							y2: 1,
+							colorStops: [
+								{offset: 0, color: "rgba(255, 107, 104, 0.1)"},
+								{offset: 0.3, color: "rgba(255, 107, 104, 0.6)"},
+								{offset: 0.7, color: "rgba(255, 193, 7, 0.8)"},
+								{offset: 1, color: "rgba(255, 235, 59, 1)"},
+							],
+							global: false,
+						},
+						width: function (params) {
+							return Math.max(params.data.value / 15, 3);
+						},
+						opacity: 0.8,
+						shadowBlur: 15,
+						shadowColor: "rgba(255, 193, 7, 0.6)",
+					},
+
+				},
+				// 【系列2】支线航线配置
+				{
+					name: "支线航线",
+					type: "lines",
+					coordinateSystem: "cartesian2d",
+					zlevel: 2,
+					data: convertedBranchLines,
+					lineStyle: {
+						color: {
+							type: "linear",
+							x: 0,
+							y: 0,
+							x2: 1,
+							y2: 1,
+							colorStops: [
+								{offset: 0, color: "rgba(33, 150, 243, 0.1)"},
+								{offset: 0.5, color: "rgba(33, 150, 243, 0.5)"},
+								{offset: 1, color: "rgba(0, 188, 212, 0.8)"},
+							],
+							global: false,
+						},
+						width: function (params) {
+							return Math.max(params.data.value / 25, 2);
+						},
+						opacity: 0.6,
+						shadowBlur: 8,
+						shadowColor: "rgba(33, 150, 243, 0.4)",
+					},
+
+				},
+				// 【系列3】一线城市标记
+				{
+					name: "一线城市",
+					type: "scatter",
+					coordinateSystem: "cartesian2d",
+					zlevel: 5,
+					data: convertedTier1Cities,
+					symbolSize: function (val) {
+						return Math.max(val[2] / 4, 20);
+					},
+					itemStyle: {
+						color: {
+							type: 'radial',
+							x: 0.5,
+							y: 0.5,
+							r: 0.5,
+							colorStops: [
+								{offset: 0, color: '#FF6B68'},
+								{offset: 0.7, color: '#FF8E53'},
+								{offset: 1, color: '#FF6B68'}
+							]
+						},
+						shadowBlur: 20,
+						shadowColor: "#FF6B68",
+						borderColor: '#fff',
+						borderWidth: 2
+					},
+					label: {
+						show: true,
+						position: "top",
+						formatter: "{b}",
+						color: "#fff",
+						fontSize: 14,
+						fontWeight: "bold",
+						textBorderColor: '#000',
+						textBorderWidth: 1
+					},
+				},
+				// 【系列4】新一线城市标记
+				{
+					name: "新一线城市",
+					type: "scatter",
+					coordinateSystem: "cartesian2d",
+					zlevel: 4,
+					data: convertedNewTier1Cities,
+					symbolSize: function (val) {
+						return Math.max(val[2] / 5, 16);
+					},
+					itemStyle: {
+						color: {
+							type: 'radial',
+							x: 0.5,
+							y: 0.5,
+							r: 0.5,
+							colorStops: [
+								{offset: 0, color: '#4CAF50'},
+								{offset: 0.7, color: '#8BC34A'},
+								{offset: 1, color: '#4CAF50'}
+							]
+						},
+						shadowBlur: 15,
+						shadowColor: "#4CAF50",
+						borderColor: '#fff',
+						borderWidth: 1
+					},
+					label: {
+						show: true,
+						position: "right",
+						formatter: "{b}",
+						color: "#fff",
+						fontSize: 12,
+						fontWeight: "bold",
+						textBorderColor: '#000',
+						textBorderWidth: 1
+					},
+				},
+				// 【系列5】二线城市标记
+				{
+					name: "二线城市",
+					type: "scatter",
+					coordinateSystem: "cartesian2d",
+					zlevel: 3,
+					data: convertedTier2Cities,
+					symbolSize: function (val) {
+						return Math.max(val[2] / 6, 12);
+					},
+					itemStyle: {
+						color: {
+							type: 'radial',
+							x: 0.5,
+							y: 0.5,
+							r: 0.5,
+							colorStops: [
+								{offset: 0, color: '#2196F3'},
+								{offset: 0.7, color: '#03A9F4'},
+								{offset: 1, color: '#2196F3'}
+							]
+						},
+						shadowBlur: 10,
+						shadowColor: "#2196F3",
+						borderColor: '#fff',
+						borderWidth: 1
+					},
+					label: {
+						show: true,
+						position: "bottom",
+						formatter: "{b}",
+						color: "#fff",
+						fontSize: 10,
+						fontWeight: "normal",
+						textBorderColor: '#000',
+						textBorderWidth: 1
+					},
+				},
+			],
+			// 【配置项】图例配置 - 可自定义图例样式和位置
+			legend: {
+				show: true,
+				orient: 'vertical',
+				right: 20,
+				top: 20,
+				backgroundColor: 'rgba(0,0,0,0.8)',
+				borderColor: '#ccc',
+				borderWidth: 1,
+				borderRadius: 5,
+				padding: [10, 15],
+				textStyle: {
+					color: '#fff',
+					fontSize: 12
+				},
+				data: [
+					{name: '主干航线', icon: 'line'},
+					{name: '支线航线', icon: 'line'},
+					{name: '一线城市', icon: 'circle'},
+					{name: '新一线城市', icon: 'circle'},
+					{name: '二线城市', icon: 'circle'}
+				]
+			},
+			// 【配置项】悬浮提示配置 - 可自定义提示内容和样式
+			tooltip: {
+				trigger: 'item',
+				backgroundColor: 'rgba(0,0,0,0.8)',
+				borderColor: '#ccc',
+				borderWidth: 1,
+				textStyle: {
+					color: '#fff'
+				},
+				formatter: function (params) {
+					if (params.seriesType === 'lines') {
+						return params.data.name + '<br/>航线等级: ' + params.seriesName + '<br/>流量: ' + params.data.value;
+					} else if (params.seriesType === 'scatter') {
+						return params.data.name + '<br/>城市等级: ' + params.seriesName + '<br/>重要度: ' + params.data.value[2];
+					}
+				}
+			}
+		};
+	}
+
+	// ==================== 5. ECharts实例管理 ====================
+	// 【管理函数】清理ECharts实例 - 防止内存泄漏
+	function disposeECharts() {
+		clearAllAnimationFrames(); // 清除所有动画帧
+		if (echartsChart) {
+			echartsChart.dispose();
+			echartsChart = null;
+		}
+		// 移除动态创建的容器
+		var container = document.getElementById("echarts-container");
+		if (container && container.parentNode) {
+			container.parentNode.removeChild(container);
+		}
+	}
+
+	// 【管理函数】初始化ECharts实例 - 创建图表容器
+	function initECharts() {
+		// 先清理之前的实例
+		disposeECharts();
+
+		// 动态创建echarts容器并添加到minemap的canvas容器中
+		const mapCanvasContainer = map.getCanvasContainer();
+		const container = document.createElement("div");
+		container.id = "echarts-container";
+		mapCanvasContainer.appendChild(container);
+
+		// 创建新实例，启用性能优化选项
+		echartsChart = echarts.init(container, null, {
+			renderer: 'canvas', // 使用canvas渲染器以获得更好的性能
+			useDirtyRect: true, // 启用脏矩形优化
+			useCoarsePointer: true // 启用粗指针优化
+		});
+
+		// 延迟更新，确保容器已完全初始化
+		requestAnimationFrameWithDelay(function () {
+			updateECharts();
+		}, 10);
+	}
+
+	// 【管理函数】更新ECharts配置 - 响应地图变化
+	function updateECharts() {
+		if (!echartsChart || isUpdating) return;
+
+		isUpdating = true;
+
+		try {
+			var option = getEChartsOption();
+			// 使用notMerge: true 和 lazyUpdate: true 来优化性能
+			echartsChart.setOption(option, {
+				notMerge: true,
+				lazyUpdate: true,
+				silent: true
+			});
+		} catch (error) {
+			console.error("ECharts更新失败:", error);
+		} finally {
+			isUpdating = false;
+		}
+	}
+
+	// ==================== 6. 性能优化工具 ====================
+	// 【优化函数】防抖函数 - 减少频繁更新，提升性能
+	function debounce(func, delay) {
+		var frameId = null;
+		return function () {
+			var context = this;
+			var args = arguments;
+			if (frameId) {
+				cancelAnimationFrame(frameId);
+				animationFrameIds.delete(frameId);
+			}
+			frameId = requestAnimationFrameWithDelay(function () {
+				func.apply(context, args);
+				animationFrameIds.delete(frameId);
+			}, delay);
+		};
+	}
+
+	// 【优化函数】节流函数 - 控制更新频率，保证流畅性
+	function throttle(func, delay) {
+		var frameId = null;
+		var lastExecTime = 0;
+		return function () {
+			var context = this;
+			var args = arguments;
+			var currentTime = performance.now();
+
+			if (currentTime - lastExecTime > delay) {
+				func.apply(context, args);
+				lastExecTime = currentTime;
+			} else {
+				if (frameId) {
+					cancelAnimationFrame(frameId);
+					animationFrameIds.delete(frameId);
+				}
+				frameId = requestAnimationFrameWithDelay(function () {
+					func.apply(context, args);
+					lastExecTime = performance.now();
+					animationFrameIds.delete(frameId);
+				}, delay - (currentTime - lastExecTime));
+			}
+		};
+	}
+
+	// 创建优化的更新函数
+	var throttledUpdate = throttle(updateECharts, 16); // 约60fps
+	var debouncedUpdate = debounce(updateECharts, 100); // 停止后100ms更新
+
+	// ==================== 7. 事件监听与初始化 ====================
+	// 【初始化】地图加载完成后初始化ECharts
+	map.on("load", function () {
+		console.log("地图加载完成，初始化ECharts");
+		initECharts();
+
+		// 监听地图移动事件 - 使用节流函数减少更新频率
+		map.on("move", throttledUpdate);
+		map.on("zoom", throttledUpdate);
+		map.on("rotate", throttledUpdate);
+		map.on("pitch", throttledUpdate);
+
+		// 监听地图移动结束事件 - 使用防抖函数确保最终精确更新
+		map.on("moveend", debouncedUpdate);
+		map.on("zoomend", debouncedUpdate);
+		map.on("rotateend", debouncedUpdate);
+		map.on("pitchend", debouncedUpdate);
+
+		// 【事件监听】窗口大小变化处理
+		window.addEventListener("resize", function () {
+			if (echartsChart) {
+				echartsChart.resize();
+				// 窗口大小变化后延迟更新，确保容器尺寸已更新
+				requestAnimationFrameWithDelay(function () {
+					updateECharts();
+				}, 50);
+			}
+		});
+	});
+
+	// ==================== 9. 交互控制函数 ====================
+	// 【控制变量】图层显示状态
+	var showMigrationLines = true;
+	var showCityPoints = true;
+
+	// 【控制函数】切换航线显示
+	function toggleMigrationLines() {
+		showMigrationLines = !showMigrationLines;
+		if (echartsChart) {
+			echartsChart.dispatchAction({
+				type: "legendToggleSelect",
+				name: "迁徙线",
+			});
+		}
+	}
+
+	// 【控制函数】切换城市点显示
+	function toggleCityPoints() {
+		showCityPoints = !showCityPoints;
+		if (echartsChart) {
+			echartsChart.dispatchAction({
+				type: "legendToggleSelect",
+				name: "城市点",
+			});
+		}
+	}
+
+	// 【控制函数】重置地图视角
+	function resetView() {
+		map.flyTo({
+			center: [121.461311, 37.444808],
+			zoom: 12,
+			pitch: 0,
+			bearing: 0,
+		});
+	}
+
+	// ==================== 8. 资源管理与清理 ====================
+	// 【资源管理】页面卸载时清理资源
+	window.addEventListener('beforeunload', function () {
+		disposeECharts();
+	});
+
+	// 页面隐藏时暂停更新
+	document.addEventListener('visibilitychange', function () {
+		if (document.hidden) {
+			// 页面隐藏时停止更新
+			isUpdating = true;
+		} else {
+			// 页面显示时恢复更新
+			isUpdating = false;
+			if (echartsChart) {
+				requestAnimationFrameWithDelay(updateECharts, 100);
+			}
+		}
+	});
+
+</script>
+</body>
+
+</html>

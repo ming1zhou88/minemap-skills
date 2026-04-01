@@ -1,0 +1,207 @@
+<!--
+ * @FileDescription:
+ * @Author: weipeng@cennavi.com.cn
+ * @Date: 2022-12-26 16:53:20
+ * @LastEditors: weipeng@cennavi.com.cn
+ * @LastEditTime: 2023-03-09 17:42:29
+ * @FilePath: \demo\feature-state.html
+-->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8"/>
+	<meta
+		name="viewport"
+		content="initial-scale=1,maximum-scale=1,user-scalable=no"
+	/>
+	<title>GeoJSON数据高亮</title>
+	<link
+		rel="stylesheet"
+		href="../style/demo.css"
+	/>
+	<link
+		rel="stylesheet"
+		href="https://minemap.minedata.cn/minemapapi/v3.4.0/minemap.css"
+	/>
+	<script src="../../dist/minemap-dev.js"></script>
+
+	<style>
+		body {
+			overflow: hidden;
+		}
+
+		#map {
+			width: 100%;
+			height: 100%;
+		}
+	</style>
+</head>
+<body>
+<div id="mapCompare"></div>
+<div id="map"></div>
+<script>
+	/**
+	 * 全局参数设置
+	 */
+	minemap.domainUrl = "https://minemap.minedata.cn";
+	minemap.dataDomainUrl = "https://minemap.minedata.cn";
+	minemap.serverDomainUrl = "https://sd-data.minedata.cn";
+	minemap.spriteUrl =
+		"https://minemap.minedata.cn/minemapapi/v3.4.0/sprite/sprite";
+	minemap.serviceUrl = "https://service.minedata.cn/service";
+
+	minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+	minemap.solution = 11001;
+
+	// 定义空底图样式
+	const style = {
+		center: [-122.44121, 37.76132],
+		zoom: 3,
+		pitch: 0.20669999999552965,
+		bearing: 7.937279999828319,
+		maxZoom: 23,
+		minZoom: 0,
+		style: {
+			version: 8,
+			sprite: "minemap://sprite/sprite",
+			glyphs: "minemap://fonts/{fontstack}/{range}",
+			sources: {},
+			layers: [],
+		},
+	};
+
+	/**
+	 * 初始化地图实例
+	 */
+	const map = new minemap.Map({
+		container: "map",
+		...style,
+	});
+
+	map.on("load", function () {
+		map.addSource("3D_SOURCE", {
+			type: "raster", //数据类型为"raster"
+			tiles: [
+				"https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg",
+			], //瓦片服务地址
+			tileSize: 512, //瓦片大小
+		});
+
+		map.addLayer({
+			type: "raster", //DEM的图层类型为"raster"
+			id: "3d-layer",
+			source: "3D_SOURCE",
+			minzoom: 1,
+			maxzoom: 20,
+			layout: {},
+		});
+
+		map.addSource("earthquakes", {
+			type: "geojson",
+			data: "../data/earthquake.json",
+			generateId: true
+		});
+
+		map.addLayer({
+			id: "earthquakes-viz",
+			type: "circle",
+			source: "earthquakes",
+			// layout: {
+			//   "text-field": "{code}",
+			// },
+			paint: {
+				"circle-radius": [
+					"case",
+					["boolean", ["feature-state", "hover"], false],
+					[
+						"interpolate",
+						["linear"],
+						["get", "mag"],
+						1,
+						8,
+						1.5,
+						10,
+						2,
+						12,
+						2.5,
+						14,
+						3,
+						16,
+						3.5,
+						18,
+						4.5,
+						20,
+						6.5,
+						22,
+						8.5,
+						24,
+						10.5,
+						26,
+					],
+					5,
+				],
+				"circle-stroke-color": [
+					"case",
+					["boolean", ["feature-state", "hover"], false],
+					"red",
+					"#000",
+				],
+				"circle-stroke-width": 1,
+			},
+		});
+
+		let quakeID = null;
+
+		map.on("mousemove", "earthquakes-viz", (event) => {
+
+			if (event.features.length === 0) return;
+			// console.log(event.features);
+
+			if (quakeID) {
+				map.removeFeatureState({
+					source: "earthquakes",
+					id: quakeID,
+				});
+			}
+
+			quakeID = event.features[0].id;
+
+			map.setFeatureState(
+				{
+					source: "earthquakes",
+					id: quakeID,
+				},
+				{
+					hover: true,
+				}
+			);
+		});
+
+		map.on("mouseleave", "earthquakes-viz", () => {
+			setTimeout(() => {
+				if (quakeID) {
+					map.setFeatureState(
+						{
+							source: "earthquakes",
+							id: quakeID,
+						},
+						{
+							hover: false,
+						}
+					);
+				}
+				quakeID = null;
+			});
+		});
+
+		map.on('click', function (e) {
+			let features = map.queryRenderedFeatures(e.point, {
+				layers: ['earthquakes-viz']
+			});
+			console.log('----------获取到的所有信息：', features);
+		});
+	});
+</script>
+</body>
+</html>

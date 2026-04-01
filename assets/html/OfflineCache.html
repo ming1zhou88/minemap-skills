@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<title>离线缓存</title>
+		<!-- demo样式文件 -->
+		<link rel="stylesheet" href="../style/demo.css" />
+		<!-- 引入MineMap API插件 -->
+		<link rel="stylesheet" href="../../dist/minemap.css" />
+		<script src="../../dist/minemap-dev.js"></script>
+		<script src="../js/lil-gui.umd.min.js"></script>
+		<style>
+			#map {
+				width: 100%;
+				height: 100%;
+			}
+		</style>
+	</head>
+	<body>
+		<div id="map"></div>
+		<script>
+			/**
+			 * 全局参数设置
+			 */
+			minemap.domainUrl = "https://minedata.cn";
+			minemap.dataDomainUrl = "https://minedata.cn";
+			minemap.serverDomainUrl = "https://minedata.cn";
+			minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+			minemap.serviceUrl = "https://mineservice.minedata.cn/service/";
+
+			minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+			minemap.solution = 11001;
+			window.minemapCDN = "https://minedata.cn/minemapapi/minemap-CDN"; // minemapCDN 配置
+
+			const glbModelInformation = [
+				{
+					id: "glbModel1",
+					data: "http://192.168.152.123/minemap-engine/EngineCanaryDemo/data/olympic-model/奥体中心_室外看台1层球场楼梯/奥体中心_室外看台1层球场楼梯.glb", // 要加载的gltf格式数据
+					modelFolder:
+						"http://192.168.152.123/minemap-engine/EngineCanaryDemo/data/olympic-model/奥体中心_室外看台1层球场楼梯/", // 该数据引用图片等资源的文件夹路径
+					enabled: true,
+					size: "44.7MB"
+				},
+				{
+					id: "glbModel2",
+					data: "http://192.168.152.123/minemap-engine/EngineCanaryDemo/data/olympic-model/奥体中心_室内1层/奥体中心_室内1层.glb", // 要加载的gltf格式数据
+					modelFolder:
+						"http://192.168.152.123/minemap-engine/EngineCanaryDemo/data/olympic-model/奥体中心_室内1层/", // 该数据引用图片等资源的文件夹路径
+					enabled: false,
+					size: "96.3MB"
+				},
+				{
+					id: "glbModel3	",
+					data: "http://192.168.152.123/minemap-engine/EngineCanaryDemo/data/olympic-model/奥体中心_室内2层/奥体中心_室内2层.glb", // 要加载的gltf格式数据
+					modelFolder:
+						"http://192.168.152.123/minemap-engine/EngineCanaryDemo/data/olympic-model/奥体中心_室内2层/", // 该数据引用图片等资源的文件夹路径
+					enabled: false,
+					size: "105MB"
+				},
+				{
+					id: "glbModel4",
+					data: "http://192.168.152.123/minemap-engine/EngineCanaryDemo/data/olympic-model/奥体中心_室内3层/奥体中心_室内3层.glb", // 要加载的gltf格式数据
+					modelFolder:
+						"http://192.168.152.123/minemap-engine/EngineCanaryDemo/data/olympic-model/奥体中心_室内3层/", // 该数据引用图片等资源的文件夹路径
+					enabled: false,
+					size: "64.4MB"
+				},
+				{
+					id: "glbModel5",
+					data: "http://192.168.152.123/minemap-engine/EngineCanaryDemo/data/olympic-model/奥体中心_室外看台3层/奥体中心_室外看台3层.glb", // 要加载的gltf格式数据
+					modelFolder:
+						"http://192.168.152.123/minemap-engine/EngineCanaryDemo/data/olympic-model/奥体中心_室外看台3层/", // 该数据引用图片等资源的文件夹路径
+					enabled: false,
+					size: "28.1MB"
+				},
+				{
+					id: "glbModel6",
+					data: "http://192.168.152.123/minemap-engine/EngineCanaryDemo/data/olympic-model/奥体中心_室内4层/奥体中心_室内4层.glb", // 要加载的gltf格式数据
+					modelFolder:
+						"http://192.168.152.123/minemap-engine/EngineCanaryDemo/data/olympic-model/奥体中心_室内4层/", // 该数据引用图片等资源的文件夹路径
+					enabled: false,
+					size: "44.5MB"
+				},
+				{
+					id: "glbModel8",
+					data: "http://192.168.152.123/minemap-engine/EngineCanaryDemo/data/olympic-model/奥体中心_屋顶盖子_烘焙后/奥体中心_屋顶盖子_烘焙后.glb", // 要加载的gltf格式数据
+					modelFolder:
+						"http://192.168.152.123/minemap-engine/EngineCanaryDemo/data/olympic-model/奥体中心_屋顶盖子_烘焙后/", // 该数据引用图片等资源的文件夹路径
+					enabled: true,
+					size: "120MB"
+				},
+				// {
+				// 	id: "glbModel9",
+				// 	data: "http://192.168.152.123/minemap-engine/EngineCanaryDemo/data/olympic-model/奥体场馆_座椅/奥体场馆_座椅.glb", // 要加载的gltf格式数据
+				// 	modelFolder:
+				// 		"http://192.168.152.123/minemap-engine/EngineCanaryDemo/data/olympic-model/奥体场馆_座椅/" // 该数据引用图片等资源的文件夹路径
+				// },
+				{
+					id: "glbModelz1",
+					data: "http://192.168.152.123/minemap-engine/EngineCanaryDemo/data/olympic-model/奥体精模gltf/奥体中心精模地形/奥体中心精模地形.glb", // 要加载的gltf格式数据
+					modelFolder:
+						"http://192.168.152.123/minemap-engine/EngineCanaryDemo/data/olympic-model/奥体精模gltf/奥体中心精模地形/", // 该数据引用图片等资源的文件夹路径
+					enabled: true,
+					size: "96.9MB"
+				},
+				{
+					id: "glbModelz2",
+					data: "http://192.168.152.123/minemap-engine/EngineCanaryDemo/data/olympic-model/奥体精模gltf/奥体周边_精模建筑烘焙/奥体周边_精模建筑烘焙.glb", // 要加载的gltf格式数据
+					modelFolder:
+						"http://192.168.152.123/minemap-engine/EngineCanaryDemo/data/olympic-model/奥体精模gltf/奥体周边_精模建筑烘焙/", // 该数据引用图片等资源的文件夹路径
+					enabled: true,
+					size: "38MB"
+				}
+			];
+
+			// 定义空底图样式
+			var style = {
+				glyphs: "minemap://fonts/{fontstack}/{range}",
+				sprite: "minemap://sprite/sprite",
+				sources: {},
+				layers: [],
+				version: 8
+			};
+			/**
+			 * 初始化地图实例
+			 */
+			var map = new minemap.Map({
+				container: "map",
+				style: style /*球面矢量底图样式*/,
+				position: [120.22631708113788, 30.224302177978053, 676.4209839536353],
+				pitch: 42.16320038407142,
+				bearing: 46.545848305325386,
+				maxZoom: 22 /*地图最大缩放等级*/,
+				minZoom: 1 /*地图最小缩放等级*/
+			});
+			map.repaint = true;
+
+			const params = {
+				切换模型: "glbModel",
+				是否启用缓存: true,
+				已使用大小: "0GB",
+				已使用百分比: "0%",
+				剩余大小: "0GB",
+				清空缓存: function () {
+					map.offlineCacheController.clear();
+				}
+			};
+			const modelPosition = new minemap.Math.Vector3(120.22895925, 30.2290587, 0);
+			let modelEnabled, cacheFolder, usageFolder, percentageUsedFolder, remainingFolder;
+
+			map.on("load", function () {
+				/*添加栅格图*/
+				map.addSource("IMAGERY_SOURCE", {
+					type: "raster", //数据源类型：栅格数据源
+					tiles: ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+					tileSize: 256 //瓦片尺寸
+				});
+				map.addLayer({
+					id: "IMAGERY",
+					type: "raster", //图层类型为"raster"
+					source: "IMAGERY_SOURCE",
+					minzoom: 1,
+					maxzoom: 23
+				});
+
+				addGlbModel();
+
+				// 设置存储改变回调函数
+				map.offlineCacheController.storeChangeCallback = (value) => {
+					//已使用大小
+					usageFolder.setValue(value.usage);
+					//已使用百分比
+					percentageUsedFolder.setValue(value.percentageUsed);
+					// 剩余大小
+					remainingFolder.setValue(value.remaining);
+				};
+
+				// 获取当前页面存储的使用情况
+				map.offlineCacheController.getUseSize().then((value) => {
+					//已使用大小，单位为GB(如果当前网络不支持离线缓存，gui将显示0GB)
+					params.已使用大小 = map.offlineCacheController.supportStorage ? value.usage : "0GB";
+					//已使用百分比(如果当前网络不支持离线缓存，gui将显示0%)
+					params.已使用百分比 = map.offlineCacheController.supportStorage ? value.percentageUsed : "0%";
+					// 剩余大小，单位为GB(如果当前网络不支持离线缓存，gui将显示0GB)
+					params.剩余大小 = map.offlineCacheController.supportStorage ? value.remaining : "0GB";
+					initializeGUI();
+
+					// 判断当前网络是否支持离线缓存，如果不支持则gui将禁用
+					if (!map.offlineCacheController.supportStorage) {
+						disableGUI(cacheFolder);
+					}
+				});
+			});
+
+			function initializeGUI() {
+				const gui = new lil.GUI({ title: "模型离线缓存", width: 300 });
+				gui.onChange((event) => {
+					if (event.property === "glbCheckboxValue") {
+						const model = map.getSceneComponent(event.controller._name);
+						if (!event.value && model) {
+							map.removeSceneComponent(model.id);
+						} else {
+							const glbModel = glbModelInformation.find((item) => item.id === event.controller._name);
+							map.addSceneComponent({
+								id: glbModel.id,
+								type: "3d-model", // 数据类型为“3d-model”
+								data: glbModel.data,
+								modelFolder: glbModel.modelFolder,
+								scale: [1, 1, 1], // 在xyz轴方向上的缩放比例
+								rotation: [90, 0, 0], // 绕xyz轴方向上的旋转，单位为度
+								position: modelPosition, // 锚点（模型局部坐标原点）的经纬度位置
+							});
+						}
+					} else if (event.property === "tilesCheckboxValue") {
+						const model = map.getSceneComponent(event.controller._name);
+						if (!event.value && model) {
+							remove3DTiles();
+						} else {
+							const glbModel = glbModelInformation.find((item) => item.id === event.controller._name);
+							add3DTiles();
+						}
+					} else {
+						params[event.property] = event.value;
+					}
+				});
+
+				const modelFolder = gui.addFolder("模型选择");
+				modelFolder.open();
+
+				modelFolder
+					.add(params, "切换模型")
+					.options(["glbModel", "3dtiles"])
+					.onChange(function (value) {
+						if (value === "3dtiles") {
+							remove3DModels();
+							add3DTiles();
+						} else {
+							remove3DTiles();
+							addGlbModel();
+						}
+
+						changeModelEnabledUI(value);
+					});
+
+				modelEnabled = modelFolder.addFolder("模型启用状态");
+				modelEnabled.open();
+				changeModelEnabledUI("glbModel");
+
+				let title = "缓存信息";
+				cacheFolder = gui.addFolder(title);
+				cacheFolder.add(params, "是否启用缓存").onChange((value) => {
+					// 是否启用离线缓存
+					map.offlineCacheController.enabled = value;
+				});
+
+				if (!map.offlineCacheController.supportStorage) {
+					title += "(当前环境支持离线缓存!)";
+					cacheFolder.title(title);
+					cacheFolder.close();
+				}
+
+				usageFolder = cacheFolder.add(params, "已使用大小").listen();
+				percentageUsedFolder = cacheFolder.add(params, "已使用百分比");
+				remainingFolder = cacheFolder.add(params, "剩余大小");
+				cacheFolder.add(params, "清空缓存");
+			}
+
+			function changeModelEnabledUI(name) {
+				for (let i = 0; i < modelEnabled.children.length; i++) {
+					const button = modelEnabled.children[i].domElement;
+					button.parentNode.removeChild(button);
+				}
+				modelEnabled.children = [];
+
+				if (name === "glbModel") {
+					for (let i = 0; i < glbModelInformation.length; i++) {
+						const modelName = `${glbModelInformation[i].id}`;
+						modelEnabled
+							.add({ glbCheckboxValue: glbModelInformation[i].enabled }, "glbCheckboxValue")
+							.name(modelName);
+					}
+				} else {
+					modelEnabled.add({ tilesCheckboxValue: true }, "tilesCheckboxValue").name("oblique");
+				}
+			}
+
+			function disableGUI(object) {
+				//todo: 缓存信息禁用
+				if (object.children) {
+					for (let i = 0; i < object.children.length; i++) {
+						const children = object.children;
+						disableGUI(children[i]);
+					}
+				} else {
+					object.enable(false);
+				}
+			}
+
+			function addGlbModel() {
+				// 移除所有离线缓存的url
+				map.offlineCacheController.removeAllUrl();
+				// 添加离线缓存的url
+				map.offlineCacheController.addUrl("http://192.168.152.123/minemap-engine/EngineCanaryDemo/data");
+
+				map.jumpTo({
+					target: [120.22631708113788, 30.224302177978053, 676.4209839536353],
+					pitch: 42.16320038407142,
+					bearing: 46.545848305325386,
+					roll: 0,
+					range: 0
+				});
+
+				for (let i = 0; i < glbModelInformation.length; i++) {
+					const glbModel = glbModelInformation[i];
+					if (glbModel.enabled) {
+						map.addSceneComponent({
+							id: glbModel.id,
+							type: "3d-model", // 数据类型为“3d-model”
+							data: glbModel.data,
+							modelFolder: glbModel.modelFolder,
+							scale: [1, 1, 1], // 在xyz轴方向上的缩放比例
+							rotation: [90, 0, 0], // 绕xyz轴方向上的旋转，单位为度
+							position: modelPosition, // 锚点（模型局部坐标原点）的经纬度位置
+						});
+					}
+				}
+			}
+
+			function add3DTiles() {
+				// 移除所有离线缓存的url
+				map.offlineCacheController.removeAllUrl();
+				// 添加离线缓存的url
+				map.offlineCacheController.addUrl("https://staticdata-b.minedata.cn:14434");
+
+				map.jumpTo({
+					target: [108.96983996727788, 34.33374385777193, 1000],
+					bearing: -87.18744098264303,
+					pitch: 61.603551292866726,
+					roll: 0,
+					range: 0
+				});
+				// 3dtiles
+				const tileset = map.addSceneComponent({
+					id: "oblique",
+					type: "3d-tiles",
+					show: true,
+					translation: new minemap.Math.Vector3(0, 0, 0), //在enu坐标系下的位置移动距离，顺序为[east, north, height]，单位为m，并且只用于3dtiles图层
+					minzoom: 12, //3d-tiles加载显示的最小层级
+					maxzoom: 22, //3d-tiles加载显示的最大层级
+					url: "https://staticdata-b.minedata.cn:14434/oblique/tileset.json",
+					skipLevelOfDetail: false, //跨层调度
+					maximumScreenSpaceError: 8,
+					allowPick: true
+				});
+			}
+
+			function remove3DModels() {
+				for (let i = 0; i < glbModelInformation.length; i++) {
+					if (map.getSceneComponent(glbModelInformation[i].id)) {
+						map.removeSceneComponent(glbModelInformation[i].id);
+					}
+				}
+			}
+
+			function remove3DTiles() {
+				if (map.getSceneComponent("oblique")) {
+					map.removeSceneComponent("oblique");
+				}
+			}
+		</script>
+	</body>
+</html>

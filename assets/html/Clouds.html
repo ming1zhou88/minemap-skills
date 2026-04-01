@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+	<title>体积云效果</title>
+	<!-- demo样式文件 -->
+	<link rel="stylesheet" href="https://minedata.cn/nce-static/support/demo/js-3d-ultra/zh/css/demo.css">
+	<!-- 引入MineMap API插件 -->
+	<link rel="stylesheet" href="../../dist/minemap.css" />
+	<script src="../../dist/minemap-dev.js"></script>
+	<script src="../js/lil-gui.umd.min.js"></script>
+	<style>
+		#map {
+			width: 100%;
+			height: 100%;
+		}
+	</style>
+</head>
+<body>
+<div id="map"></div>
+<script>
+	/**
+	 * 全局参数设置
+	 */
+	window.minemap = minemap;
+	minemap.domainUrl = 'http://192.168.152.123';
+	minemap.dataDomainUrl = 'http://192.168.152.123';
+	minemap.serverDomainUrl = 'https://sd-data.minedata.cn';
+	minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+	minemap.serviceUrl = 'https://service.minedata.cn/service';
+
+	minemap.key = "a37fd2711bb241acb683250f0ceb827f";
+	minemap.solution = 11001;
+
+	// 定义空底图样式
+	var style = {
+		"glyphs": "minemap://fonts/{fontstack}/{range}",
+		"sprite": "minemap://sprite/sprite",
+		"sources": {},
+		"layers": [],
+		"version": 8
+	};
+
+	/**
+	 * 初始化地图实例
+	 */
+	var map = new minemap.Map({
+		container: 'map',
+		style /*底图样式*/,
+		position: [116.03898150837098, 40.10578658198666, 2943.796215105384],
+		pitch: 80.96105001484179, /*地图俯仰角度*/
+		bearing: -27.35623634633208, /*地图偏航角度*/
+		maxZoom: 22, /*地图最大缩放等级*/
+		minZoom: 0,  /*地图最小缩放等级*/
+		projection: 'MERCATOR'
+	});
+	let clouds;
+	map.enableLight();
+	map.enableClouds();
+	map.repaint = true;
+
+	map.setTerrain({
+		"tiles": ["https://staticdata-b.minedata.cn:14434/dem/{z}/{r}/{c}/{z}_{x}_{y}.terrain"], //瓦片服务地址
+		"availabilities": ["https://staticdata-b.minedata.cn:14434/dem/layer.json"], //索引文件是可选项
+		"tileSize": 512,  //瓦片大小
+		"maxzoom": 14        //dem最高切分zoom，30米一般是14级；12.5米一般是16级
+		// bounds: [130, 60, 140, 70],//要显示区域的经纬度外包框，按west，south，east，north填写
+	});
+
+	// map.enableUnderGround = true;
+	// map.showTileBoundaries = true;
+	map.on('load', function() {
+		/*添加栅格图*/
+		map.addSource("IMAGERY_SOURCE", {
+			"type": "raster",//数据源类型：栅格数据源
+			"tiles": ["https://services.minedata.cn/service/data/satellite?x={x}&y={y}&z={z}"], //瓦片服务地址
+			"tileSize": 512,//瓦片尺寸
+		});
+
+		map.addLayer({
+			"id": "IMAGERY",
+			"type": "raster", //图层类型为"raster"
+			"source": "IMAGERY_SOURCE",
+			"minzoom": 0,
+			"maxzoom": 23,
+		});
+
+		clouds = map.getClouds();
+
+		initializeGUI();
+	})
+
+	const commonParams = {
+		enableLight: true, // 是否开启光照效果
+		enableClouds: true, // 是否开启云层效果
+		coverage: 0.3, // 云层覆盖度，值越大覆盖场景越大
+		enableAnimate: true // 是否开启云层动画效果
+	}
+
+	const dateParams = {
+		year: 2025,
+		month: 6,
+		day: 13,
+		hours: 10,
+		minutes: 0,
+		seconds: 0,
+	}
+
+	const renderParams = {
+		temporalUpscale: false,  // 是否开启时间上采样，开启后会提升性能，但是目前噪点以及透明度过滤问题比较严重，等待后续修改
+		shapeDetail: true, // 是否对形状细节纹理进行采样。这可以增强云的细节，但计算成本较高。
+		turbulence: true, // 是否通过采样湍流纹理来在云的底部应用湍流。这会增加风感，但计算成本较高。
+	}
+
+	const scatterParams = {
+		scatteringCoefficient: 2.3, // 散射系数，值越大散射效果越明显，明暗对比更强烈
+		absorptionCoefficient: 0.0, // 吸收系数，值越大吸收效果越明显，越暗
+		// 以下三个各向异性参数，只有在ACCURATE_PHASE_FUNCTION关闭情况下才能用到
+		// 控制双叶亨耶-格林斯坦(dual-lobe Henyey-Greenstein)相位函数。
+		// 正各向异性增强前向散射，负各向异性增强后向散射。
+		// 使用 scatterAnisotropyMix 将两个散射相位组合起来。
+		scatterAnisotropy1: 0.7,
+		scatterAnisotropy2: -0.2,
+		scatterAnisotropyMix: 0.5,
+		skyIrradianceScale: 1.0, // 对天空辐照度进行缩放，用于调整云的亮度
+		// groundIrradianceScale: 1.0, // 对地面辐照度进行缩放，用于调整云底部的亮度
+		// 控制云朵上的“Beer-powder”效果，让云的形状更像粉末状，使其更加柔和、朦胧
+		powderScale: 0.8, // 越大云层越柔和，越小则会更清晰
+		powderExponent: 150 // 越大会在消光系数（extinction）变化时更迅速增强或减弱，越小则会更平滑
+	}
+
+	const advancedParams = {
+		multiScatteringOctaves: 5, // 用于多重近似散射的迭代次数。值越高，云就越亮，但超过 8 的值则无明显效果。用于多重近似散射的迭代次数。值越高，云就越亮，但超过 8 的值则无明显效果。增大该值能让多次散射效果更加真实，但会增加计算量.
+		accurateSunSkyIrradiance: false, // 是否在光线行进过程中在每个采样点对太阳和天空辐照度进行采样。如果禁用，则通过在相机上方总云层的底部和顶部插入值来近似辐照度。开启会增加计算量。
+		accuratePhaseFunction: false, // 是否使用精确的相位函数。开启渲染更真实，但是性能会有所下降。
+		maxIterationCount: 500, // 主ray marching的最大迭代次数
+		minStepSize: 50, // 控制主ray marching的最小步长（以米为单位）
+		maxStepSize: 1000, // 控制主ray marching的最大步长（以米为单位）
+		maxRayDistance: 200000, // 控制主ray marching的最大射线距离（以米为单位）
+		perspectiveStepScale: 1.01, // ray marching过程中步长的增长因子
+		// 以下这些阈值用于控制ray marching过程中的提前终止条件，以提高性能和减少计算量。为了gui操控方便以对数展示。
+		'minDensity-log10': -5.00, // 最小密度阈值，用于控制ray marching过程中的提前终止条件。
+		'minExtinction-log10': -5.00, // 最小消光阈值，用于控制ray marching过程中的提前终止条件。
+		'minTransmittance-log10': -2.00, // 最小透射阈值，用于控制ray marching过程中的提前终止条件。
+		// 射线朝太阳和地面行进的步数（二次光线）。这可以增强云的细节，但成本很高，大于 4 的值对质量的改善很小。
+		maxIterationCountToSun: 2,
+		// maxIterationCountToGround: 3,
+		// maxShadowLengthIterationCount: 500,
+		// minShadowLengthStepSize: 50,
+		// maxShadowLengthRayDistance: 200000,
+		// 'hazeDensityScale-log10': -4.52, // 控制雾霭的密度。值越大，雾霭越浓密
+		// 'hazeExponent-log10': -3.00,
+		// hazeScatteringCoefficient: 0.9,
+		// hazeAbsorptionCoefficient: 0.5
+	}
+
+	const debugParams = {
+		showSampleCount: false
+	}
+
+	const cloudLayersParams = {
+		layer0: {
+			altitude: 750, // 云层高度，以米为单位
+			height: 650, // 云层的厚度（以米为单位）。将此值设置为 0 将禁用该层。
+			densityScale: 0.2, // 云层密度缩放因子，控制图层内云的整体密度。将此值设置为 0 将禁用该图层。
+			shapeAmount: 1, // 云形状系数，控制形状纹理对云层的影响
+			shapeDetailAmount: 1, // 云形状细节系数，控制形状细节纹理对云层的影响
+			weatherExponent: 1, // 天气指数，控制天气纹理的渐变。大于 1 的值会使渐变更加锐化，而较小的值会使天气更加平缓，使其更加均匀。
+			shapeAlteringBias: 0.35, // 控制云形状的垂直偏差。值为 1 表示对称，值为 0 表示底部完全偏移。
+			coverageFilterWidth: 0.6, // 确定天气信号如何影响形状改变的密度。值为 1 时，产生线性渐变，忽略天气信号；值为 0 时，在天气信号处产生急剧的密度过渡。
+			// 确定云层密度随高度比例的变化情况，范围从 0 到 1。云层通常顶部较稠密，底部较稀疏（因此采用默认值，基本不需要变）
+			densityProfile: {
+				expTerm: 0.0,
+				exponent: 0.0,
+				linearTerm: 0.75,
+				constantTerm: 0.25
+			}
+		},
+		layer1: {
+			altitude: 1000,
+			height: 1200,
+			densityScale: 0.2,
+			shapeAmount: 1,
+			shapeDetailAmount: 1,
+			weatherExponent: 1,
+			shapeAlteringBias: 0.35,
+			coverageFilterWidth: 0.6,
+			densityProfile: {
+				expTerm: 0.0,
+				exponent: 0.0,
+				linearTerm: 0.75,
+				constantTerm: 0.25
+			}
+		},
+		layer2: {
+			altitude: 7500,
+			height: 500,
+			densityScale: 0.003,
+			shapeAmount: 0.4,
+			shapeDetailAmount: 0,
+			weatherExponent: 1,
+			shapeAlteringBias: 0.35,
+			coverageFilterWidth: 0.5,
+			densityProfile: {
+				expTerm: 0.0,
+				exponent: 0.0,
+				linearTerm: 0.75,
+				constantTerm: 0.25
+			}
+		},
+		layer3: {
+			altitude: 0,
+			height: 0,
+			densityScale: 0.2,
+			shapeAmount: 1.0,
+			shapeDetailAmount: 1.0,
+			weatherExponent: 1.0,
+			shapeAlteringBias: 0.35,
+			coverageFilterWidth: 0.6,
+			densityProfile: {
+				expTerm: 0.0,
+				exponent: 0.0,
+				linearTerm: 0.75,
+				constantTerm: 0.25
+			}
+		}
+	}
+
+	// 初始化UI
+	function initializeGUI() {
+		const gui = new lil.GUI({ width: 300 });
+
+		const commonFolder = gui.addFolder("通用");
+		commonFolder.close();
+		commonFolder.add(commonParams, "enableLight").name("光照").onChange((value) => {
+			if (value) map.enableLight();
+			else map.disableLight();
+		});
+		commonFolder.add(commonParams, "enableClouds").name("云层").onChange((value) => {
+			if (value) map.enableClouds();
+			else map.disableClouds();
+		});
+		commonFolder.add(commonParams, "coverage", 0, 1, 0.01).name("云层覆盖度").onChange((value) => {
+			clouds.coverage = value;
+		});
+		commonFolder.add(commonParams, "enableAnimate").name("动画").onChange((value) => {
+			clouds.localWeatherVelocity = value ? [0.005, 0] : [0, 0];
+		});
+
+		const dateFolder = gui.addFolder("时间");
+		dateFolder.close();
+		dateFolder.add(dateParams, "month", 1, 12, 1).name("月")
+			.onChange((value) => {
+				map.setSunLightTime(dateParams);
+			});
+		dateFolder.add(dateParams, "day", 1, 28, 1).name("日")
+			.onChange((value) => {
+				map.setSunLightTime(dateParams);
+			});
+		dateFolder.add(dateParams, "hours", 0, 23, 1).name("时")
+			.onChange((value) => {
+				map.setSunLightTime(dateParams);
+			});
+		dateFolder.add(dateParams, "minutes", 0, 59, 1).name("分")
+			.onChange((value) => {
+				map.setSunLightTime(dateParams);
+			});
+
+		const renderFolder = gui.addFolder("渲染参数");
+		renderFolder.close();
+		renderFolder.add(renderParams, "temporalUpscale").name("时间上采样").onChange((value) => {
+			clouds.temporalUpscale = value;
+		})
+		renderFolder.add(renderParams, "shapeDetail").name("形状细节采样").onChange((value) => {
+			clouds.shapeDetail = value;
+		})
+		renderFolder.add(renderParams, "turbulence").name("湍流纹理采样").onChange((value) => {
+			clouds.turbulence = value;
+		})
+
+		const scatterFolder = gui.addFolder("散射");
+		scatterFolder.close();
+		scatterFolder.add(scatterParams, "scatteringCoefficient", 0, 5, 0.05).name("散射系数").onChange((value) => {
+			clouds.scatteringCoefficient = value;
+		})
+		scatterFolder.add(scatterParams, "absorptionCoefficient", 0, 5, 0.05).name("吸收系数").onChange((value) => {
+			clouds.absorptionCoefficient = value;
+		})
+		scatterFolder.add(scatterParams, "scatterAnisotropy1", 0, 1, 0.01).name("散射各向异性1").onChange((value) => {
+			clouds.scatterAnisotropy1 = value;
+		})
+		scatterFolder.add(scatterParams, "scatterAnisotropy2", -1, 0, 0.01).name("散射各向异性2").onChange((value) => {
+			clouds.scatterAnisotropy2 = value;
+		})
+		scatterFolder.add(scatterParams, "scatterAnisotropyMix", 0, 1, 0.01).name("散射各向异性混合").onChange((value) => {
+			clouds.scatterAnisotropyMix = value;
+		})
+		scatterFolder.add(scatterParams, "skyIrradianceScale", 0, 5, 0.05).name("天空辐照度缩放因子").onChange((value) => {
+			clouds.skyIrradianceScale = value;
+		})
+		// scatterFolder.add(scatterParams, "groundIrradianceScale", 0, 10, 0.1).name("地面辐照度缩放因子").onChange((value) => {
+		// 	clouds.groundIrradianceScale = value;
+		// })
+		scatterFolder.add(scatterParams, "powderScale", 0, 1, 0.02).name("powder缩放").onChange((value) => {
+			clouds.powderScale = value;
+		})
+		scatterFolder.add(scatterParams, "powderExponent", 1, 1000, 10).name("powder指数").onChange((value) => {
+			clouds.powderExponent = value;
+		})
+
+		const advancedFolder = gui.addFolder("高级参数");
+		advancedFolder.close();
+		advancedFolder.add(advancedParams, "multiScatteringOctaves", 1, 12, 1).name("多重近似散射迭代次数").onChange((value) => {
+			clouds.cloudsPass.currentMaterial.multiScatteringOctaves = value;
+		})
+		advancedFolder.add(advancedParams, "accurateSunSkyIrradiance").name("精确太阳天空辐照度").onChange((value) => {
+			clouds.cloudsPass.currentMaterial.accurateSunSkyIrradiance = value;
+		})
+		advancedFolder.add(advancedParams, "accuratePhaseFunction").name("精确相位函数").onChange((value) => {
+			clouds.cloudsPass.currentMaterial.accuratePhaseFunction = value;
+		})
+		advancedFolder.add(advancedParams, "maxIterationCount", 10, 1000, 1).name("最大迭代次数").onChange((value) => {
+			clouds.cloudsPass.currentMaterial.maxIterationCount = value;
+		})
+		advancedFolder.add(advancedParams, "minStepSize", 10, 200, 1).name("最小步长").onChange((value) => {
+			clouds.cloudsPass.currentMaterial.minStepSize = value;
+		})
+		advancedFolder.add(advancedParams, "maxStepSize", 200, 2000, 1).name("最大步长").onChange((value) => {
+			clouds.cloudsPass.currentMaterial.maxStepSize = value;
+		})
+		advancedFolder.add(advancedParams, "maxRayDistance", 1e4, 1e6, 1e4).name("最大射线距离").onChange((value) => {
+			clouds.cloudsPass.currentMaterial.maxRayDistance = value;
+		})
+		advancedFolder.add(advancedParams, "perspectiveStepScale", 1, 1.1, 0.01).name("步长的增长因子").onChange((value) => {
+			clouds.cloudsPass.currentMaterial.perspectiveStepScale = value;
+		})
+		advancedFolder.add(advancedParams, "minDensity-log10", -7, -1, 0.1).name("最小密度阈值-log10").onChange((value) => {
+			clouds.cloudsPass.currentMaterial.minDensity = 10 ** value;
+		})
+		advancedFolder.add(advancedParams, "minExtinction-log10", -7, -1, 0.1).name("最小消光阈值-log10").onChange((value) => {
+			clouds.cloudsPass.currentMaterial.minExtinction = 10 ** value;
+		})
+		advancedFolder.add(advancedParams, "minTransmittance-log10", -7, -1, 0.1).name("最小透射阈值-log10").onChange((value) => {
+			clouds.cloudsPass.currentMaterial.minTransmittance = 10 ** value;
+		})
+		advancedFolder.add(advancedParams, "maxIterationCountToSun", 0, 10, 1).name("射线行进到太阳的最大迭代次数").onChange((value) => {
+			clouds.cloudsPass.currentMaterial.maxIterationCountToSun = value;
+		})
+		// advancedFolder.add(advancedParams, "maxIterationCountToGround", 0, 10, 1).name("射线行进到地面的最大迭代次数").onChange((value) => {
+		// 	clouds.cloudsPass.currentMaterial.maxIterationCountToGround = value;
+		// })
+		// advancedFolder.add(advancedParams, "maxShadowLengthIterationCount", 10, 1000, 1).name("最大阴影长度迭代次数").onChange((value) => {
+		// 	clouds.maxShadowLengthIterationCount = value;
+		// })
+		// advancedFolder.add(advancedParams, "minShadowLengthStepSize", 50, 200, 1).name("最小阴影长度步长").onChange((value) => {
+		// 	clouds.minShadowLengthStepSize = value;
+		// })
+		// advancedFolder.add(advancedParams, "maxShadowLengthRayDistance", 1e4, 1e6, 1e4).name("最大阴影长度射线距离").onChange((value) => {
+		// 	clouds.maxShadowLengthRayDistance = value;
+		// })
+		// advancedFolder.add(advancedParams, "hazeDensityScale-log10", -6, -3, 0.05).name("雾霾密度缩放-log10").onChange((value) => {
+		// 	clouds.cloudsPass.currentMaterial.hazeDensityScale = Math.log10(value);
+		// })
+		// advancedFolder.add(advancedParams, "hazeExponent-log10", -3, -1, 0.05).name("雾霾指数-log10").onChange((value) => {
+		// 	clouds.cloudsPass.currentMaterial.hazeExponent = Math.log10(value);
+		// })
+
+		const debugFolder = gui.addFolder("调试");
+		debugFolder.close();
+		debugFolder.add(debugParams, "showSampleCount").name("显示采样次数").onChange((value) => {
+			clouds.cloudsPass.currentMaterial.defines["DEBUG_SHOW_SAMPLE_COUNT"] = value;
+		})
+
+		const cloudLayersFolder = gui.addFolder("云层参数");
+		cloudLayersFolder.close();
+		for (let i = 0; i < 4; i++) {
+			const layerFolder = cloudLayersFolder.addFolder(`云层${i}`);
+			layerFolder.add(cloudLayersParams[`layer${i}`], "altitude", 0, 10000, 100).name("高度").onChange((value) => {
+				clouds.cloudLayers[i].altitude = value;
+			})
+			layerFolder.add(cloudLayersParams[`layer${i}`], "height", 0, 4000, 40).name("厚度").onChange((value) => {
+				clouds.cloudLayers[i].height = value;
+			})
+			layerFolder.add(cloudLayersParams[`layer${i}`], "densityScale", 0, 1, 0.01).name("密度缩放").onChange((value) => {
+				clouds.cloudLayers[i].densityScale = value;
+			})
+			layerFolder.add(cloudLayersParams[`layer${i}`], "shapeAmount", 0, 1, 0.01).name("形状数量").onChange((value) => {
+				clouds.cloudLayers[i].shapeAmount = value;
+			})
+			layerFolder.add(cloudLayersParams[`layer${i}`], "shapeDetailAmount", 0, 1, 0.01).name("形状细节数量").onChange((value) => {
+				clouds.cloudLayers[i].shapeDetailAmount = value;
+			})
+			layerFolder.add(cloudLayersParams[`layer${i}`], "weatherExponent", 0, 3, 0.03).name("天气指数").onChange((value) => {
+				clouds.cloudLayers[i].weatherExponent = value;
+			})
+			layerFolder.add(cloudLayersParams[`layer${i}`], "shapeAlteringBias", 0, 1, 0.01).name("形状变化偏置").onChange((value) => {
+				clouds.cloudLayers[i].shapeAlteringBias = value;
+			})
+			layerFolder.add(cloudLayersParams[`layer${i}`], "coverageFilterWidth", 0, 1, 0.01).name("覆盖过滤宽度").onChange((value) => {
+				clouds.cloudLayers[i].coverageFilterWidth = value;
+			})
+			const densityFolder = layerFolder.addFolder("密度配置");
+			densityFolder.add(cloudLayersParams[`layer${i}`].densityProfile, "expTerm", 0, 1, 0.01).name("密度配置指数项").onChange((value) => {
+				clouds.cloudLayers[i].densityProfile.expTerm = value;
+			})
+			densityFolder.add(cloudLayersParams[`layer${i}`].densityProfile, "exponent", -10, 10, 0.2).name("密度配置指数").onChange((value) => {
+				clouds.cloudLayers[i].densityProfile.exponent = value;
+			})
+			densityFolder.add(cloudLayersParams[`layer${i}`].densityProfile, "linearTerm", -2, 2, 0.04).name("密度配置线性项").onChange((value) => {
+				clouds.cloudLayers[i].densityProfile.linearTerm = value;
+			})
+			densityFolder.add(cloudLayersParams[`layer${i}`].densityProfile, "constantTerm", -2, 2, 0.04).name("密度配置常数项").onChange((value) => {
+				clouds.cloudLayers[i].densityProfile.constantTerm = value;
+			})
+		}
+	}
+
+</script>
+</body>

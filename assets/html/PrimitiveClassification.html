@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8"/>
+	<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no"/>
+	<title>图元贴合三维场景</title>
+	<link rel="stylesheet" href="../style/demo.css"/>
+	<!-- 引入MineMap API -->
+	<link rel="stylesheet" href="https://minemap.minedata.cn/minemapapi/v4.0.0/minemap.css"/>
+	<script src="../../dist/minemap-dev.js"></script>
+	<script src="../js/lil-gui.umd.min.js"></script>
+	<style>
+		html,
+		body,
+		#map {
+			margin: 0;
+			width: 100%;
+			height: 100%;
+		}
+	</style>
+</head>
+
+<body>
+<div id="map"></div>
+<script>
+	/**
+	 * 全局参数设置
+	 */
+
+	minemap.domainUrl = "https://minemap.minedata.cn";
+	minemap.dataDomainUrl = "https://minemap.minedata.cn";
+	minemap.serverDomainUrl = "https://sd-data.minedata.cn";
+	minemap.spriteUrl = "http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite";
+	minemap.serviceUrl = "https://service.minedata.cn/service";
+
+	minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+	minemap.solution = 11001;
+	window.minemapCDN = "https://minemap.minedata.cn/minemapapi/minemap-CDN/"; // minemapCDN 配置
+
+	var style = {
+		glyphs: "minemap://fonts/{fontstack}/{range}",
+		sprite: "minemap://sprite/sprite",
+		sources: {},
+		layers: [],
+		version: 8
+	};
+
+	var center = [108.965014, 34.220905];
+
+	/*初始化地图实例*/
+	var map = new minemap.Map({
+		container: "map",
+		style: style,
+		// "style": "https://service.minedata.cn/map/solu/style/11001",
+		center: center,
+		bearing: 0,
+		zoom: 14, //地图默认缩放等级
+		pitch: 30, //地图俯仰角度
+		maxZoom: 22, //地图最大缩放等级
+		minZoom: 1, //地图最小缩放等级
+		// "logarithmicDepthBuffer": true, //开启后，可降低远距离模型闪烁
+		projection: "MERCATOR"
+	});
+	map.repaint = true;
+
+	map.on("load", function () {
+		/*添加DEM数字高程模型数据*/
+		map.addSource("3D_SOURCE", {
+			type: "raster", //DEM的数据类型为"raster"
+			tiles: ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+			tileSize: 512 //瓦片大小
+		});
+		map.addLayer({
+			type: "raster", //DEM的图层类型为"raster"
+			id: "3d-layer",
+			source: "3D_SOURCE",
+			minzoom: 1,
+			maxzoom: 20,
+			layout: {},
+			"depth-test": true
+		});
+		map.addSceneComponent({
+			id: "serve",
+			type: "3d-tiles",
+			url: "https://minemap.minedata.cn/earth_data/oblique/610000/610100/tileset.json",
+			skipLevelOfDetail: false, //跨层调度
+			maximumScreenSpaceError: 16,
+			sourceLoaded: (tileset) => {
+				console.log(tileset);
+			}
+		});
+
+		addPrimitives();
+	});
+
+	map.on("click", function (e) {
+		const feature = map.getFeatureByGPUPick(e.point);
+		if (feature && feature.material) {
+			if (feature.material instanceof minemap.StandardMaterial) {
+				feature.material.updateProperty({
+					color: new minemap.Color(Math.random(), Math.random(), Math.random(), 1)
+				});
+			} else {
+				feature.material.uniformMap.color = new minemap.Color(Math.random(), Math.random(), Math.random(), 1);
+			}
+		} else {
+			console.log("未选中任何要素");
+		}
+	});
+
+	function addPrimitives() {
+		const height = 50;
+		const linePosition = [
+			center[0] - 0.006,
+			center[1] - 0.006,
+			height,
+			center[0] - 0.001,
+			center[1] + 0.001,
+			height,
+			center[0] + 0.002,
+			center[1] + 0.002,
+			height,
+			center[0] - 0.0001,
+			center[1] - 0.0001,
+			height
+		];
+		const polygonPosition = [
+			...center,
+			center[0],
+			center[1] + 0.006,
+			center[0] + 0.006,
+			center[1],
+			...center
+		];
+		const lineGeometry = new minemap.Geometries.PolylineGeometry({
+			positions: minemap.Math.Vector3.fromDegreesArrayHeights(linePosition),
+			width: 10
+		});
+		const lineMaterial = new minemap.PolylineMaterial({
+			color: new minemap.Color(1, 0, 0, 0.5)
+			// dashed: true
+		});
+		const redPolylinePrimitive = new minemap.Primitive({
+			geometry: lineGeometry,
+			material: lineMaterial,
+			name: "polyline",
+			adaptTerrain: true, //贴合三维场景，单体化操作
+			allowPick: true
+		});
+		map.addPrimitive(redPolylinePrimitive);
+		window.line = redPolylinePrimitive;
+		const polygonGeometry = new minemap.Geometries.PolygonGeometry({
+			polygonHierarchy: {
+				positions: minemap.Math.Vector3.fromDegreesArray(polygonPosition)
+			},
+			height: 10
+		});
+		const polygonMaterial = minemap.StandardMaterial.fromType("Color", {
+			color: new minemap.Color(1, 0, 0, 0.5),
+			doubleSided: true
+		});
+		const polygonPrimitive = new minemap.Primitive({
+			geometry: polygonGeometry,
+			material: polygonMaterial,
+			adaptTerrain: true, //贴合三维场景，单体化操作
+			allowPick: true
+		});
+		map.addPrimitive(polygonPrimitive);
+	}
+
+	// //gui
+	// const params = {
+	// 	说明: "栅格图层在未开深度测试情况下不再支持Primitive的贴地了",
+	// 	深度测试状态: true
+	// };
+
+	// const gui = new lil.GUI({width: 550});
+	// gui.add(params, "说明");
+
+	// gui.add(params, "深度测试状态").onChange((value) => {
+	// 	const layer = map.getLayer("3d-layer");
+	// 	if (layer) {
+	// 		layer.depthTest = value;
+	// 	}
+
+	// });
+
+</script>
+</body>
+</html>

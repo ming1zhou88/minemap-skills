@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no"/>
+	<title>DEM面裁剪</title>
+	<!-- 引入MineMap API插件 -->
+	<link rel="stylesheet" href="../../dist/minemap.css">
+	<script src="../../dist/minemap-dev.js"></script>
+	<script src="../js/lil-gui.umd.min.js"></script>
+	<style>
+		html, body, #map {
+			margin: 0;
+			padding: 0;
+			width: 100%;
+			height: 100%;
+		}
+	</style>
+</head>
+<body>
+<div id="map"></div>
+<script>
+	minemap.domainUrl = 'http://192.168.152.123';
+	minemap.dataDomainUrl = 'https://minemap.minedata.cn';
+	minemap.serverDomainUrl = 'https://sd-data.minedata.cn';
+	minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+	minemap.serviceUrl = 'https://service.minedata.cn/service';
+
+	/**
+	 * token、solution设置
+	 */
+	minemap.key = '0c6ac62182404e5ebc7a789981f6db72';
+	minemap.solution = 11001;
+
+	// 定义空底图样式
+	var style = {
+		"glyphs": "minemap://fonts/{fontstack}/{range}",
+		"sprite": "minemap://sprite/sprite",
+		"sources": {},
+		"layers": [],
+		"version": 8
+	};
+
+	/**
+	 * 初始化地图实例
+	 */
+	var map = new minemap.Map({
+		container: 'map',
+		style: style, /*球面矢量底图样式*/
+		center: [90.28101090188188, 28.18585681678294], /*地图中心点*/
+		zoom: 11, /*地图默认缩放等级*/
+		pitch: 75, /*地图俯仰角度*/
+		bearing: -50,/*地图旋转角度*/
+		maxZoom: 22, /*地图最大缩放等级*/
+		minZoom: 1,  /*地图最小缩放等级*/
+		projection: 'MERCATOR',
+		logDepth: true
+	});
+
+	map.repaint = true;
+
+	map.setTerrain({
+		"tiles": ["https://staticdata-b.minedata.cn:14434/dem/{z}/{r}/{c}/{z}_{x}_{y}.terrain"], //瓦片服务地址
+		"tileSize": 512,  //瓦片大小
+		"availabilities": ["https://staticdata-b.minedata.cn:14434/dem/layer.json"], // 查询最高级别DEM时必须设定索引文件
+	});
+
+	let currentType = minemap.TerrainAnalysisType.POLYGON_CLIPPING;
+	let maskRegion = [];
+	let finalMaskRegion = [];
+
+	const commonParams = {
+		"绘制区域": function () {
+			drawPolygon()
+		},
+		"清除区域": function () {
+			clearPolygon()
+		}
+	};
+
+	// 获取地形分析样式配置
+	function getStyleConfig(){
+		if (maskRegion && maskRegion.length > 0) {
+			finalMaskRegion.push(maskRegion);
+		}
+		return {
+			"property": currentType,             // 与颜色相关联的raster属性值, 目前支持的类型有slope/aspect/elevation_band
+			"default": "rgba(255, 255, 255, 0.0)", // (可选) 默认颜色，即不满足上述判断条件时的赋予地形的颜色
+			"region": finalMaskRegion, // 选定的分析区域
+		}
+	}
+
+	map.on('load', function () {
+		// 用于渲染测试的地图初始化完成标记
+		window.InsertFunc = true;
+		/*添加DEM数字高程模型数据*/
+		map.addSource("IMAGERY_SOURCE", {
+			type: "raster", //数据源类型：栅格数据源
+			tiles: ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+			tileSize: 512 //瓦片尺寸
+		});
+
+		map.addLayer({
+			id: "IMAGERY",
+			type: "raster", //图层类型为"raster"
+			source: "IMAGERY_SOURCE",
+			minzoom: 1,
+			maxzoom: 23
+		});
+
+		// 添加gltf
+		map.addSceneComponent({
+			id: "trafficScene",
+			type: "3d-model",
+			data: "../data/traffic/scene.gltf", // 要加载的gltf格式数据
+			// data: "../data/test-gltf/trangles.gltf", // 要加载的gltf格式数据
+			modelFolder: "../data/traffic/", // 该数据引用图片等资源的文件夹路径
+			scale: [1000, 1000, 1000], // 在xyz轴方向上的缩放比例
+			rotation: [90, 90, 0], // 绕xyz轴方向上的旋转，单位为度
+			position: [90.28101090188188, 28.18585681678294], // 锚点（模型局部坐标原点）的经纬度位置
+			minzoom: 0, //gltf加载显示的最小层级
+			maxzoom: 24, //gtlf加载显示的最大层级
+			allowPick: true,
+			loaded: () => {
+				// 模型加载完成的回调函数
+			}
+		});
+
+		initializeGUI();
+	})
+
+	// 初始化UI
+	function initializeGUI() {
+		const gui = new lil.GUI({ width: 300 });
+		const common = gui.addFolder("常规");
+		common.add(commonParams, "绘制区域");
+		common.add(commonParams, "清除区域");
+	}
+
+	let geometry,
+		primitive,
+		startDraw = false, //开始绘制
+		positions = [],
+		tempPoint = []; // polygon点
+	function drawPolygon() {
+		positions = [];
+		maskRegion = [];
+		startDraw = true;
+		geometry = new minemap.Geometries.PolygonGeometry({
+			polygonHierarchy: {
+				positions: () => {
+					const results = positions.concat(tempPoint);
+					// 判断是否自相交，如果自相交则该点不进入数组内
+					if (
+						results.length > 3 &&
+						minemap.Geometries.PolygonGeometry.isSelfIntersection(results, true)
+					) {
+						return positions;
+					} else {
+						return results;
+					}
+				}
+			},
+			perPositionHeight: true
+		});
+		const material = minemap.StandardMaterial.fromType("Color", {
+			color: "red",
+			doubleSided: true
+		});
+		primitive = new minemap.Primitive({
+			geometry: geometry,
+			material: material,
+			adaptTerrain: true
+		});
+		map.addPrimitive(primitive);
+	}
+
+	// leftClick
+	map.on("click", function (e) {
+		if (startDraw) {
+			const point = map.painter.getPositionByGPUPick(e.point);
+			positions.push(minemap.Math.Vector3.fromDegrees(point.x, point.y, point.z));
+			maskRegion.push(point.x);
+			maskRegion.push(point.y);
+		}
+	});
+
+	// mouseMove
+	map.on("mousemove", function (e) {
+		if (startDraw) {
+			tempPoint = [];
+			const point = map.painter.getPositionByGPUPick(e.point);
+			if (point) {
+				tempPoint.push(minemap.Math.Vector3.fromDegrees(point.x, point.y, point.z));
+			}
+		}
+	});
+
+	// rightClick
+	map.on("contextmenu", function (e) {
+		if (startDraw) {
+			startDraw = false;
+			tempPoint = [];
+			map.removePrimitive(primitive);
+			if (positions.length > 2) {
+				map.setTerrainAnalysis(getStyleConfig(currentType));
+			}
+		}
+	});
+
+	// 清除区域
+	function clearPolygon() {
+		maskRegion = [];
+		finalMaskRegion = [];
+		map.setTerrainAnalysis(getStyleConfig(currentType));
+	}
+
+</script>
+</body>

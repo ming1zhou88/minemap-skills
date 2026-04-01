@@ -1,0 +1,193 @@
+<!--
+ * @Author: Lee_90125
+ * @Date: 2022-11-17 17:56:44
+ * @LastEditTime: 2024-10-28 16:42:48
+ * @LastEditors: liwei
+ * @Description: None
+ * @File: SimplePolylineGeometry.html
+ * @Version: 1.0
+ -->
+
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<title>简单的线</title>
+		<!-- demo样式文件 -->
+		<link rel="stylesheet" href="../style/demo.css" />
+		<!-- 引入MineMap API插件 -->
+		<link rel="stylesheet" href="../../dist/minemap.css" />
+		<script src="../../dist/minemap-dev.js"></script>
+		<style>
+			#map {
+				width: 100%;
+				height: 100%;
+			}
+		</style>
+	</head>
+
+	<body>
+		<div id="map"></div>
+		<script>
+			/**
+			 * 全局参数设置
+			 */
+			minemap.domainUrl = "https://minedata.cn";
+			minemap.dataDomainUrl = "https://minedata.cn";
+			minemap.serverDomainUrl = "https://minedata.cn";
+			minemap.spriteUrl = "http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite";
+			minemap.serviceUrl = "https://minedata.cn/service/";
+
+			minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+			minemap.solution = 11001;
+			window.minemapCDN = "https://minedata.cn/minemapapi/minemap-CDN";
+
+			// 定义空底图样式
+			var style = {
+				glyphs: "minemap://fonts/{fontstack}/{range}",
+				sprite: "minemap://sprite/sprite",
+				sources: {},
+				layers: [],
+				version: 8
+			};
+
+			/**
+			 * 初始化地图实例
+			 */
+			var map = new minemap.Map({
+				container: "map",
+				style: style,
+				/*球面矢量底图样式*/
+				position: [116.28376060307022, 39.93547727159698, 11261.69872320431],
+				/*地图中心点*/
+				bearing: 0,
+				/*地图默认缩放等级*/
+				pitch: 40,
+				/*地图俯仰角度*/
+				maxZoom: 22,
+				/*地图最大缩放等级*/
+				minZoom: 1,
+				/*地图最小缩放等级*/
+				projection: "MERCATOR"
+			});
+			map.repaint = true;
+
+			/**
+			 * ATTENTION:
+			 * minemap.ARCTYPE.NONE 直线
+			 * minemap.ARCTYPE.GEODESIC 测地线
+			 * minemap.ARCTYPE.RHUMB 恒向线
+			 */
+
+			/**
+			 * // Example 1: 有高度简单线(直线)
+			 */
+			const redSimpleLinePrimitive = new minemap.Primitive({
+				geometry: new minemap.Geometries.SimplePolylineGeometry({
+					// 有高度
+					positions: minemap.Math.Vector3.fromDegreesArrayHeights([116.2, 40.01, 500, 116.4, 40.01, 500]),
+					arcType: minemap.ARCTYPE.NONE
+				}),
+				material: minemap.StandardMaterial.fromType("Color", {
+					color: "red"
+				})
+			});
+			map.addPrimitive(redSimpleLinePrimitive);
+
+			/**
+			 * // Example 2: 无高度简单线(直线)
+			 */
+			const greenSimpleLinePrimitive = new minemap.Primitive({
+				geometry: new minemap.Geometries.SimplePolylineGeometry({
+					// 无高度
+					positions: minemap.Math.Vector3.fromDegreesArray([116.2, 40.01, 116.4, 40.01]),
+					arcType: minemap.ARCTYPE.NONE
+				}),
+				material: minemap.StandardMaterial.fromType("Color", {
+					color: "green"
+				})
+			});
+			map.addPrimitive(greenSimpleLinePrimitive);
+
+			/**
+			 * // Example 3: 无高度简单线(测地线)
+			 */
+			const yellowSimpleLinePrimitive = new minemap.Primitive({
+				geometry: new minemap.Geometries.SimplePolylineGeometry({
+					// 无高度
+					positions: minemap.Math.Vector3.fromDegreesArray([116.2, 40.02, 116.4, 40.02]),
+					arcType: minemap.ARCTYPE.GEODESIC
+				}),
+				material: minemap.StandardMaterial.fromType("Color", {
+					color: "yellow"
+				})
+			});
+			map.addPrimitive(yellowSimpleLinePrimitive);
+
+			/**
+			 * // Example 4: 有高度简单线(测地线)
+			 */
+			const aquaSimpleLinePrimitive = new minemap.Primitive({
+				geometry: new minemap.Geometries.SimplePolylineGeometry({
+					// 有高度
+					positions: minemap.Math.Vector3.fromDegreesArrayHeights([116.2, 40.02, 500, 116.4, 40.02, 500]),
+					arcType: minemap.ARCTYPE.GEODESIC
+				}),
+				material: minemap.StandardMaterial.fromType("Color", {
+					color: "aqua"
+				})
+			});
+			map.addPrimitive(aquaSimpleLinePrimitive);
+
+			/**
+			 * // Example 5: 无高度简单线(恒向线)
+			 */
+			const blueSimpleLinePrimitive = new minemap.Primitive({
+				geometry: new minemap.Geometries.SimplePolylineGeometry({
+					// 无高度
+					positions: minemap.Math.Vector3.fromDegreesArray([116.2, 40.03, 116.4, 40.03]),
+					arcType: minemap.ARCTYPE.RHUMB
+				}),
+				material: minemap.StandardMaterial.fromType("Color", {
+					color: "blue"
+				})
+			});
+			map.addPrimitive(blueSimpleLinePrimitive);
+
+			/**
+			 * // Example 6: 有高度简单线(恒向线)
+			 */
+			const indigoSimpleLinePrimitive = new minemap.Primitive({
+				geometry: new minemap.Geometries.SimplePolylineGeometry({
+					// 有高度
+					positions: minemap.Math.Vector3.fromDegreesArrayHeights([116.2, 40.03, 500, 116.4, 40.03, 500]),
+					arcType: minemap.ARCTYPE.RHUMB
+				}),
+				material: minemap.StandardMaterial.fromType("Color", {
+					color: "INDIGO"
+				})
+			});
+			map.addPrimitive(indigoSimpleLinePrimitive);
+
+			map.on("load", function () {
+				/*添加栅格图*/
+				map.addSource("IMAGERY_SOURCE", {
+					type: "raster", //数据源类型：栅格数据源
+					tiles: ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+					tileSize: 512 //瓦片尺寸
+				});
+
+				map.addLayer({
+					id: "IMAGERY",
+					type: "raster", //图层类型为"raster"
+					source: "IMAGERY_SOURCE",
+					minzoom: 1,
+					maxzoom: 23,
+					paint: {
+						"raster-opacity": 1
+					}
+				});
+			});
+		</script>
+	</body>
+</html>

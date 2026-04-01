@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+	<title>GLFT模型旋转</title>
+	<!-- demo样式文件 -->
+	<link rel="stylesheet" href="../style/demo.css" />
+	<!-- 引入MineMap API插件 -->
+	<link rel="stylesheet" href="../../dist/minemap.css" />
+	<script src="../../dist/minemap-dev.js"></script>
+	<script type="text/javascript" src="http://192.168.152.123/minemap-engine/EngineCanaryDemo-develop/js/lil-gui.umd.min.js"></script>
+	<style>
+		#map {
+			margin: 0;
+			padding: 0;
+			width: 100%;
+			height: 100%;
+		}
+		input[type="text"] {
+			height: 20px;
+		}
+	</style>
+</head>
+<body>
+<div id="map"></div>
+<script>
+	/**
+	 * 全局参数设置
+	 */
+	minemap.domainUrl = "https://minemap.minedata.cn";
+	minemap.dataDomainUrl = "https://minemap.minedata.cn";
+	minemap.serverDomainUrl = "https://sd-data.minedata.cn";
+	minemap.spriteUrl = "http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite";
+	minemap.serviceUrl = "https://service.minedata.cn/service";
+
+	minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+	minemap.solution = 11001;
+
+	// 定义空底图样式
+	var style = {
+		glyphs: "minemap://fonts/{fontstack}/{range}",
+		sprite: "minemap://sprite/sprite",
+		sources: {},
+		layers: [],
+		version: 8
+	};
+	/**
+	 * 初始化地图实例
+	 */
+	var map = new minemap.Map({
+		container: "map",
+		style: style /*球面矢量底图样式*/,
+		center: [116.3875, 39.9867] /*地图中心点*/,
+		bearing: 0,
+		zoom: 16 /*地图默认缩放等级*/,
+		pitch: 60 /*地图俯仰角度*/,
+		maxZoom: 22 /*地图最大缩放等级*/,
+		minZoom: 1 /*地图最小缩放等级*/,
+		projection: "MERCATOR"
+	});
+
+	map.repaint = true;
+	map.enableLight();
+	const texture = minemap.TextureCubeLoader.load({
+		map,
+		path:"../image/cube/Park2/",
+		urls:['posx.jpg', 'negx.jpg', 'posy.jpg', 'negy.jpg', 'posz.jpg', 'negz.jpg'],
+		anisotropy: 1,
+		minFilter: minemap.WebGLConstants.LINEAR,
+		magFilter: minemap.WebGLConstants.LINEAR,
+		wrapS: minemap.WebGLConstants.CLAMP_TO_EDGE,
+		wrapT: minemap.WebGLConstants.CLAMP_TO_EDGE,
+		pixelFormat: minemap.WebGLConstants.RGBA,
+		pixelDatatype: minemap.WebGLConstants.HALF_FLOAT,
+		loaded: () => {
+			map.environment = texture;
+		}
+	});
+
+	map.on("load", function () {
+
+		map.loadImage('http://192.168.153.225:18899/mine-support/assets/web/support-data/images/arrow2.png', function (error, image) {
+			if (error) throw error;
+			// 添加自定义图标
+			map.addImage('arrow', image);
+
+			/*添加栅格图*/
+			map.addSource("IMAGERY_SOURCE", {
+				type: "raster", //数据源类型：栅格数据源
+				tiles: ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+				tileSize: 512 //瓦片尺寸
+			});
+
+			map.addLayer({
+				id: "IMAGERY",
+				type: "raster", //图层类型为"raster"
+				source: "IMAGERY_SOURCE",
+				minzoom: 1,
+				maxzoom: 23
+			});
+
+			// 添加gltf
+			map.addSceneComponent({
+				id: "trafficScene",
+				type: "3d-model",
+				data: "../data/traffic/scene.gltf", // 要加载的gltf格式数据
+				// data: "../data/test-gltf/trangles.gltf", // 要加载的gltf格式数据
+				modelFolder: "../data/traffic/", // 该数据引用图片等资源的文件夹路径
+				scale: [30, 30, 30], // 在xyz轴方向上的缩放比例
+				rotation: [90, 90, 0], // 绕xyz轴方向上的旋转，单位为度
+				position: [116.3875, 39.9867, 40], // 锚点（模型局部坐标原点）的经纬度位置
+				minzoom: 0, //gltf加载显示的最小层级
+				maxzoom: 24, //gtlf加载显示的最大层级
+				allowPick: true,
+				lightingModel: minemap.LightingModelType.PBR,
+				loaded: () => {
+					// 模型加载完成的回调函数
+				}
+			});
+
+			map.addSource("pointSource", {
+				"type": "geojson",
+				"data": {
+					"type": "FeatureCollection",
+					"features": [
+						{
+							"type": "Feature",
+							"geometry": {
+								"type": "Point",
+								"coordinates": [116.3865, 39.9875]
+							},
+							"properties": {
+								"title": "点我",
+								"kind": "school",
+								"icon":"arrow",
+								"height": 100,
+							},
+						}, {
+							"type": "Feature",
+							"geometry": {
+								"type": "Point",
+								"coordinates": [116.3913, 39.9841]
+							},
+							"properties": {
+								"title": "点我",
+								"kind": "park",
+								"icon":"arrow",
+								"height": 100,
+							},
+						}
+					]
+				}
+			});
+
+			map.addLayer({
+				"id": "symbolLayer",
+				"type": "symbol",//图层类型为"symbol"
+				"source": "pointSource",
+				"layout": {
+					//"icon-image": "traffic_light_18",
+					"icon-image": "{icon}",
+					"text-field": "{title}",
+					"icon-rotate": -180,
+					"text-size": 16,
+					"visibility": "visible",
+					"icon-pitch-alignment": "viewport",
+					"text-pitch-alignment": "viewport",
+					"icon-anchor":"bottom",
+					"icon-size":0.1,
+					"symbol-height-key": "height"
+				},
+				"paint": {
+					"icon-color": "#ff0000",
+					"text-color": "#ff0000"
+				},
+				classificationType: minemap.ClassificationType.FORCE_VECTOR_OVER_MODEL,
+			});
+
+			initializeGUI();
+		})
+	});
+
+	const optionsParams = {
+		当前选中模型: "请点击选中模型",
+		模型变化: "旋转",
+	};
+
+	let selectFolder, selectedFeature, transformationFolder, rotateFolderX, rotateFolderY, rotateFolderZ,translationFolderX,translationFolderY,translationFolderZ, scaleFolder;
+	function initializeGUI() {
+		const gui = new lil.GUI({ title: "模型变化", width: 300 });
+		gui.onChange((event) => {
+			optionsParams[event.property] = event.value;
+		});
+		selectFolder = gui.add(optionsParams, "当前选中模型");
+		materialFolder = gui.addFolder("参数设置");
+		transformationFolder =  materialFolder
+			.add(optionsParams, "模型变化")
+			.options(["旋转", "平移", "缩放"])
+	}
+
+	let startTime = null;
+	const duration = 2000; // 动画持续时间，单位毫秒
+	let Object_4_0Rotation = false;
+	let Object_24_0Rotation = false;
+	let Object_4_0Translation = false;
+	let Object_24_0Translation = false;
+	let Object_4_0Scale = false;
+	let Object_24_0Scale = false;
+
+	map.on("click", function (e) {
+		if (selectedFeature !== undefined) {
+			selectedFeature = undefined;
+		}
+		const feature = map.getFeatureByGPUPick(e.point);
+		if (feature && (feature.name === 'Object_4_0' ||feature.name === 'Object_24_0')) {
+			let selectPoint;
+			if (feature.name === 'Object_4_0') {
+				selectPoint = new minemap.Math.Vector3(116.38640225397752, 39.98740636679941, 55.63518056709305)
+			}
+			if (feature.name === 'Object_24_0') {
+				selectPoint = new minemap.Math.Vector3(116.3904310952203, 39.98420537447389, 76.55910919337056)
+			}
+			const globalPosition = minemap.Transforms.cartographicToCartesian3(selectPoint);
+			const position = new minemap.Math.Vector3(globalPosition).transform(feature.matrixWorld.clone().invert());
+			if (optionsParams.模型变化 === '旋转') {
+				feature.__quaternion = new minemap.Math.Quaternion();
+				const localMatrix = feature.matrix.clone();
+				const params = {
+					startTime: null,
+					duration: 500,// 动画持续时间，单位毫秒
+					position,
+					feature,
+					localMatrix,
+					x: 0,
+					y: 0,
+					z: 0
+				}
+				if (feature.name === 'Object_4_0' && Object_4_0Rotation) {
+					params.y = 90;
+					Object_4_0Rotation = !Object_4_0Rotation;
+				} else if (feature.name === 'Object_4_0' && !Object_4_0Rotation) {
+					params.y = -90;
+					Object_4_0Rotation = !Object_4_0Rotation;
+				} else if (feature.name === 'Object_24_0' && Object_24_0Rotation) {
+					params.x = -90;
+					Object_24_0Rotation = !Object_24_0Rotation;
+				} else if (feature.name === 'Object_24_0' && !Object_24_0Rotation) {
+					params.x = 90;
+					Object_24_0Rotation = !Object_24_0Rotation;
+				}
+				requestAnimationFrame((timestamp) => animateRotation(params, timestamp));
+			} else if (optionsParams.模型变化 === '平移') {
+				const localMatrix = feature.matrix.clone();
+				const params = {
+					startTime: null,
+					duration: 500,// 动画持续时间，单位毫秒
+					position,
+					feature,
+					localMatrix,
+					x: 0,
+					y: 0,
+					z: 0
+				}
+				if (feature.name === 'Object_4_0' && Object_4_0Translation) {
+					params.x = 2;
+					params.z = 2;
+					Object_4_0Translation = !Object_4_0Translation;
+				} else if (feature.name === 'Object_4_0' && !Object_4_0Translation) {
+					params.x = -2;
+					params.z = -2;
+					Object_4_0Translation = !Object_4_0Translation;
+				} else if (feature.name === 'Object_24_0' && Object_24_0Translation) {
+					params.z = -5;
+					Object_24_0Translation = !Object_24_0Translation;
+				} else if (feature.name === 'Object_24_0' && !Object_24_0Translation) {
+					params.z = 5;
+					Object_24_0Translation = !Object_24_0Translation;
+				}
+				requestAnimationFrame((timestamp) => animateTranslation(params, timestamp));
+			} else {
+				const localMatrix = feature.matrix.clone();
+				const params = {
+					startTime: null,
+					duration: 500,// 动画持续时间，单位毫秒
+					position,
+					feature,
+					localMatrix,
+					x: 1,
+					y: 1,
+					z: 1
+				}
+				if (feature.name === 'Object_4_0' && !Object_4_0Scale) {
+					params.x = 2;
+					params.y = 2;
+					params.z = 2;
+					Object_4_0Scale = !Object_4_0Scale;
+				} else if (feature.name === 'Object_4_0' && Object_4_0Scale) {
+					params.x = 0.5;
+					params.y = 0.5;
+					params.z = 0.5;
+					Object_4_0Scale = !Object_4_0Scale;
+				} else if (feature.name === 'Object_24_0' && !Object_24_0Scale) {
+					params.x = 2;
+					params.y = 2;
+					params.z = 2;
+					Object_24_0Scale = !Object_24_0Scale;
+				} else if (feature.name === 'Object_24_0' && Object_24_0Scale) {
+					params.x = 0.5;
+					params.y = 0.5;
+					params.z = 0.5;
+					Object_24_0Scale = !Object_24_0Scale;
+				}
+				requestAnimationFrame((timestamp) => animateScale(params, timestamp));
+			}
+			selectedFeature = feature;
+			selectFolder.setValue(feature.name);
+		} else {
+			selectFolder.setValue("请点击选中模型");
+		}
+	});
+
+
+	function animateRotation(params, timestamp) {
+		if (!params.startTime) params.startTime = timestamp;
+
+		const elapsedTime = timestamp - params.startTime;
+		// 计算当前位置
+		const progress = Math.min(elapsedTime / params.duration, 1); // 进度值（0 到 1）
+		const progressRounded = parseFloat(progress.toFixed(1));
+		const oQuaternion = params.feature.__quaternion.clone();
+		const tQuaternion = new minemap.Math.Quaternion().fromHeadingPitchRoll(minemap.Math.HeadingPitchRoll.fromDegrees(params.x, params.y, params.z));
+		const quaternionMatrix = new minemap.Math.Matrix4().fromQuaternion(new minemap.Math.Quaternion().slerp(oQuaternion, tQuaternion, progressRounded));
+		const positionMatrix = new minemap.Math.Matrix4().makeTranslation(...params.position);
+		const positionMatrixInv = new minemap.Math.Matrix4().makeTranslation(...params.position.clone().multiplyByScalar(-1));
+		params.feature.__quaternion = new minemap.Math.Quaternion().slerp(oQuaternion, tQuaternion, progressRounded);
+		params.feature.setMatrix(params.localMatrix.clone().multiplyRight(positionMatrix).multiplyRight(quaternionMatrix).multiplyRight(positionMatrixInv));
+
+		params.feature.updateMatrixWorld(true);
+		if (progress < 1) {
+			// 继续请求下一帧
+			requestAnimationFrame((timestamp) => animateRotation(params, timestamp));
+		}
+	}
+
+	function animateTranslation(params, timestamp) {
+		if (!params.startTime) params.startTime = timestamp;
+
+		const elapsedTime = timestamp - params.startTime;
+		// 计算当前位置
+		const progress = Math.min(elapsedTime / params.duration, 1); // 进度值（0 到 1）
+		const progressRounded = parseFloat(progress.toFixed(1));
+		const oPosition = new minemap.Math.Vector3();
+		const tPosition = new minemap.Math.Vector3([params.x,params.y,params.z]);
+		const translationMatrix = new minemap.Math.Matrix4().makeTranslation(...new minemap.Math.Vector3().lerp(oPosition, tPosition, progressRounded));
+		const positionMatrix = new minemap.Math.Matrix4().makeTranslation(...params.position);
+		const positionMatrixInv = new minemap.Math.Matrix4().makeTranslation(...params.position.clone().multiplyByScalar(-1));
+		params.feature.setMatrix(params.localMatrix.clone().multiplyRight(positionMatrix).multiplyRight(translationMatrix).multiplyRight(positionMatrixInv));
+
+		params.feature.updateMatrixWorld(true);
+		if (progress < 1) {
+			// 继续请求下一帧
+			requestAnimationFrame((timestamp) => animateTranslation(params, timestamp));
+		}
+	}
+
+	function animateScale(params, timestamp) {
+		if (!params.startTime) params.startTime = timestamp;
+
+		const elapsedTime = timestamp - params.startTime;
+		// 计算当前位置
+		const progress = 1; // 进度值（0 到 1）
+		// const progress = Math.min(elapsedTime / params.duration, 1); // 进度值（0 到 1）
+		const progressRounded = parseFloat(progress.toFixed(1));
+		const oScale = params.feature.scale;
+		const tScale = new minemap.Math.Vector3([params.x,params.y,params.z]);
+		const scaleVector = new minemap.Math.Vector3().lerp(oScale, tScale, progressRounded)
+		const scaleMatrix = new minemap.Math.Matrix4().scale(scaleVector);
+		const positionMatrix = new minemap.Math.Matrix4().makeTranslation(...params.position);
+		const positionMatrixInv = new minemap.Math.Matrix4().makeTranslation(...params.position.clone().multiplyByScalar(-1));
+		params.feature.setMatrix(params.localMatrix.clone().multiplyRight(positionMatrix).multiplyRight(scaleMatrix).multiplyRight(positionMatrixInv));
+		params.feature.updateMatrixWorld(true);
+		if (progress < 1) {
+			// 继续请求下一帧
+			requestAnimationFrame((timestamp) => animateScale(params, timestamp));
+		}
+	}
+</script>
+</body>
+</html>

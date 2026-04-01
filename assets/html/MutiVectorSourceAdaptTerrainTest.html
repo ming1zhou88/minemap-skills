@@ -1,0 +1,857 @@
+<!DOCTYPE html>
+<html lang="zh">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>贴地矢量：点线面-热力-倾斜-综合示例</title>
+	<!-- demo样式文件 -->
+	<link rel="stylesheet" href="https://minedata.cn/nce-static/support/demo/js-3d-ultra/zh/css/demo.css">
+	<!-- 引入MineMap API插件 -->
+	<link rel="stylesheet" href="../../dist/minemap.css" />
+	<script src="../../dist/minemap-dev.js"></script>
+	<script src="../js/lil-gui.umd.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+            position: relative;
+        }
+
+        .control-panel {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+        }
+
+        .data-panel {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+        }
+
+        /*
+        #changeColor {
+            position: absolute;
+            top: 66px;
+            left: 14px;
+            z-index: 999;
+            border: solid 2px #ffffff;
+            padding: 2px 3px;
+            text-align: center;
+        } */
+
+        button {
+            margin: 5px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="card-panel card-panel-top-left">
+        <div class="card-title">获取地图缩放级别与中心点</div>
+        <div class="card-item">
+            <p>当前缩放级别：<span id="map-zoom"></span></p>
+            <p>当前中心点：<span id="map-center"></span></p>
+
+            <button id="changeColor" onclick="changeColor()">改变热力图颜色</button>
+        </div>
+    </div>
+    <div id="map"></div>
+    <div class="control-panel"></div>
+    <!-- <div class="data-panel">
+        <h3>数据统计</h3>
+        <p>POI总数：<span id="poiCount">0</span></p>
+    </div> -->
+
+    <script>
+        // 初始化配置
+        minemap.domainUrl = "https://minedata.cn";
+        minemap.serverDomainUrl = 'https://sd-data.minedata.cn';
+        minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+        minemap.key = '0c6ac62182404e5ebc7a789981f6db72';
+
+        window.minemapCDN = 'https://minemap.minedata.cn/minemapapi/minemap-CDN'; // minemapCDN 配置
+
+
+        // 创建地图实例
+        const map = new minemap.Map({
+            container: 'map',
+            style: {
+                "glyphs": "minemap://fonts/{fontstack}/{range}",
+                "sprite": "minemap://sprite/sprite",
+                "sources": {},
+                "layers": [],
+                "version": 8
+            },
+            center: [120.38015010295995, 36.08784061685526],
+            zoom: 11.481887761027616,
+            pitch: 60.1350842175374,
+            bearing: -1.0177774980683254e-13,
+            maxZoom: 22,
+            minZoom: 10,
+            projection: 'MERCATOR'
+        });
+        var center = [120.38015010295995, 36.08784061685526];
+        // 全局状态管理
+        const state = {
+            layers: {
+                "POI-Circle": true,
+                "POI-Symbol": false,
+                "HeatmapLayer": false,
+                FunctionArea: true,
+                Oblique: true,
+                Terrain: true,
+                lineAdaptTerrain: true,
+                fillAdaptTerrain: true
+            },
+            viewshed: {
+                active: false,
+                component: null
+            }
+        };
+        //显示地图层级与中心点
+        function showMapInfo() {
+            var zoom = map.getZoom(); //获取当前地图级别
+            var center = map.getCenter(); //获取当前地图中心位置
+
+            document.getElementById("map-zoom").innerText = zoom.toFixed(2);
+            document.getElementById("map-center").innerText = center.lng.toFixed(6) + "," + center.lat.toFixed(6);
+        };
+
+        // 初始化GUI
+        const gui = new lil.GUI({ container: document.querySelector('.control-panel') });
+
+        // 设置地形
+        map.setTerrain({
+            tiles: ['https://staticdata-b.minedata.cn:14434/dem/{z}/{r}/{c}/{z}_{x}_{y}.terrain'],
+            tileSize: 512
+        });
+
+        function addImage(url, name) {
+            return new Promise((resolve, reject) => {
+                map.loadImage(url, (err, images) => {
+                    if (err) throw err;
+                    // 添加自定义图标
+                    map.addImage(name, images);
+                    resolve(name);
+                });
+            })
+        }
+
+        // 主加载函数
+        map.on('load', async () => {
+
+            showMapInfo();
+
+            // 加载影像底图
+            map.addSource('imagery', {
+                type: 'raster',
+                tiles: ['https://dom-data.minedata.cn/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg'],
+                tileSize: 512
+            });
+            map.addLayer({
+                id: 'imagery-layer',
+                type: 'raster',
+                source: 'imagery'
+            });
+
+            Promise.all([
+                addImage("https://minedata.cn/nce-static/support/demo/js-3d-ultra/zh/images/symbol-hospital-icon.png", "hospital-icon"),
+                addImage("https://minedata.cn/nce-static/support/demo/js-3d-ultra/zh/images/symbol-park-icon.png", "park-icon"),
+                addImage("https://minedata.cn/nce-static/support/demo/js-3d-ultra/zh/images/symbol-university-icon.png", "university-icon")]
+            ).then((res) => {
+                // 加载POI数据
+                map.addSource('poi', {
+                    type: 'geojson',
+                    data: '../data/POIqingdao.geojson',
+                    adaptTerrain: true
+                });
+                map.addLayer({
+                    id: 'poi-layer',
+                    type: 'circle',
+                    source: 'poi',
+                    paint: {
+                        'circle-color': '#4287f5',
+                        'circle-radius': 4
+                    }
+                });
+
+
+                map.addLayer({
+                    "id": "symbolLayer2",
+                    "type": "symbol",//图层类型为"symbol"
+                    "source": "poi",
+                    "layout": {
+
+                        // 'icon-allow-overlap': true,
+                        // "icon-ignore-placement": true,
+                        // "icon-optional": true,
+                        // 'text-allow-overlap': true,
+                        // "text-ignore-placement": true,
+                        // "text-optional": true,
+
+                        "icon-image": "park-icon",
+                        // "icon-image": "{icon}",
+                        "text-field": "{name}",
+                        "text-size": 14,
+                        "visibility": "none",
+                        "icon-pitch-alignment": "viewport",
+                        "text-pitch-alignment": "viewport",
+                        "icon-anchor": "bottom",
+                        "icon-size": 0.6,
+                    },
+                    "paint": {
+                        "icon-color": "#00f",
+                        "text-color": "#f0f"
+                    },
+
+                    hiddenType: minemap.SymbolHiddenType.SCENE, // 开启按场景遮挡
+                    "auto-height": true, // 开启自动赋高
+                    "auto-height-offset": 20, // 开启自动赋高后，在计算出的高度的基础上进行上下偏移的距离
+                    classificationType: minemap.ClassificationType.FORCE_VECTOR_OVER_MODEL,
+
+                });
+
+
+
+                // 加载功能面数据
+                map.addSource('function', {
+                    type: 'geojson',
+                    data: '../data/gongnengmian.geojson',
+                    adaptTerrain: true
+                });
+                map.addLayer({
+                    id: 'function-layer',
+                    type: 'fill',
+                    source: 'function',
+                    paint: {
+                        'fill-color': '#475AFF',
+                        'fill-opacity': 0.5
+                    }
+                });
+
+            })
+
+
+            //添加数据源,该热力图效果，数据源类型支持geojson或vector两种形式
+            map.addSource("heatmapSource", {
+                type: "geojson",
+                data: "../data/POIqingdao.geojson",
+                adaptTerrain: true,
+            });
+
+            map.addLayer({
+                "id": "heatmapLayer",
+                "type": "heatmap",
+                "source": "heatmapSource",
+                "layout": {
+                    "visibility": "none"
+                },
+                "paint": {
+                    // 一个热力图数据点的模糊范围，单位是像素，默认值30；要求：值大于等于1，可根据zoom level进行插值设置
+                    "heatmap-radius": 50,
+                    //一个热力图单个数据点的热力程度，默认值为1；要求：值大于等于0，支持使用property中某个的热力值
+                    "heatmap-weight": {
+                        "property": "mag",
+                        "stops": [[0, 0], [10, 1]]
+                    },
+                    // 用于统一控制热力值的强度，默认值1；要求：值大于等于0，可根据zoom level进行插值设置
+                    "heatmap-intensity": 1,
+                    // 表示热力图颜色阶梯，阶梯的值域范围为0-1，默认值为["interpolate",["linear"],["heatmap-density"],0,"rgba(0, 0, 255, 0)",0.1,"royalblue",0.3,"cyan",0.5,"lime",0.7,"yellow",1,"red"]
+                    "heatmap-color": [
+                        "interpolate",
+                        ["linear"],
+                        ["heatmap-density"],
+                        0, "rgba(0, 0, 255, 0)", 0.1, "royalblue", 0.3, "cyan", 0.5, "lime", 0.7, "yellow", 1, "red"
+                    ],
+                    // 表示热力图的不透明度，默认值1；值域范围0-1，可根据zoom level进行插值设置
+                    "heatmap-opacity": 1,
+                }
+            });
+
+
+            // 加载倾斜摄影
+            window.tileset = map.addSceneComponent({
+                id: 'oblique',
+                type: '3d-tiles',
+                url: 'https://staticdata-b.minedata.cn:14434/oblique/tileset.json',
+                translation: new minemap.Math.Vector3(0, 0, 120)
+            });
+
+
+
+            // 飞行定位
+            map.flyTo({
+                center: [120.40679756635005, 36.105051127625856],
+                zoom: 14,
+                pitch: 60,
+                duration: 3000
+            });
+
+            // 初始化控制面板
+            initControls();
+
+            // 实现功能
+            // implementFeatures();
+        });
+        // 点击修改热力图颜色
+        function changeColor() {
+            map.setPaintProperty("heatmapLayer", "heatmap-color",
+                ["interpolate",
+                    ["linear"],
+                    ["heatmap-density"],
+                    0,
+                    'rgba(33,102,172,0)',
+                    0.2,
+                    'rgb(103,169,207)',
+                    0.4,
+                    'rgb(209,229,240)',
+                    0.6,
+                    'rgb(253,219,199)',
+                    0.8,
+                    'rgb(239,138,98)',
+                    1,
+                    'rgb(178,24,43)']
+            )
+        }
+
+
+        //绑定地图移动与缩放事件
+        map.on('moveend', showMapInfo);
+        map.on('zoomend', showMapInfo);
+
+
+        // 控制面板初始化
+        function initControls() {
+            // 图层控制
+            gui.add(state.layers, 'POI-Circle').name('显示POI圆点').onChange(v => {
+                map.setLayoutProperty('poi-layer', 'visibility', v ? 'visible' : 'none');
+            });
+
+            gui.add(state.layers, 'POI-Symbol').name('显示POI符号').onChange(v => {
+                map.setLayoutProperty('symbolLayer2', 'visibility', v ? 'visible' : 'none');
+            });
+
+            gui.add(state.layers, 'FunctionArea').name('显示功能面').onChange(v => {
+                map.setLayoutProperty('function-layer', 'visibility', v ? 'visible' : 'none');
+            });
+            gui.add(state.layers, 'Oblique').name('显示倾斜摄影').onChange(v => {
+                // v ? map.addSceneComponent('oblique') : map.removeSceneComponent('oblique');
+                window.tileset.show = v;
+            });
+            gui.add(state.layers, 'Terrain').name('地形显示').onChange(v => {
+                v ? map.setTerrain({ tiles: ['https://staticdata-b.minedata.cn:14434/dem/{z}/{r}/{c}/{z}_{x}_{y}.terrain'] })
+                    : map.setTerrain(null);
+            });
+            gui.add(state.layers, 'HeatmapLayer').name('显示热力图').onChange(v => {
+                map.setLayoutProperty('heatmapLayer', 'visibility', v ? 'visible' : 'none');
+            });
+
+            const buttonFolder = gui.addFolder('Primitive');
+            buttonFolder.add({
+                '重置视角': function () {
+                    map.flyTo({
+                        center: [120.40679756635005, 36.105051127625856],
+                        zoom: 14,
+                        pitch: 60,
+                        duration: 3000
+                    });
+                }
+            }, '重置视角');
+
+            buttonFolder.add({
+                '添加线面-Primitive': function () {
+                    addPrimitives();
+                }
+            }, '添加线面-Primitive');
+
+            buttonFolder.add({
+                '删除线面-Primitive': function () {
+                    deletePrimitives();
+                }
+            }, '删除线面-Primitive');
+
+
+            buttonFolder.add({
+                '显示线面-Primitive': function () {
+                    showPrimitives();
+                }
+            }, '显示线面-Primitive');
+
+            // gui.add(state.layers, 'lineAdaptTerrain').onFinishChange(event => {
+            //     map.removeLayer("lineLayer")
+            //     map.removeSource("lineSource")
+            //     addLine(event)
+            // });
+            // gui.add(state.layers, 'fillAdaptTerrain').onFinishChange(event => {
+            //     map.removeLayer("fillLayer")
+            //     map.removeSource("fillSource")
+            //     addFill(event)
+            // });
+
+            // 矢量线
+            {
+                const buttonFolder2 = gui.addFolder('VectorLine');
+
+                buttonFolder2.add({
+                    '添加矢量线图层-10级': function () {
+                        addVectorLine(true,
+                            "10",
+                            "http://192.168.152.227:18101/service/map/mvt-layer/518/{z}/{x}/{y}?tileMatrixSet=MERCATOR&appKey=9805283f5b554af09869e8cecc445f6b"
+                            , 10, "#ff0000", "518")
+                    }
+                }, '添加矢量线图层-10级');
+
+                buttonFolder2.add({
+                    '添加矢量线图层-15级': function () {
+                        addVectorLine(true,
+                            "15",
+                            "http://192.168.152.227:18101/service/map/mvt-layer/517/{z}/{x}/{y}?tileMatrixSet=MERCATOR&appKey=9805283f5b554af09869e8cecc445f6b"
+                            , 15, "#ff00FF", "517")
+                    }
+                }, '添加矢量线图层-15级');
+
+                buttonFolder2.add({
+                    '添加矢量线图层-20级': function () {
+                        addVectorLine(true,
+                            "20",
+                            "http://192.168.152.227:18101/service/map/mvt-layer/518/{z}/{x}/{y}?tileMatrixSet=MERCATOR&appKey=9805283f5b554af09869e8cecc445f6b"
+                            , 20, "#ffFF00", "518")
+                    }
+                }, '添加矢量线图层-20级');
+
+
+
+
+                buttonFolder2.add({
+                    '隐藏矢量线图层-10级': function () {
+                        showVectorLayer("lineLayer10")
+                    }
+                }, '隐藏矢量线图层-10级');
+                buttonFolder2.add({
+                    '隐藏矢量线图层-15级': function () {
+                        showVectorLayer("lineLayer15")
+                    }
+                }, '隐藏矢量线图层-15级');
+                buttonFolder2.add({
+                    '隐藏矢量线图层-20级': function () {
+                        showVectorLayer("lineLayer20")
+                    }
+                }, '隐藏矢量线图层-20级');
+
+
+                buttonFolder2.add({
+                    '删除矢量线图层-10级': function () {
+                        deleteVectorLayerLine(10)
+                    }
+                }, '删除矢量线图层-10级');
+                buttonFolder2.add({
+                    '删除矢量线图层-15级': function () {
+                        deleteVectorLayerLine(15)
+                    }
+                }, '删除矢量线图层-15级');
+                buttonFolder2.add({
+                    '删除矢量线图层-20级': function () {
+                        deleteVectorLayerLine(20)
+                    }
+                }, '删除矢量线图层-20级');
+
+            }
+
+            // 矢量面
+            {
+                const buttonFolder3 = gui.addFolder('VectorMap');
+
+                buttonFolder3.add({
+                    '添加矢量面图层-10级': function () {
+                        addFill(true,
+                            "10",
+                            "http://192.168.152.227:18101/service/map/mvt-layer/519/{z}/{x}/{y}?tileMatrixSet=MERCATOR&appKey=9805283f5b554af09869e8cecc445f6b"
+                            , 10, "#ff0000", "519")
+                    }
+                }, '添加矢量面图层-10级');
+
+                buttonFolder3.add({
+                    '添加矢量面图层-15级': function () {
+                        addFill(true,
+                            "15",
+                            "http://192.168.152.227:18101/service/map/mvt-layer/519/{z}/{x}/{y}?tileMatrixSet=MERCATOR&appKey=9805283f5b554af09869e8cecc445f6b"
+                            , 15, "#ff00FF", "519")
+                    }
+                }, '添加矢量面图层-15级');
+
+                buttonFolder3.add({
+                    '添加矢量面图层-20级': function () {
+                        addFill(true,
+                            "20",
+                            "http://192.168.152.227:18101/service/map/mvt-layer/520/{z}/{x}/{y}?tileMatrixSet=MERCATOR&appKey=9805283f5b554af09869e8cecc445f6b"
+                            , 20, "#ffFF00", "520")
+                    }
+                }, '添加矢量面图层-20级');
+
+
+
+
+                buttonFolder3.add({
+                    '隐藏矢量面图层-10级': function () {
+                        showVectorLayer("fillLayer10")
+                    }
+                }, '隐藏矢量面图层-10级');
+                buttonFolder3.add({
+                    '隐藏矢量面图层-15级': function () {
+                        showVectorLayer("fillLayer15")
+                    }
+                }, '隐藏矢量面图层-15级');
+                buttonFolder3.add({
+                    '隐藏矢量面图层-20级': function () {
+                        showVectorLayer("fillLayer20")
+                    }
+                }, '隐藏矢量面图层-20级');
+
+
+                buttonFolder3.add({
+                    '删除矢量面图层-10级': function () {
+                        deleteVectorLayerPolygon(10)
+                    }
+                }, '删除矢量面图层-10级');
+                buttonFolder3.add({
+                    '删除矢量面图层-15级': function () {
+                        deleteVectorLayerPolygon(15)
+                    }
+                }, '删除矢量面图层-15级');
+                buttonFolder3.add({
+                    '删除矢量面图层-20级': function () {
+                        deleteVectorLayerPolygon(20)
+                    }
+                }, '删除矢量面图层-20级');
+            }
+
+            // // 可视域分析开关
+            // gui.add({ '可视域分析': false }).onChange(v => {
+            //     state.viewshed.active = v;
+            //     if (!v && state.viewshed.component) {
+            //         map.removeSceneComponent(state.viewshed.component);
+            //     }
+            // });
+        }
+
+        // 核心功能实现
+        function implementFeatures() {
+            // 功能1：可视域分析
+            map.on('click', async (e) => {
+                if (!state.viewshed.active) return;
+
+                if (state.viewshed.component) {
+                    map.removeSceneComponent(state.viewshed.component);
+                }
+
+                state.viewshed.component = await map.addSceneComponent({
+                    id: 'viewshed-' + Date.now(),
+                    type: 'viewshed',
+                    position: [e.lngLat.lng, e.lngLat.lat, 200],
+                    horizontalAngle: 90,
+                    verticalAngle: 60,
+                    distance: 1000,
+                    color: '#00FF00'
+                });
+            });
+
+            // 功能2：POI统计
+            const poiCount = map.querySourceFeatures('poi').length;
+            document.getElementById('poiCount').textContent = poiCount;
+
+            // 功能3：POI空间分析
+            const functionFeatures = map.querySourceFeatures('function');
+            map.setPaintProperty('poi-layer', 'circle-color', [
+                'case',
+                ...functionFeatures.flatMap(feature => [
+                    ['within', ['geometry'], feature.geometry],
+                    '#ff0000'
+                ]),
+                '#4287f5'
+            ]);
+        }
+    </script>
+
+    <script>
+
+        map.repaint = true
+
+        // 添加矢量图层-线、面，以及交互事件
+        map.on("click", function (e) {
+            const feature = map.getFeatureByGPUPick(e.point);
+            if (feature && feature.material) {
+                if (feature.material instanceof minemap.StandardMaterial) {
+                    feature.material.updateProperty({
+                        color: new minemap.Color(Math.random(), Math.random(), Math.random(), 1)
+                    });
+                } else {
+                    feature.material.uniformMap.color = new minemap.Color(Math.random(), Math.random(), Math.random(), 1);
+                }
+            } else {
+                console.log("未选中任何要素");
+            }
+        });
+
+        function addPrimitives() {
+            deletePrimitives()
+
+            const height = 50;
+            const linePosition = [
+                center[0] - 0.06,
+                center[1] - 0.06,
+                height,
+                center[0] - 0.01,
+                center[1] + 0.01,
+                height,
+                center[0] + 0.02,
+                center[1] + 0.02,
+                height,
+                center[0] - 0.01,
+                center[1] - 0.01,
+                height
+            ];
+            const polygonPosition = [
+                ...center,
+                center[0],
+                center[1] + 0.06,
+                center[0] + 0.06,
+                center[1],
+                ...center
+            ];
+            const lineGeometry = new minemap.Geometries.PolylineGeometry({
+                positions: minemap.Math.Vector3.fromDegreesArrayHeights(linePosition),
+                width: 10
+            });
+            const lineMaterial = new minemap.PolylineMaterial({
+                color: new minemap.Color(1, 0, 0, 0.5)
+                // dashed: true
+            });
+            const redPolylinePrimitive = new minemap.Primitive({
+                geometry: lineGeometry,
+                material: lineMaterial,
+                name: "polyline",
+                adaptTerrain: true, //贴合三维场景，单体化操作
+                allowPick: true,
+                id: "linePrimitive"
+            });
+            map.addPrimitive(redPolylinePrimitive);
+            window.line = redPolylinePrimitive;
+            const polygonGeometry = new minemap.Geometries.PolygonGeometry({
+                polygonHierarchy: {
+                    positions: minemap.Math.Vector3.fromDegreesArray(polygonPosition)
+                },
+                height: 10
+            });
+            const polygonMaterial = minemap.StandardMaterial.fromType("Color", {
+                color: new minemap.Color(1, 0, 0, 0.5),
+                doubleSided: true
+            });
+            const polygonPrimitive = new minemap.Primitive({
+                geometry: polygonGeometry,
+                material: polygonMaterial,
+                adaptTerrain: true, //贴合三维场景，单体化操作
+                allowPick: true,
+                id: "polygonPrimitive"
+            });
+            map.addPrimitive(polygonPrimitive);
+        }
+
+        function deletePrimitives() {
+            if (map.getPrimitiveById("polygonPrimitive")) {
+                map.removePrimitive(map.getPrimitiveById("polygonPrimitive"));
+            }
+            if (map.getPrimitiveById("linePrimitive")) {
+                map.removePrimitive(map.getPrimitiveById("linePrimitive"));
+            }
+        }
+
+        function showPrimitives() {
+            if (map.getPrimitiveById("polygonPrimitive")) {
+                map.getPrimitiveById("polygonPrimitive").visible = !map.getPrimitiveById("polygonPrimitive").visible;
+            }
+            if (map.getPrimitiveById("linePrimitive")) {
+                map.getPrimitiveById("linePrimitive").visible = !map.getPrimitiveById("linePrimitive").visible;
+            }
+        }
+
+    </script>
+
+    <script>
+        function addLine(adaptTerrain) {
+            // 加载线数据源
+            map.addSource("lineSource",
+                {
+                    "tiles": [
+                        `http://data3-gateway.nke-0wnr83.cloud.app.ncloud.navinfo.com/service/map/mvt-layer/2599/{z}/{x}/{y}?tileMatrixSet=MERCATOR&key=${key}`
+                    ],
+                    "maxzoom": 19,
+                    "type": "vector",
+                    "minzoom": 7,
+                    adaptTerrain
+                }
+            );
+            // 加载线图层
+            map.addLayer({
+                "source": "lineSource",
+                "layout": {},
+                "maxzoom": 24,
+                "paint": {
+                    "line-border-color": "#475AFF",
+                    "line-color": "#FF3C31FF"
+                },
+                "source-layer": "2599",
+                "type": "line",
+                "minzoom": 7,
+                "id": "lineLayer"
+            });
+        }
+
+        function addFill(adaptTerrain) {
+            // 添加面数据源
+            map.addSource("fillSource",
+                {
+                    "tiles": [
+                        `http://data3-gateway.nke-0wnr83.cloud.app.ncloud.navinfo.com/service/map/mvt-layer/2600/{z}/{x}/{y}?tileMatrixSet=MERCATOR&key=${key}`
+                    ],
+                    "maxzoom": 16,
+                    "type": "vector",
+                    "minzoom": 7,
+                    adaptTerrain
+                });
+            // 添加面图层
+            map.addLayer({
+                "source": "fillSource",
+                "layout": {},
+                "maxzoom": 24,
+                "paint": {
+                    "fill-color": "#475AFF",
+                    "fill-outline-color": "#475AFF",
+                    "fill-opacity": 0.8
+                },
+                "source-layer": "2600",
+                "type": "fill",
+                "minzoom": 7,
+                "id": "fillLayer"
+            });
+        }
+    </script>
+
+
+    <script>
+
+        function deleteVectorLayerLine(id) {
+            if (map.getLayer("lineLayer" + id)) {
+                map.removeLayer("lineLayer" + id)
+            }
+            if (map.getSource("lineSource" + id)) {
+                map.removeSource("lineSource" + id)
+            }
+        }
+        function deleteVectorLayerPolygon(id) {
+            if (map.getLayer("fillLayer" + id)) {
+                map.removeLayer("fillLayer" + id)
+            }
+            if (map.getSource("fillSource" + id)) {
+                map.removeSource("fillSource" + id)
+            }
+        }
+
+        function showVectorLayer(layerid) {
+            if (map.getLayer(layerid)) {
+                const visibility = map.getLayoutProperty(layerid, 'visibility');
+                console.log(visibility); // 'visible' 或 'none'
+                if (visibility === 'visible') {
+                    map.setLayoutProperty(layerid, 'visibility', 'none');
+                } else {
+                    map.setLayoutProperty(layerid, 'visibility', 'visible');
+                }
+            }
+        }
+
+
+        function addVectorLine(adaptTerrain, id, url, maxzoom, color, sourceLayer) {
+            deleteVectorLayerLine(id)
+            // 加载线数据源
+            map.addSource("lineSource" + id,
+                {
+                    "tiles": [
+                        url
+                    ],
+                    "maxzoom": maxzoom || 19,
+                    "type": "vector",
+                    "minzoom": 7,
+                    adaptTerrain
+                }
+            );
+            // 加载线图层
+            map.addLayer({
+                "source": "lineSource" + id,
+                "layout": {},
+                "maxzoom": 24,
+                "paint": {
+                    "line-border-color": "#475AFF",
+                    "line-color": color || "#FF3C31FF"
+                },
+                "source-layer": sourceLayer,
+                "type": "line",
+                "minzoom": 7,
+                "id": "lineLayer" + id
+            });
+        }
+
+        function addFill(adaptTerrain, id, url, maxzoom, color, sourceLayer) {
+
+            deleteVectorLayerPolygon(id)
+
+            // 添加面数据源
+            map.addSource("fillSource" + id,
+                {
+                    "tiles": [
+                        url || `http://data3-gateway.nke-0wnr83.cloud.app.ncloud.navinfo.com/service/map/mvt-layer/2600/{z}/{x}/{y}?tileMatrixSet=MERCATOR&key=${key}`
+                    ],
+                    "maxzoom": maxzoom || 16,
+                    "type": "vector",
+                    "minzoom": 7,
+                    adaptTerrain
+                });
+            // 添加面图层
+            map.addLayer({
+                "source": "fillSource" + id,
+                "layout": {},
+                "maxzoom": 24,
+                "paint": {
+                    "fill-color": color || "#475AFF",
+                    "fill-outline-color": color || "#475AFF",
+                    "fill-opacity": 0.8
+                },
+                "source-layer": sourceLayer,
+                "type": "fill",
+                "minzoom": 7,
+                "id": "fillLayer" + id
+            });
+        }
+
+
+    </script>
+
+</body>
+
+</html>

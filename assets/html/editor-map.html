@@ -1,0 +1,804 @@
+<!--
+ * @FileDescription:
+ * @Author: joker
+ * @Date: 2023-11-11 11:09:03
+ * @LastEditors: defineconst
+ * @LastEditTime: 2026-01-30 13:59:55
+-->
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>MineMap Demos</title>
+
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta http-equiv="Content-Type" content="text/html;charset=utf-8">
+    <!-- 360浏览器默认使用Webkit内核 -->
+    <meta name="renderer" content="webkit" />
+    <!-- Chrome浏览器添加桌面快捷方式（安卓） -->
+    <link rel="shortcut icon" type="image/x-icon" href="img/favicon/favicon.ico" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <!-- Safari浏览器添加到主屏幕（IOS） -->
+    <link rel="icon" sizes="192x192" href="../img/favicon/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black" />
+    <meta name="apple-mobile-web-app-title" content="MineMap" />
+    <!-- Win8标题栏及ICON图标 -->
+    <link rel="apple-touch-icon-precomposed" href="../img/favicon/apple-touch-icon.png" />
+    <meta name="msapplication-TileImage" content="img/favicon/app-icon72x72@2x.png" />
+    <style>
+        html,
+        body {
+            height: 100%;
+            padding: 0px;
+            margin: 0px;
+            height: 100%;
+            overflow: hidden;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            color: #e8f4fd;
+        }
+
+        .main {
+            display: flex;
+            height: 100%;
+            overflow: hidden;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+        }
+
+        .bt {
+            position: absolute;
+            left: calc(10% + 15px);
+            top: 0px;
+        }
+
+        #toggleSidebar {
+            position: absolute;
+            bottom: 20px;
+            left: 10px;
+            z-index: 2000;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            opacity: 0.8;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            background: linear-gradient(135deg, #4a90e2 0%, #357abd 100%);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        #toggleSidebar:hover {
+            opacity: 1;
+            transform: scale(1.1);
+            box-shadow: 0 6px 20px rgba(74, 144, 226, 0.6);
+            cursor: pointer;
+        }
+
+        #toggleSidebar i {
+            transition: transform 0.3s ease;
+        }
+
+        .all {
+            position: relative;
+            height: 100%;
+        }
+
+
+        #container {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            border: 1px solid grey;
+        }
+
+        button {
+            background: linear-gradient(135deg, #4a90e2 0%, #357abd 100%);
+            color: #ffffff;
+            font-size: 12px !important;
+            border: 1px solid rgba(74, 144, 226, 0.5);
+            border-radius: 6px;
+            padding: 8px 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 8px rgba(74, 144, 226, 0.3);
+        }
+
+        button:hover {
+            background: linear-gradient(135deg, #357abd 0%, #2a5f9e 100%);
+            box-shadow: 0 4px 16px rgba(74, 144, 226, 0.5);
+            transform: translateY(-2px);
+        }
+
+        .webgl-toggle {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(26, 26, 46, 0.9);
+            border: 1px solid rgba(74, 144, 226, 0.4);
+            border-radius: 18px;
+            padding: 6px 10px;
+            margin-left: 10px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            color: #e8f4fd;
+        }
+
+        .webgl-toggle .label {
+            font-size: 12px;
+            color: #c7d7e2;
+        }
+
+        .webgl-toggle button {
+            border-radius: 12px;
+            padding: 6px 10px;
+            min-width: 64px;
+            font-size: 12px;
+            background: rgba(74, 144, 226, 0.2);
+            border: 1px solid rgba(74, 144, 226, 0.45);
+            box-shadow: none;
+        }
+
+        .webgl-toggle button.active {
+            background: linear-gradient(135deg, #4a90e2, #74c0fc);
+            color: #0c1b2b;
+            border-color: rgba(116, 192, 252, 0.85);
+            box-shadow: 0 6px 14px rgba(74, 144, 226, 0.45);
+        }
+
+        .panelleft {
+            width: calc(45% - 2.5px);
+            height: 100%;
+            border: 1px solid rgba(74, 144, 226, 0.3);
+            overflow: hidden;
+            background: rgba(26, 26, 46, 0.8);
+            backdrop-filter: blur(10px);
+        }
+
+        .panelright {
+            width: calc(55% - 2.5px);
+            /* height: 100%; */
+            border: 1px solid rgba(74, 144, 226, 0.3);
+            overflow: hidden;
+            background: rgba(26, 26, 46, 0.8);
+            backdrop-filter: blur(10px);
+        }
+
+        .divider {
+            width: 5px;
+            cursor: ew-resize;
+            background: linear-gradient(135deg, #4a90e2 0%, #357abd 100%);
+            overflow: hidden;
+            box-shadow: 0 0 10px rgba(74, 144, 226, 0.5);
+        }
+
+        .preview {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            border: 1px solid rgba(74, 144, 226, 0.3);
+            background: rgba(26, 26, 46, 0.8);
+        }
+
+        .monaco-editor {
+            width: 100%;
+        }
+    </style>
+
+    <style desc="示例清单集成">
+        #sampleList {
+            position: absolute;
+            top: 24px;
+            left: 0px;
+            width: calc(100% - 0px);
+            height: calc(100% - 24px);
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            display: none;
+            border: 2px solid rgba(74, 144, 226, 0.5);
+            backdrop-filter: blur(10px);
+        }
+
+
+        /*无头部菜单时*/
+        /* .noHeader .main-sidebar,
+        .left-side {
+            padding-top: 60px !important;
+        } */
+
+        /* .noHeader .category {
+            padding-top: 60px !important;
+        } */
+
+        .main-sidebar {
+            padding-top: 0px !important;
+            top: 24px !important;
+            height: 100% !important;
+            overflow: auto;
+        }
+
+        .wrapper {
+            height: 100% !important;
+        }
+
+        .searchtext {
+            position: absolute;
+            right: 15px;
+            top: 10px;
+            z-index: 9999;
+        }
+
+        .searchtext input {
+            background: rgba(26, 26, 46, 0.8);
+            border: 1px solid rgba(74, 144, 226, 0.5);
+            border-radius: 8px;
+            padding: 8px 16px;
+            color: #e8f4fd;
+            font-size: 14px;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+        }
+
+        .searchtext input:focus {
+            outline: none;
+            border-color: #4a90e2;
+            box-shadow: 0 0 10px rgba(74, 144, 226, 0.5);
+        }
+
+        .searchtext input::placeholder {
+            color: #b8d4f0;
+        }
+
+        #scrollSpy {
+            height: 100% !important;
+        }
+
+        /* WebKit/Blink scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 10px;
+            /* Set the width of the scrollbar */
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: linear-gradient(135deg, #4a90e2 0%, #357abd 100%);
+            border-radius: 5px;
+            /* Set the color of the scrollbar thumb */
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(26, 26, 46, 0.5);
+            border-radius: 5px;
+            /* Set the color of the scrollbar track */
+        }
+    </style>
+
+    <script type="text/javascript" src="../lib/include-lib.js?time=20220120"
+        include="jquery,layer,toastr,bootstrap,admin-lte,haoutil,jquery.scrollTo,lazyload" libpath="../lib/"></script>
+
+
+    <link rel="stylesheet" href="../js/editor/list.css" />
+
+	<style>
+		/* 将 Monaco 查找面板放到底部 */
+        #container .monaco-editor .find-widget.visible {
+            width: 419px;
+            height: 33px;
+            max-width: 376px;
+            position: fixed !important;
+            bottom: 0 !important;
+            top: auto !important;
+            /* 固定在底部 */
+            right: 58px;
+            /* top: auto; */
+            /* 清除顶部定位 */
+            z-index: 1000;
+            /* 确保在最上层（可选） */
+        }
+	</style>
+
+</head>
+
+<body class="hold-transition skin-blue sidebar-mini noHeader" data-spy="scroll" data-target="#scrollSpy">
+
+    <div class="main">
+        <div class="panelleft" id="panel1">
+            <div id="container"></div>
+        </div>
+        <div class="divider" id="divider"></div>
+        <div class="panelright" id="panel2">
+        </div>
+    </div>
+    <div class="bt">
+        <button id="a0">示例选择</button>
+        <button id="b0">示例中心</button>
+        <button id="b1">重置代码</button>
+        <button id="b2">运行代码</button>
+        <button id="b3">清空代码</button>
+        <button id="b5">单独打开</button>
+        <div class="webgl-toggle" id="webglToggle">
+            <span class="label">渲染模式</span>
+            <button type="button" data-mode="webgl2">WebGL2</button>
+            <button type="button" data-mode="webgl1">WebGL1</button>
+        </div>
+        <!-- <button id="b4">实时显示</button> -->
+    </div>
+
+    <button id="toggleSidebar" title="隐藏侧边栏"><i class="fa fa-chevron-left"></i></button>
+
+    <div id="sampleList">
+        <div class="wrapper">
+            <!-- 侧边栏 -->
+            <aside class="sidebar-wrapper main-sidebar" id="scrollSpy">
+                <section class="sidebar" id="sidebar">
+                    <ul class="sidebar-menu nav nav-stacked" id="sidebar-menu"></ul>
+                </section>
+            </aside>
+            <!-- 内容区 -->
+            <div class="content-wrapper examples-container" id="main">
+                <ul id="charts-list">
+                    <li class="category">
+                        <h3 class="category-title"><i class="fa fa-file-text-o"></i>&nbsp;&nbsp;说明</h3>
+                        <div class="searchtext">
+                            <input type="text" id="searchInput" placeholder="输入关键词" style="width: 280px;">
+                        </div>
+                        <div class="category-content">
+                            <div class="box box-default color-pavarte-box">
+                                <span>
+                                    <br />
+										<span style="color: red;">1. 内部数据和客户数据，谨慎截图和视频录制，请勿外传，仅供引擎能力展示使用。</span><br />
+										2. 相关地址：<a
+										href="https://minedata.cn/nce-support/demoCenter-3D-Ultra?activePath=page-sphere-map-earthCrate"
+										target="_blank">在线体验</a>、
+										<a href="https://minedata.cn/nce-support/webDev/MineMap-3D-Ultra" target="_blank">教程说明</a>
+										<br />
+										3. 引擎快速迭代每月发版示例。<br />
+										4. 如果您访问体验当中发现bug问题或有好的建议，欢迎随时反馈给<a href="https://gitlab.navinfo.com/minemap-support/MineMap-QA"
+										target="_blank">我们</a>，<a href="https://gitlab.navinfo.com/minemap-support/MineMap-QA/-/issues"
+										target="_blank">BUG提交</a>。<br />
+										5. 如果缺少您想要的示例，可以整理需求发送邮件至 <a href="mailto:zhoumingrui@seewayai.com"
+										rel="nofollow">zhoumingrui@seewayai.com</a><br />
+										6. 示例共计：<span id="samplesCount"></span> 个<br />
+										7. 引擎地址开发地址：http://192.168.152.123/minemap-engine/v4.0.0/minemap.js<br />
+										8. 引擎地址发版地址：http://192.168.152.123/minemapapi/v4.0.0/minemap.js<br />
+										9. 示例依赖数据资源：http://192.168.152.123:11187/demo-data/（逐步迁移更新）
+						 	</div>
+                        </div>
+                    </li>
+                </ul>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- <script src="lib/monaco-editor/loader.js"></script> -->
+    <script src="../lib/monaco-editor/loader.js"></script>
+    <!-- <script src="../lib/jquery-2.0.3.min.js"></script> -->
+
+    <script desc="代码">
+
+        // 获取 URL 查询参数
+        const urlParams = new URLSearchParams(window.location.search);
+
+        // 获取特定参数的值
+        const id = urlParams.get('id');
+        // alert(id)
+
+        const WEBGL_MODE_KEY = "minemap-webgl-mode";
+
+        const getWebglMode = () => {
+            const saved = localStorage.getItem(WEBGL_MODE_KEY);
+            return saved === "webgl1" ? "webgl1" : "webgl2";
+        };
+
+        const setWebglMode = (mode) => {
+            const normalized = mode === "webgl1" ? "webgl1" : "webgl2";
+            localStorage.setItem(WEBGL_MODE_KEY, normalized);
+            return normalized;
+        };
+
+        const syncWebglToggle = () => {
+            const toggle = document.getElementById("webglToggle");
+            if (!toggle) {
+                return;
+            }
+            const activeMode = getWebglMode();
+            const buttons = toggle.querySelectorAll("[data-mode]");
+            buttons.forEach((btn) => {
+                const isActive = btn.dataset.mode === activeMode;
+                btn.classList.toggle("active", isActive);
+            });
+        };
+
+        const initWebglToggle = () => {
+            const toggle = document.getElementById("webglToggle");
+            if (!toggle) {
+                return;
+            }
+            const buttons = toggle.querySelectorAll("[data-mode]");
+            buttons.forEach((btn) => {
+                btn.addEventListener("click", () => {
+                    setWebglMode(btn.dataset.mode);
+                    syncWebglToggle();
+                    run();
+                });
+            });
+            if (!localStorage.getItem(WEBGL_MODE_KEY)) {
+                setWebglMode("webgl2");
+            }
+            syncWebglToggle();
+        };
+
+        function applyWebglMode(html) {
+            if (getWebglMode() !== "webgl1") {
+                return html;
+            }
+            const pattern = /new\s+minemap\.Map\s*\(\s*\{/g;
+            let injected = false;
+            const rewritten = html.replace(pattern, (full, lineStart, indent) => {
+                injected = true;
+                return `new minemap.Map({\nrequestWebgl1: true,\n`;
+            });
+            return injected ? rewritten : html;
+        }
+
+        document.addEventListener("DOMContentLoaded", () => {
+            initWebglToggle();
+        });
+
+        require.config({ paths: { 'vs': '../lib/monaco-editor/' } });
+        var editorArray = [];
+        var real = false
+        require(['vs/editor/editor.main'], function () {
+            var editor = monaco.editor.create(document.getElementById('container'), {
+                value: [].join('\n'),
+                language: 'html',
+                theme: 'vs-dark',
+                minimap: {
+                    enabled: true
+                },
+                multicursorModifier: 'ctrlCmd',
+                cursorWidth: 1,
+                lineHeight: 20,
+                fontSize: 14,
+                fontFamily: "'Fira Mono', 'Bitstream Vera Sans Mono', 'Menlo', 'Consolas', 'Lucida Console', 'Source Han Sans SC', 'Noto Sans CJK SC', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft Yahei', monospace",
+                lineNumbersMinChars: 4,
+                glyphMargin: false,
+                renderFinalNewline: true,
+                scrollbar: {
+                    useShadows: false,
+                    verticalScrollbarSize: 10,
+                    horizontalScrollbarSize: 10,
+                    vertical: 'auto',
+                    horizontal: 'auto'
+                },
+                overviewRulerBorder: false,
+                hideCursorInOverviewRuler: true,
+                contextmenu: false,
+                enableSplitViewResizing: false
+            });
+            editorArray.push(editor)
+
+            $.get([`./${id}`, "html"].join("."), (data, err) => {
+                content = data;
+                if (editorArray[0]) {
+                    editorArray[0].setValue(content);
+
+                    run()
+                }
+            });
+        });
+
+
+        function toggleVisibility() {
+            // Get the element by its ID
+            var element = document.getElementById("sampleList");
+
+            // Check if the element is currently visible or hidden
+            if (element.style.display === "none" || element.style.display === "") {
+                // If it's hidden, show it
+                element.style.display = "block"; // or "inline" or "inline-block", depending on your needs
+            } else {
+                // If it's visible, hide it
+                element.style.display = "none";
+            }
+        }
+
+        document.getElementById("a0").addEventListener("click", function () {
+            // 显示示例-避免窗体跳转
+            toggleVisibility();
+        });
+
+        document.getElementById("b0").addEventListener("click", function () {
+            // 获取编辑器内容
+            window.open("../index.html")
+        });
+
+        document.getElementById("b1").addEventListener("click", function () {
+            // 获取编辑器内容
+
+            $.get([`./${id}`, "html"].join("."), (data, err) => {
+                content = data;
+                if (editorArray[0]) {
+                    editorArray[0].setValue(content);
+                }
+            });
+
+        });
+        document.getElementById("b3").addEventListener("click", function () {
+            // 清空编辑器内容
+            editorArray[0].setValue('')
+            run()
+        });
+        document.getElementById("b2").addEventListener("click", function () {
+            // 运行编辑器内容
+            run()
+        });
+        document.getElementById("b5").addEventListener("click", function () {
+            // 运行编辑器内容
+            if (!editorArray[0]) {
+                return;
+            }
+            var html = editorArray[0].getValue();
+            // window.location.href = "./" + id + ".html";
+            window.open("./" + id + ".html")
+        });
+        function run() {
+            if (!editorArray[0]) {
+                return;
+            }
+            var html = editorArray[0].getValue();
+            var adjustedHtml = applyWebglMode(html);
+
+            var ifr = document.createElement("iframe");
+            ifr.setAttribute("frameborder", "0");
+            ifr.setAttribute("id", "iframeResult");
+            ifr.setAttribute("allowfullscreen", "true");
+            ifr.style.overflow = "hidden";
+            ifr.style.width = "100%";
+            ifr.style.height = "100%";
+            document.getElementById("panel2").innerHTML = "";
+            document.getElementById("panel2").appendChild(ifr);
+
+            var ifrw = ifr.contentWindow
+                ? ifr.contentWindow
+                : ifr.contentDocument.document
+                    ? ifr.contentDocument.document
+                    : ifr.contentDocument;
+            ifrw.document.open();
+            ifrw.document.write(adjustedHtml);
+            ifrw.document.close();
+
+        }
+        //实时编辑
+        setTimeout(() => {
+            editorArray[0]?.onDidChangeModelContent((event) => {
+                run();
+            })
+        }, 1000)
+
+    </script>
+
+
+    <script desc="分屏拖拽功能">
+        class PanelResizer {
+            constructor() {
+                this.divider = document.getElementById('divider');
+                this.panel1 = document.getElementById('panel1');
+                this.panel2 = document.getElementById('panel2');
+                this.container = document.querySelector('.main');
+                this.toggleBtn = document.getElementById('toggleSidebar');
+                this.buttonGroup = document.querySelector('.bt');
+                this.isResizing = false;
+                this.minPanelWidth = 200;
+                this.dividerWidth = 5;
+                this.isSidebarVisible = true;
+
+                this.init();
+            }
+
+            init() {
+                // 绑定事件
+                this.divider.addEventListener('mousedown', this.handleMouseDown.bind(this));
+                this.toggleBtn.addEventListener('click', this.toggleSidebar.bind(this));
+
+                // 初始化面板宽度
+                this.resetPanelWidths();
+
+                // 窗口大小变化时重新调整
+                window.addEventListener('resize', this.resetPanelWidths.bind(this));
+            }
+
+            toggleSidebar() {
+                this.isSidebarVisible = !this.isSidebarVisible;
+                const icon = this.toggleBtn.querySelector('i');
+                if (this.isSidebarVisible) {
+                    this.panel1.style.border = '';
+                    this.divider.style.display = 'block';
+                    if (this.buttonGroup) this.buttonGroup.style.display = 'block';
+                    if (icon) {
+                        icon.className = 'fa fa-chevron-left';
+                        this.toggleBtn.title = '隐藏侧边栏';
+                    } else {
+                        this.toggleBtn.textContent = '隐藏';
+                    }
+                    this.resetPanelWidths();
+                } else {
+                    this.panel1.style.width = '0px';
+                    this.panel1.style.border = 'none';
+                    this.divider.style.display = 'none';
+                    this.panel2.style.width = '100%';
+                    if (this.buttonGroup) this.buttonGroup.style.display = 'none';
+                    if (icon) {
+                        icon.className = 'fa fa-chevron-right';
+                        this.toggleBtn.title = '展开侧边栏';
+                    } else {
+                        this.toggleBtn.textContent = '展开';
+                    }
+                }
+                this.triggerEditorLayout();
+            }
+
+            resetPanelWidths() {
+                if (!this.isSidebarVisible) {
+                    this.panel2.style.width = '100%';
+                    return;
+                }
+
+                const containerWidth = this.container.offsetWidth;
+                const panel1Width = Math.floor(containerWidth * 0.45);
+                const panel2Width = containerWidth - panel1Width - this.dividerWidth;
+
+                this.panel1.style.width = panel1Width + 'px';
+                this.panel2.style.width = panel2Width + 'px';
+
+                // 触发编辑器重新布局
+                this.triggerEditorLayout();
+            }
+
+            handleMouseDown(e) {
+                 e.preventDefault();
+                 this.isResizing = true;
+
+                 const startX = e.clientX;
+                 const startPanel1Width = this.panel1.offsetWidth;
+                 const containerWidth = this.container.offsetWidth;
+
+                 // 禁用iframe的指针事件，防止地图捕获鼠标事件
+                 this.disableIframePointerEvents();
+
+                 // 创建新的事件处理函数
+                 const handleMouseMove = (e) => {
+                     if (!this.isResizing) return;
+
+                     const deltaX = e.clientX - startX;
+                     let newPanel1Width = startPanel1Width + deltaX;
+
+                     // 计算边界
+                     const maxPanel1Width = containerWidth - this.minPanelWidth - this.dividerWidth;
+
+                     // 限制拖拽范围
+                     newPanel1Width = Math.max(this.minPanelWidth, Math.min(maxPanel1Width, newPanel1Width));
+                     const newPanel2Width = containerWidth - newPanel1Width - this.dividerWidth;
+
+                     // 应用新宽度
+                     this.panel1.style.width = newPanel1Width + 'px';
+                     this.panel2.style.width = newPanel2Width + 'px';
+
+                     // 触发编辑器重新布局
+                     this.triggerEditorLayout();
+                 };
+
+                 const handleMouseUp = () => {
+                     this.isResizing = false;
+                     document.removeEventListener('mousemove', handleMouseMove);
+                     document.removeEventListener('mouseup', handleMouseUp);
+
+                     // 恢复iframe的指针事件
+                     this.enableIframePointerEvents();
+
+                     // 最终布局调整
+                     this.triggerEditorLayout();
+                 };
+
+                 // 添加事件监听器
+                 document.addEventListener('mousemove', handleMouseMove);
+                 document.addEventListener('mouseup', handleMouseUp);
+             }
+
+             disableIframePointerEvents() {
+                 // 禁用所有iframe的指针事件
+                 const iframes = document.querySelectorAll('iframe');
+                 iframes.forEach(iframe => {
+                     iframe.style.pointerEvents = 'none';
+                 });
+
+                 // 也禁用panel2中可能存在的其他交互元素
+                 this.panel2.style.pointerEvents = 'none';
+             }
+
+             enableIframePointerEvents() {
+                 // 恢复所有iframe的指针事件
+                 const iframes = document.querySelectorAll('iframe');
+                 iframes.forEach(iframe => {
+                     iframe.style.pointerEvents = 'auto';
+                 });
+
+                 // 恢复panel2的指针事件
+                 this.panel2.style.pointerEvents = 'auto';
+             }
+
+            triggerEditorLayout() {
+                // 延迟触发编辑器重新布局，确保DOM更新完成
+                requestAnimationFrame(() => {
+                    if (window.editorArray && window.editorArray[0]) {
+                        window.editorArray[0].layout();
+                    }
+                });
+            }
+        }
+
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            new PanelResizer();
+        });
+
+        // 如果DOM已经加载完成，立即初始化
+        if (document.readyState === 'loading') {
+            // DOM还在加载中，等待DOMContentLoaded事件
+        } else {
+            // DOM已经加载完成，立即初始化
+            new PanelResizer();
+        }
+    </script>
+
+
+
+    <script src="../src/config.js"></script>
+    <script>
+        window.path = ""
+        window.editorUrl = "editor-map.html"
+        window.hasPannelIcon = `
+      <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" role="img" style="vertical-align: -0.125em" width="1em"
+        height="1em" preserveAspectRatio="xMidYMid meet" viewBox="0 0 32 32">
+        <path fill="#e44f26" d="M5.902 27.201L3.655 2h24.69l-2.25 25.197L15.985 30L5.902 27.201z" />
+        <path fill="#f1662a" d="m16 27.858l8.17-2.265l1.922-21.532H16v23.797z" />
+        <path fill="#ebebeb"
+          d="M16 13.407h-4.09l-.282-3.165H16V7.151H8.25l.074.83l.759 8.517H16v-3.091zm0 8.027l-.014.004l-3.442-.929l-.22-2.465H9.221l.433 4.852l6.332 1.758l.014-.004v-3.216z" />
+        <path fill="#fff"
+          d="M15.989 13.407v3.091h3.806l-.358 4.009l-3.448.93v3.216l6.337-1.757l.046-.522l.726-8.137l.076-.83h-7.185zm0-6.256v3.091h7.466l.062-.694l.141-1.567l.074-.83h-7.743z" />
+      </svg>`
+    </script>
+    <script src="../js/editor/list.js"></script>
+    <script>
+
+        setTimeout(() => {
+            const searchInput = document.getElementById('searchInput');
+            const items = document.getElementsByClassName("chart-link")
+
+            document.getElementById('samplesCount').innerHTML = items.length
+
+            searchInput.addEventListener('input', function () {
+                const searchTerm = searchInput.value.toLowerCase();
+
+                // 遍历产品列表中的每个项
+                for (let i = 0; i < items.length; i++) {
+                    const item = items[i];
+                    const itemName = item.textContent.toLowerCase();
+                    // 检查搜索词是否出现在项目名称中
+                    if (itemName.includes(searchTerm)) {
+                         // 显示匹配的项目
+						item.parentNode.parentNode.style.display = 'block';
+                    } else {
+                        // 隐藏不匹配的项目
+						item.parentNode.parentNode.style.display = 'none';
+                    }
+                }
+
+            })
+        }, 1000);
+
+    </script>
+</body>
+
+</html>

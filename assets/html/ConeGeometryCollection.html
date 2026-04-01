@@ -1,0 +1,268 @@
+<!--
+ * @Author: lsw
+ * @Date: 2022-04-22 14:20:37
+ * @LastEditTime: 2024-08-05 17:40:33
+ * @LastEditors: liwei
+ * @Description:
+ * @FilePath: \MineMap3DEngine\demo\html\ConeGeometryCollection.html
+-->
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<title>锥体几何对象操作功能集合</title>
+
+		<script src="../../dist/minemap-dev.js"></script>
+		<style>
+			html,
+			body,
+			#map {
+				margin: 0;
+				padding: 0;
+				width: 100%;
+				height: 100%;
+			}
+		</style>
+	</head>
+	<!-- 工具 -->
+	<div class="toolContainer">
+		<button onclick="adjustHeading(1)">Heading+（航向）</button>
+		<button onclick="adjustHeading(-1)">Heading-（航向）</button>
+		<button onclick="adjustPitch(-1)">Pitch+（俯仰）</button>
+		<button onclick="adjustPitch(1)">Pitch-（俯仰）</button>
+		<button onclick="adjustRoll(1)">Roll+（横滚）</button>
+		<button onclick="adjustRoll(-1)">Roll-（横滚）</button>
+		<button onclick="adjustPosition(1)">高度+</button>
+		<button onclick="adjustPosition(-1)">高度-</button>
+		<button onclick="animateHeading()">航向旋转动画</button>
+		<button onclick="changeSpeed(1)">动画速度+</button>
+		<button onclick="changeSpeed(-1)">动画速度-</button>
+		<button onclick="changeVolume(true, 1)">半径+</button>
+		<button onclick="changeVolume(true, -1)">半径-</button>
+	</div>
+
+	<body>
+		<div id="map"></div>
+		<script>
+			/**
+			 * 全局参数设置
+			 */
+			minemap.domainUrl = "https://minedata.cn";
+			minemap.dataDomainUrl = "https://minedata.cn";
+			minemap.serverDomainUrl = "https://minedata.cn";
+			minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+			minemap.serviceUrl = "https://minedata.cn/service/";
+
+			minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+			minemap.solution = 11001;
+			window.minemapCDN = "https://minedata.cn/minemapapi/minemap-CDN";
+
+			// 定义空底图样式
+			var style = {
+				glyphs: "minemap://fonts/{fontstack}/{range}",
+				sprite: "minemap://sprite/sprite",
+				sources: {},
+				layers: [],
+				version: 8
+			};
+
+			/**
+			 * 初始化地图实例
+			 */
+			var map = new minemap.Map({
+				container: "map",
+				style: style,
+				/*球面矢量底图样式*/
+				center: [116.24487230680099, 40.07492989660957],
+				/*地图中心点*/
+				bearing: 0,
+				zoom: 14,
+				/*地图默认缩放等级*/
+				pitch: 50,
+				/*地图俯仰角度*/
+				maxZoom: 22,
+				/*地图最大缩放等级*/
+				minZoom: 1,
+				/*地图最小缩放等级*/
+				projection: "MERCATOR"
+			});
+			map.repaint = true;
+
+			//......................................这里可以切换不同的投影.....................................
+
+			let cameraWidth = 30,
+				cameraHeight = 15,
+				near = 100,
+				far = 1000;
+
+			let heading = 0,
+				pitch = 40,
+				roll = 0,
+				height = 1000;
+			//是否正在动画
+			let animating = false;
+			let animationSpeed = 5;
+			let animationFrame;
+			let cameraPosition = minemap.Math.Vector3.fromDegrees(116.24544236500333, 40.07254296210216, height); //投影相机位置
+			// 计算相机矩阵
+			let camTransformMatrix = minemap.Transforms.headingPitchRollToFixedFrame(
+				cameraPosition,
+				new minemap.Math.HeadingPitchRoll(
+					minemap.Math.toRadians(heading),
+					minemap.Math.toRadians(pitch),
+					minemap.Math.toRadians(roll)
+				)
+			);
+			let radiusBottom = 500;
+
+			let conePrimitive;
+
+			createCameraGeometry();
+			/**
+			 * 创建相机几何体
+			 */
+			function createCameraGeometry() {
+				if (conePrimitive) {
+					map.removePrimitive(conePrimitive);
+					conePrimitive.destroy();
+				}
+
+				const cartographic = new minemap.Math.Vector3([116.24544236500333, 40.07254296210216, height]);
+				const matrix = minemap.Transforms.cartographicToFixedFrame(cartographic);
+
+				const rotX = new minemap.Math.Matrix4().rotateX(Math.PI / 2);
+				matrix.multiplyRight(rotX);
+
+				const translate = new minemap.Math.Matrix4();
+				translate[13] = -500;
+
+				matrix.multiplyRight(translate);
+
+				var geometry = new minemap.Geometries.ConeGeometry({
+					radiusBottom: radiusBottom,
+					height: 1000,
+					radialSegments: 36,
+					heightSegments: 1,
+					openEnded: false,
+					thetaStart: 0,
+					thetaLength: Math.PI * 2
+				});
+
+				conePrimitive = new minemap.Primitive({
+					modelMatrix: matrix,
+					geometry: geometry,
+					material: minemap.StandardMaterial.fromType("Color", {
+						color: "rgba(255,0,0,0.8)",
+						opacity: 1.0,
+						doubleSided: false
+					})
+				});
+				map.addPrimitive(conePrimitive);
+			}
+
+			function adjustHeading(flag) {
+				heading += 5 * flag;
+				adjustHeadingPitchRoll();
+			}
+
+			function adjustPitch(flag) {
+				pitch += 5 * flag;
+				adjustHeadingPitchRoll();
+			}
+
+			function adjustRoll(flag) {
+				roll += 5 * flag;
+				adjustHeadingPitchRoll();
+			}
+
+			function adjustPosition(flag) {
+				height += 10 * flag;
+				adjustHeadingPitchRoll();
+			}
+
+			function adjustHeadingPitchRoll() {
+				if (!conePrimitive) {
+					return;
+				}
+
+				cameraPosition = minemap.Math.Vector3.fromDegrees(116.24544236500333, 40.07254296210216, height);
+				camTransformMatrix = minemap.Transforms.headingPitchRollToFixedFrame(
+					cameraPosition,
+					new minemap.Math.HeadingPitchRoll(
+						minemap.Math.toRadians(heading),
+						minemap.Math.toRadians(pitch),
+						minemap.Math.toRadians(roll)
+					)
+				);
+
+				const translate = new minemap.Math.Matrix4();
+				translate[13] = -500;
+				camTransformMatrix.multiplyRight(translate);
+
+				conePrimitive.setMatrix(camTransformMatrix);
+				conePrimitive.updateMatrixWorld(true);
+			}
+
+			/**
+			 * 航向的循环内容
+			 */
+			function headingAnimationLoop() {
+				heading += animationSpeed;
+				adjustHeadingPitchRoll();
+
+				animationFrame = requestAnimationFrame(headingAnimationLoop);
+			}
+			function animateHeading() {
+				animating = !animating;
+
+				if (animationFrame) {
+					cancelAnimationFrame(animationFrame);
+				}
+
+				if (animating) {
+					headingAnimationLoop();
+				}
+			}
+
+			/**
+			 * 修改航向的speed
+			 */
+			function changeSpeed(flag) {
+				animationSpeed += flag * 0.2;
+			}
+
+			/**
+			 * 修改视场角
+			 *
+			 * @param type    true是水平视场角，false是垂直视场角
+			 * @param flag    +是加宽，-是变窄
+			 */
+			function changeVolume(type, flag) {
+				radiusBottom += flag * 10;
+				createCameraGeometry();
+				adjustHeadingPitchRoll();
+			}
+
+			map.on("load", function () {
+				/*添加栅格图*/
+				map.addSource("IMAGERY_SOURCE", {
+					type: "raster", //数据源类型：栅格数据源
+					tiles: ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+					tileSize: 512 //瓦片尺寸
+				});
+
+				map.addLayer({
+					id: "IMAGERY",
+					type: "raster", //图层类型为"raster"
+					source: "IMAGERY_SOURCE",
+					minzoom: 1,
+					maxzoom: 23,
+					paint: {
+						"raster-opacity": 1
+					},
+					"depth-test": true
+				});
+			});
+		</script>
+	</body>
+</html>

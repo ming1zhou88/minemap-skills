@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+		<title>单体化最小最大高度设定</title>
+		<link rel="stylesheet" href="../style/demo.css" />
+		<!-- 引入JSON数据展示插件 -->
+		<script src="https://minedata.cn/minemapapi/minemap-CDN/jquery/v3.6.3/jquery.min.js"></script>
+		<script src="https://minedata.cn/minemapapi/minemap-CDN/jquery.json-viewer/json-viewer/jquery.json-viewer.js"></script>
+		<link
+			rel="stylesheet"
+			href="https://minedata.cn/minemapapi/minemap-CDN/jquery.json-viewer/json-viewer/jquery.json-viewer.css"
+		/>
+		<!-- 引入MineMap API插件 -->
+		<link rel="stylesheet" href="../../dist/minemap.css" />
+		<!--	<script src="http://192.168.152.123/minemapapi/v4.0.0/minemap.js"></script>-->
+		<script src="../../dist/minemap-dev.js"></script>
+		<!--如果线上代码更新了，直接用在线的js就行-->
+
+		<style>
+			html,
+			body,
+			#map {
+				margin: 0;
+				padding: 0;
+				width: 100%;
+				height: 100%;
+			}
+
+			.toolContainer {
+				position: absolute;
+				top: 0;
+				left: 0;
+				z-index: 999;
+			}
+
+			#info-banner {
+				position: fixed;
+				top: 0;
+				left: 60px;
+				z-index: 9999;
+				color: red;
+				font-size: 24px;
+				background-color: gray;
+				border: 1px solid black;
+				border-radius: 3px;
+			}
+		</style>
+	</head>
+	<body>
+		<div id="info-banner">在小区建筑物上点击查看单体化查询效果以及分层分户效果！</div>
+		<div class="card-panel card-panel-top-left">
+			<div class="info">
+				<pre id="json-renderer" class="json-body"></pre>
+			</div>
+		</div>
+		<div class="card-panel card-panel-top-right">
+			<select id="search-type">
+				<option value="room">分层分户查询</option>
+				<option value="building">楼栋查询</option>
+			</select>
+		</div>
+		<div id="map"></div>
+		<script>
+			minemap.domainUrl = "https://minedata.cn";
+			minemap.dataDomainUrl = "https://minedata.cn";
+			minemap.serverDomainUrl = "https://minedata.cn";
+			minemap.spriteUrl = "http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite";
+			minemap.serviceUrl = "https://minedata.cn/service/";
+
+			minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+			minemap.solution = 11001;
+			window.minemapCDN = "https://minedata.cn/minemapapi/minemap-CDN"; // minemapCDN 配置
+			// window.minemapCDN = "http://192.168.152.123/minemap-engine/minemap-CDN/"; // minemapCDN 配置 http://192.168.152.123/
+
+			var tilesUrl = "http://192.168.152.123/minemap-engine/EngineCanaryDemo/data/classification/tileset.json";
+			var tilesJson = null;
+
+			// 定义空底图样式
+			var style = {
+				glyphs: "minemap://fonts/{fontstack}/{range}",
+				sprite: "minemap://sprite/sprite",
+				sources: {},
+				layers: [],
+				version: 8
+			};
+			/**
+			 * 初始化地图实例
+			 */
+
+			var map = new minemap.Map({
+				container: "map",
+				style: style,
+				bearing: 0,
+				position: [115.88277982518431, 39.034260288957476, 33.280281766107116],
+				pitch: 61.603551292866726,
+				maxZoom: 22 /*地图最大缩放等级*/,
+				minZoom: 1 /*地图最小缩放等级*/,
+			});
+
+			map.repaint = true;
+
+			map.setTerrain({
+				tiles: ["https://staticdata-b.minedata.cn:14434/dem/{z}/{r}/{c}/{z}_{x}_{y}.terrain"], //瓦片服务地址
+				tileSize: 512, //瓦片大小
+				maxzoom: 14 //dem最高切分zoom，30米一般是14级；12.5米一般是16级
+			});
+
+			map.on("load", function () {
+				/*添加栅格图*/
+				map.addSource("IMAGERY_SOURCE", {
+					type: "raster", //数据源类型：栅格数据源
+					tiles: ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+					tileSize: 512 //瓦片尺寸
+				});
+
+				map.addLayer({
+					id: "IMAGERY",
+					type: "raster", //图层类型为"raster"
+					source: "IMAGERY_SOURCE",
+					minzoom: 1,
+					maxzoom: 23,
+					"depth-test": true
+				});
+
+				// 3dtiles
+				const tileset = map.addSceneComponent({
+					id: "serve",
+					type: "3d-tiles",
+					url: tilesUrl, //荣成倾斜数据 bd"https://staticdata-b.minedata.cn:14434/oblique-lab/960-SD-QD1_result_20220615_02_DDK/tileset.json",
+					skipLevelOfDetail: false, //跨层调度
+					maximumScreenSpaceError: 8,
+					translation: [0, 0, 0],
+					sourceLoaded: (tileset) => {
+						$.ajax({
+							url: tilesUrl,
+							type: "get",
+							datatype: "json",
+							success: function (res) {
+								tilesJson = res;
+							}
+						});
+					},
+					/**
+					 * 飞行选择
+					 * index: 指定飞行目标(优先)
+					 * combine: 合并bounds为飞行目标
+					 */
+					geoBoundsOptions: {
+						index: 1,
+						combine: true
+					},
+					allowPick: true,
+					lightingModel: minemap.LightingModelType.NONE
+				});
+				window.tileset = tileset;
+			});
+
+			let preQuery = false;
+
+			map.on("click", function (e) {
+				var position = map.getPositionByGPUPick(e.point);
+				getSpatialQuery(position);
+			});
+
+			function getSpatialQuery(position) {
+				if (!tilesJson || !position || preQuery) return;
+
+				preQuery = true;
+
+				var paramData = {
+					layerGuid: tilesJson.properties.layer_guid,
+					propertyName: document.getElementById("search-type").value,
+					//   propertyName: "room",
+					lon: position[0],
+					lat: position[1],
+					alt: position[2]
+				};
+				$.ajax({
+					url: "http://10.51.22.248:31916/SpatialQuery",
+					type: "get",
+					contentType: "application/json;charset=utf-8",
+					data: paramData,
+					datatype: "json",
+					success: function (res) {
+						preQuery = false;
+						showInfo(res.data);
+						modelHighlight(res.data);
+					}
+				});
+			}
+
+			function showInfo(data) {
+				$("#json-renderer").jsonViewer(data, { collapsed: true });
+			}
+
+			var primitives = [];
+
+			function modelHighlight(data) {
+				primitives.forEach((item) => {
+					map.removePrimitive(item);
+				});
+
+				primitives = [];
+				if (!data) return;
+
+				data.map((item, index) => {
+					var geometry = item?.geometry;
+
+					if (geometry) {
+						const polygonGeometry = new minemap.Geometries.PolygonGeometry({
+							polygonHierarchy: {
+								positions: minemap.Math.Vector3.fromDegreesArrayHeights(
+									geometry.coordinates.flat().flat()
+								)
+							},
+							minimumHeight: defined(item.mdBottom) ? parseFloat(item.mdBottom) - 6 : 0, //这里设置最小最大高度，方便分层分户，polyline同理
+							maximumHeight: defined(item.mdBottom)
+								? parseFloat(item.mdBottom) + parseFloat(item.mdHeight) - 6
+								: 100 //这里设置最小最大高度，方便分层分户，polyline同理
+						});
+						const polygonMaterial = minemap.StandardMaterial.fromType("Color", {
+							color: new minemap.Color(Math.random(), Math.random(), Math.random(), 0.5),
+							doubleSided: true
+						});
+						const polygonPrimitive = new minemap.Primitive({
+							geometry: polygonGeometry,
+							material: polygonMaterial,
+							adaptTerrain: true, //贴合三维场景，单体化操作
+							allowPick: true
+						});
+						map.addPrimitive(polygonPrimitive);
+						primitives.push(polygonPrimitive);
+					}
+				});
+			}
+
+			function defined(d) {
+				return d !== null && d !== undefined;
+			}
+		</script>
+	</body>
+</html>

@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no"/>
+	<title>DEM分析</title>
+	<!-- 引入MineMap API插件 -->
+	<link rel="stylesheet" href="../../dist/minemap.css">
+	<script src="../../dist/minemap-dev.js"></script>
+	<script src="../js/lil-gui.umd.min.js"></script>
+	<style>
+		html, body, #map {
+			margin: 0;
+			padding: 0;
+			width: 100%;
+			height: 100%;
+		}
+	</style>
+</head>
+<body>
+<div id="map"></div>
+<div class="toolContainer" id="toolContainer" style="position: absolute;z-index: 99;right:20px;bottom: 20px;background-color: darkslategray;display: none">
+	<div id="legend-title" style="font-size: 12px;margin-bottom: 10px;color: white"></div>
+	<canvas id="colorCanvas" width="50" height="100" ></canvas>
+</div>
+<script>
+	minemap.domainUrl = 'http://192.168.152.123';
+	minemap.dataDomainUrl = 'https://minemap.minedata.cn';
+	minemap.serverDomainUrl = 'https://sd-data.minedata.cn';
+	minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+	minemap.serviceUrl = 'https://service.minedata.cn/service';
+
+	/**
+	 * token、solution设置
+	 */
+	minemap.key = '0c6ac62182404e5ebc7a789981f6db72';
+	minemap.solution = 11001;
+
+	// 定义空底图样式
+	var style = {
+		"glyphs": "minemap://fonts/{fontstack}/{range}",
+		"sprite": "minemap://sprite/sprite",
+		"sources": {},
+		"layers": [],
+		"version": 8
+	};
+
+	/**
+	 * 初始化地图实例
+	 */
+	var map = new minemap.Map({
+		container: 'map',
+		style: style, /*球面矢量底图样式*/
+		center: [115.15699396984743, 39.92121320248471], /*地图中心点*/
+		zoom: 12, /*地图默认缩放等级*/
+		pitch: 75, /*地图俯仰角度*/
+		bearing: -50,/*地图旋转角度*/
+		maxZoom: 22, /*地图最大缩放等级*/
+		minZoom: 1,  /*地图最小缩放等级*/
+		projection: 'MERCATOR',
+		logDepth: true
+	});
+
+	map.repaint = true;
+
+	map.setTerrain({
+		// "tiles": ["https://staticdata-b.minedata.cn:14434/dem/{z}/{r}/{c}/{z}_{x}_{y}.terrain"], //瓦片服务地址,
+		"tiles": ["http://192.168.153.47:20080/service/data/dem/china3857_02_fn/{z}/{r}/{c}/{z}_{x}_{y}.terrain"], //瓦片服务地址
+		"tileSize": 512,  //瓦片大小
+		"maxzoom": 14,        //dem最高切分zoom，30米一般是14级；12.5米一般是16级
+		// bounds: [130, 60, 140, 70],//要显示区域的经纬度外包框，按west，south，east，north填写
+		"extensions": {
+			requestHeightFieldNormals: true  // 开启面法线扩展，开启后若地形里有面法线数据，则坡向箭头效果会展示区域方向，不会出现分叉情况
+		}
+	});
+
+	let currentType = minemap.TerrainAnalysisType.NONE;
+	let terrainAnalysisMaskRegion = [];
+	// let terrainAnalysisMaskRegion = [90.281, 28.185, 90.210, 28.115, 90.331, 28.145];
+
+	const commonParams = {
+		"地形分析类型": minemap.TerrainAnalysisType.NONE,
+		"插值方法": minemap.InterpolationType.EXPONENTIAL,
+		"绘制区域": function () {
+			drawPolygon()
+		},
+		"清除区域": function () {
+			clearPolygon()
+		}
+	};
+	const slopeParams = {
+		"坡向箭头": false
+	}
+	const elevationParams = {
+		"等高面间距": 500
+	}
+
+	// 获取地形分析样式配置
+	function getStyleConfig(type){
+		if(type === minemap.TerrainAnalysisType.NONE){
+			document.getElementById('toolContainer').style.display = "none";
+			return null;
+		}
+		let stops, legendTitle;
+		switch (type){
+			case minemap.TerrainAnalysisType.SLOPE:
+				stops = [                           // slope(角度制)关键点及其对应颜色值，支持十六进制颜色值/rgb函数/rgba函数/Color类型包含的基本颜色。注意关键点值需递增排列
+					// 坡度为0度时地面平行于海平面，坡度为90度时地面垂直于海平面
+					[0, "#00FF00"],        // 0 < slope <= 10 时的颜色
+					[10, "#80FF00"],       // 10 < slope < 20 时的颜色
+					[20, "#99FF33"],       // ...
+					[30, "#CCFF99"],
+					[40, "#FFFF66"],
+					[50, "#FFFF00"],
+					[60, "#FF8000"],
+					[70, "#FF6666"],
+					[80, "rgb(255, 51, 51)"],
+					[90, "rgb(255, 0, 0)"],        // slope > 90 时的颜色
+				];
+				legendTitle = "坡度分析图例（单位：度）"
+				break;
+			case minemap.TerrainAnalysisType.ASPECT:
+				stops = [                           // aspect(角度制)关键点及其对应颜色值，支持十六进制颜色值/rgb函数/rgba函数/Color类型包含的基本颜色。注意关键点值需递增排列
+					// 坡向以北方向为基准方向, 顺时针计算角度
+					[-0.001, "#00FF00"],     // -0.001 < aspect <= 45 时的颜色, 北方向
+					[45, "#FFFF00"],         // 45 < aspect <= 135 时的颜色, 东方向
+					[135, "rgb(255, 0, 0)"], // 135 < aspect <= 225 时的颜色, 南方向
+					[225, "rgb(0, 0, 255)"], // 225 < aspect <= 315 时的颜色, 西方向
+					[315, "#00FF00"],        // aspect > 315 时的颜色, 北方向
+				];
+				legendTitle = "坡向分析图例（单位：度）"
+				break;
+			case minemap.TerrainAnalysisType.ELEVATION:
+				const interval = elevationParams['等高面间距'];
+				stops = [                           // elevation_band(m)关键点及其对应颜色值，支持十六进制颜色值/rgb函数/rgba函数/Color类型包含的基本颜色。注意关键点值需递增排列
+					[0 * interval, "rgb(0, 51, 255)"],        // 0 < elevation <= 400 时的颜色
+					[1 * interval, "rgb(0, 102, 255)"],       // 10 < elevation < 800 时的颜色
+					[2 * interval, "rgb(0, 153, 255)"],       // ...
+					[3 * interval, "rgb(0, 204, 255)"],
+					[4 * interval, "rgb(0, 255, 255)"],
+					[5 * interval, "rgb(51, 255, 204)"],
+					[6 * interval, "rgb(102, 255, 153)"],
+					[7 * interval, "rgb(153, 255, 102)"],
+					[8 * interval, "rgb(204, 255, 51)"],
+					[9 * interval, "rgb(255, 255, 0)"],
+					[10 * interval, "rgb(255, 204, 0)"],
+					[11 * interval, "rgb(255, 153, 0)"],
+					[12 * interval, "rgb(255, 102, 0)"],
+					[13 * interval, "rgb(255, 51, 0)"],
+					[14 * interval, "rgb(255, 0, 0)"], // elevation > 5600 时的颜色
+				];
+				legendTitle = "等高面分析图例（单位：米）"
+				break;
+		}
+		createLegend(stops, legendTitle);
+		return {
+			"type": commonParams['插值方法'],               // 目前支持的类型有exponential/categorical/interval
+			// "base": 1.0,                        // (可选) base仅在使用exponential插值时配合使用，为指数函数底数。默认为1.0，即线性插值
+			"property": commonParams['地形分析类型'],             // 与颜色相关联的raster属性值, 目前支持的类型有slope/aspect/elevation_band
+			"stops": stops,
+			"default": "rgba(0, 0, 255, 1.0)", // (可选) 默认颜色，即不满足上述判断条件时的赋予地形的颜色
+			"region": terrainAnalysisMaskRegion, // 选定的分析区域
+			"hasArrow": slopeParams['坡向箭头'] // 目前只有坡度分析有箭头效果，用来表示坡向
+		}
+	}
+
+	map.on('load', function () {
+		// 用于渲染测试的地图初始化完成标记
+		window.InsertFunc = true;
+		/*添加DEM数字高程模型数据*/
+		map.addSource("3D_SOURCE", {
+			"type": "raster",//DEM的数据类型为"raster"
+			"tiles": ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+			"tileSize": 512,  //瓦片大小
+		});
+		map.addLayer({
+			"type": "raster",//DEM的图层类型为"raster"
+			"id": "raster-layer",
+			"source": "3D_SOURCE",
+			"minzoom": 1,
+			"maxzoom": 20,
+			"layout": {}
+		})
+
+		initializeGUI();
+	})
+
+	// 初始化UI
+	function initializeGUI() {
+		const gui = new lil.GUI({ width: 300 });
+		const common = gui.addFolder("常规");
+		common
+			.add(commonParams, "地形分析类型")
+			.options({
+				"无分析": minemap.TerrainAnalysisType.NONE,
+				"坡度分析": minemap.TerrainAnalysisType.SLOPE,
+				"坡向分析": minemap.TerrainAnalysisType.ASPECT,
+				"等高面分析": minemap.TerrainAnalysisType.ELEVATION,
+			})
+			.onChange((value) => {
+				currentType = value;
+				map.setTerrainAnalysis(getStyleConfig(currentType));
+			});
+		common
+			.add(commonParams, "插值方法")
+			.options({
+				"指数型插值": minemap.InterpolationType.EXPONENTIAL,
+				"间隔型插值": minemap.InterpolationType.INTERVAL,
+				// "分类型插值": minemap.InterpolationType.CATEGORICAL,
+			})
+			.onChange((value) => {
+				map.setTerrainAnalysis(getStyleConfig(currentType));
+			});
+		common.add(commonParams, "绘制区域");
+		common.add(commonParams, "清除区域");
+
+		const slopeGUI = gui.addFolder("坡度分析参数配置");
+		slopeGUI.add(slopeParams, "坡向箭头").onChange((value) => {
+			map.setTerrainAnalysis(getStyleConfig(currentType));
+		});
+		slopeGUI.close();
+
+		const aspectGUI = gui.addFolder("坡向分析参数配置");
+		aspectGUI.close();
+
+		const elevationGUI = gui.addFolder("等高面分析参数配置");
+		elevationGUI.add(elevationParams, "等高面间距")
+			.min(200)
+			.max(1000)
+			.step(20)
+			.onChange((value) => {
+				map.setTerrainAnalysis(getStyleConfig(currentType));
+			});
+		elevationGUI.close()
+	}
+
+	let geometry,
+		primitive,
+		startDraw = false, //开始绘制
+		positions = [],
+		tempPoint = []; // polygon点
+	function drawPolygon() {
+		positions = [];
+		terrainAnalysisMaskRegion = [];
+		startDraw = true;
+		geometry = new minemap.Geometries.PolygonGeometry({
+			polygonHierarchy: {
+				positions: () => {
+					const results = positions.concat(tempPoint);
+					// 判断是否自相交，如果自相交则该点不进入数组内
+					if (
+						results.length > 3 &&
+						minemap.Geometries.PolygonGeometry.isSelfIntersection(results, true)
+					) {
+						return positions;
+					} else {
+						return results;
+					}
+				}
+			},
+			perPositionHeight: true
+		});
+		const material = minemap.StandardMaterial.fromType("Color", {
+			color: "red",
+			doubleSided: true
+		});
+		primitive = new minemap.Primitive({
+			geometry: geometry,
+			material: material,
+			adaptTerrain: true
+		});
+		map.addPrimitive(primitive);
+	}
+
+	// leftClick
+	map.on("click", function (e) {
+		if (startDraw) {
+			const point = map.painter.getPositionByGPUPick(e.point);
+			positions.push(minemap.Math.Vector3.fromDegrees(point.x, point.y, point.z));
+			terrainAnalysisMaskRegion.push(point.x);
+			terrainAnalysisMaskRegion.push(point.y);
+		}
+	});
+
+	// mouseMove
+	map.on("mousemove", function (e) {
+		if (startDraw) {
+			tempPoint = [];
+			const point = map.painter.getPositionByGPUPick(e.point);
+			if (point) {
+				tempPoint.push(minemap.Math.Vector3.fromDegrees(point.x, point.y, point.z));
+			}
+		}
+	});
+
+	// rightClick
+	map.on("contextmenu", function (e) {
+		if (startDraw) {
+			startDraw = false;
+			tempPoint = [];
+			map.removePrimitive(primitive);
+			if (positions.length > 3) {
+				map.setTerrainAnalysis(getStyleConfig(currentType));
+			}
+		}
+	});
+
+	// 清除区域
+	function clearPolygon() {
+		terrainAnalysisMaskRegion = [];
+		map.setTerrainAnalysis(getStyleConfig(currentType));
+	}
+
+	// 制作图例
+	function createLegend(stops, legendTitle){
+		document.getElementById('toolContainer').style.display = "block";
+		document.getElementById('legend-title').innerText = legendTitle;
+		const length = stops.length;
+		const canvas = document.getElementById('colorCanvas');
+		canvas.width = 100;
+		canvas.height = length * 20;
+		const ctx = canvas.getContext('2d');
+		ctx.clearRect(0, 0, canvas.width, canvas.height);
+		for(let i = 0;i < length;i++){
+			ctx.fillStyle = stops[i][1];
+			const string = i < length -1 ? `${stops[i][0]}-${stops[i+1][0]}` : `> ${stops[i][0]}`
+			ctx.fillText(string, 0, 20 * i + 10);
+			ctx.fillRect(50, 20 * i, canvas.height, 20);
+		}
+	}
+
+</script>
+</body>

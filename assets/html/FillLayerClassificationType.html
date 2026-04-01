@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8"/>
+	<title>矢量叠加开启后在无模型的区域不显示</title>
+	<script src="../../dist/minemap-dev.js"></script>
+
+	<style>
+		html,
+		body,
+		#map {
+			margin: 0;
+			padding: 0;
+			width: 100%;
+			height: 100%;
+		}
+	</style>
+</head>
+
+<body>
+<div id="map">
+</div>
+<script>
+	minemap.domainUrl = "https://minedata.cn";
+	minemap.dataDomainUrl = "https://minedata.cn";
+	minemap.serverDomainUrl = "https://minedata.cn";
+	minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+	minemap.serviceUrl = "https://minedata.cn/service/";
+
+	minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+	minemap.solution = 11001;
+	window.minemapCDN = "http://minemap.minedata.cn/minemapapi/minemap-CDN"; // minemapCDN 配置
+
+	// 定义空底图样式
+	var style = {
+		glyphs: "minemap://fonts/{fontstack}/{range}",
+		sprite: "minemap://sprite/sprite",
+		sources: {},
+		layers: [],
+		version: 8,
+	};
+	/**
+	 * 初始化地图实例
+	 */
+
+	var map = new minemap.Map({
+		container: "map",
+		style: style,
+		bearing: 0,
+		center: [120.38807, 36.085351],
+		pitch: 0,
+		zoom: 15,
+		maxZoom: 22 /*地图最大缩放等级*/,
+		minZoom: 1 /*地图最小缩放等级*/,
+	});
+
+	map.setTerrain({
+		"tiles": ["https://staticdata-b.minedata.cn:14434/dem/{z}/{r}/{c}/{z}_{x}_{y}.terrain"], //瓦片服务地址
+		"tileSize": 512,  //瓦片大小
+		"availabilities": ["https://staticdata-b.minedata.cn:14434/dem/layer.json"], // 查询最高级别DEM时必须设定索引文件
+	});
+
+	map.on("load", function () {
+		/*添加栅格图*/
+		map.addSource("IMAGERY_SOURCE", {
+			type: "raster", //数据源类型：栅格数据源
+			tiles: [
+				"https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg",
+			],
+			tileSize: 512, //瓦片尺寸
+		});
+
+		map.addLayer({
+			id: "IMAGERY",
+			type: "raster", //图层类型为"raster"
+			source: "IMAGERY_SOURCE",
+			minzoom: 1,
+			maxzoom: 23,
+		});
+
+		map.addSceneComponent({
+			id: "serve",
+			type: "3d-tiles",
+			url: "https://staticdata-b.minedata.cn:14434/oblique/tileset.json",
+			skipLevelOfDetail: false, //是否层级跳跃
+			log: false,
+			maximumScreenSpaceError: 16,
+		});
+
+		map.addLayer({
+			type: "fill",
+			id: "line",
+			classificationMinZoom: 16,//贴地最小执行的起始zoom，默认为16
+			paint: {
+				"fill-color": "rgba(255,155,75,.6)",
+			},
+			source: {
+				type: "geojson",
+				data: "../data/fill_layer_classification.json",
+				adaptTerrain:true
+			},
+			minzoom: 1,
+			maxzoom: 24,
+		});
+	});
+</script>
+</body>
+</html>

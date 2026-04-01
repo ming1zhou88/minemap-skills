@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no"/>
+	<title>城市产业结构饼图标记 - 简化版 (MineMap ECharts Layer)</title>
+	<link rel="stylesheet" href="https://minedata.cn/nce-static/support/demo/js-3d-ultra/zh/css/demo.css">
+	<!-- 引入MineMap API插件 -->
+	<link rel="stylesheet" href="../../dist/minemap.css">
+	<script src="../../dist/minemap-dev.js"></script>
+	<!-- 引入ECharts -->
+	<script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+	<!-- 引入MineMap ECharts Layer -->
+	<script src="../js/minemap-echarts-layer.js"></script>
+	<style>
+		html, body, #map {
+			margin: 0;
+			padding: 0;
+			width: 100%;
+			height: 100%;
+		}
+
+		.info-panel {
+			position: absolute;
+			top: 20px;
+			left: 20px;
+			background: rgba(0, 0, 0, 0.85);
+			color: white;
+			padding: 20px;
+			border-radius: 10px;
+			z-index: 2000;
+			font-family: 'Microsoft YaHei', Arial, sans-serif;
+			box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+			backdrop-filter: blur(10px);
+			border: 1px solid rgba(255, 255, 255, 0.1);
+			max-width: 350px;
+		}
+
+		.info-panel h1 {
+			margin: 0 0 15px 0;
+			font-size: 18px;
+			font-weight: bold;
+			color: #FFD700;
+			text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+		}
+
+		.info-panel .subtitle {
+			margin: 0 0 15px 0;
+			font-size: 12px;
+			color: #ccc;
+			font-style: italic;
+		}
+
+		.stats {
+			display: grid;
+			grid-template-columns: 1fr 1fr;
+			gap: 10px;
+			margin: 15px 0;
+		}
+
+		.stat-item {
+			text-align: center;
+			padding: 8px;
+			background: rgba(255, 255, 255, 0.1);
+			border-radius: 5px;
+			border: 1px solid rgba(255, 255, 255, 0.2);
+		}
+
+		.stat-number {
+			font-size: 20px;
+			font-weight: bold;
+			color: #4CAF50;
+			display: block;
+		}
+
+		.stat-label {
+			font-size: 10px;
+			color: #ccc;
+			margin-top: 2px;
+		}
+
+		.description {
+			font-size: 11px;
+			line-height: 1.4;
+			color: #ddd;
+			margin-top: 15px;
+			padding-top: 15px;
+			border-top: 1px solid rgba(255, 255, 255, 0.2);
+		}
+
+		.tech-stack {
+			margin-top: 10px;
+			font-size: 10px;
+			color: #999;
+		}
+
+		.tech-stack span {
+			display: inline-block;
+			background: rgba(33, 150, 243, 0.2);
+			color: #2196F3;
+			padding: 2px 6px;
+			border-radius: 3px;
+			margin: 2px 2px 0 0;
+			border: 1px solid rgba(33, 150, 243, 0.3);
+		}
+	</style>
+</head>
+<body>
+<div id="map"></div>
+
+<div class="info-panel">
+	<h1>城市产业结构分析</h1>
+	<div class="subtitle">饼图标记可视化示例 (简化版)</div>
+
+	<div class="stats">
+		<div class="stat-item">
+			<span class="stat-number">8</span>
+			<div class="stat-label">主要城市</div>
+		</div>
+		<div class="stat-item">
+			<span class="stat-number">5</span>
+			<div class="stat-label">产业类别</div>
+		</div>
+	</div>
+
+	<div class="description">
+		本示例使用 MinemapEChartsLayer 简化了饼图标记的实现。开发者只需传入 ECharts 配置，坐标转换和地图同步由插件自动处理。
+	</div>
+
+	<div class="tech-stack">
+		<span>MineMap</span>
+		<span>ECharts Layer</span>
+		<span>饼图</span>
+		<span>自动同步</span>
+	</div>
+</div>
+
+<script>
+	/**
+	 * ========================================
+	 * MineMap + ECharts Layer 饼图标记简化示例
+	 * ========================================
+	 * 使用 MinemapEChartsLayer 简化饼图标记实现
+	 * 开发者只需关注 ECharts 配置，坐标转换自动处理
+	 */
+
+	// ==================== 1. 全局参数设置 ====================
+	minemap.domainUrl = "https://minedata.cn";
+	minemap.dataDomainUrl = "https://minedata.cn";
+	minemap.serverDomainUrl = "https://minedata.cn";
+	minemap.spriteUrl = "http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite";
+	minemap.serviceUrl = "https://service.minedata.cn/service";
+	minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+	minemap.solution = 11001;
+
+	// ==================== 2. 数据源定义 ====================
+	// 城市产业数据 - 请根据实际需求替换城市信息和产业结构
+	const cityIndustryData = [
+		{
+			name: '北京',
+			coord: [116.4074, 39.9042],
+			industries: [
+				{name: '科技业', value: 35, color: '#FF6B6B'},
+				{name: '金融业', value: 25, color: '#4ECDC4'},
+				{name: '服务业', value: 20, color: '#45B7D1'},
+				{name: '制造业', value: 15, color: '#96CEB4'},
+				{name: '其他', value: 5, color: '#FFEAA7'}
+			]
+		},
+		{
+			name: '上海',
+			coord: [121.4737, 31.2304],
+			industries: [
+				{name: '金融业', value: 30, color: '#4ECDC4'},
+				{name: '制造业', value: 25, color: '#96CEB4'},
+				{name: '服务业', value: 22, color: '#45B7D1'},
+				{name: '科技业', value: 18, color: '#FF6B6B'},
+				{name: '其他', value: 5, color: '#FFEAA7'}
+			]
+		},
+		{
+			name: '深圳',
+			coord: [114.0579, 22.5431],
+			industries: [
+				{name: '科技业', value: 40, color: '#FF6B6B'},
+				{name: '制造业', value: 30, color: '#96CEB4'},
+				{name: '金融业', value: 15, color: '#4ECDC4'},
+				{name: '服务业', value: 12, color: '#45B7D1'},
+				{name: '其他', value: 3, color: '#FFEAA7'}
+			]
+		},
+		{
+			name: '广州',
+			coord: [113.2644, 23.1291],
+			industries: [
+				{name: '制造业', value: 28, color: '#96CEB4'},
+				{name: '服务业', value: 25, color: '#45B7D1'},
+				{name: '科技业', value: 22, color: '#FF6B6B'},
+				{name: '金融业', value: 18, color: '#4ECDC4'},
+				{name: '其他', value: 7, color: '#FFEAA7'}
+			]
+		},
+		{
+			name: '杭州',
+			coord: [120.1551, 30.2741],
+			industries: [
+				{name: '科技业', value: 38, color: '#FF6B6B'},
+				{name: '服务业', value: 25, color: '#45B7D1'},
+				{name: '制造业', value: 20, color: '#96CEB4'},
+				{name: '金融业', value: 12, color: '#4ECDC4'},
+				{name: '其他', value: 5, color: '#FFEAA7'}
+			]
+		},
+		{
+			name: '成都',
+			coord: [104.0665, 30.5723],
+			industries: [
+				{name: '服务业', value: 30, color: '#45B7D1'},
+				{name: '制造业', value: 25, color: '#96CEB4'},
+				{name: '科技业', value: 20, color: '#FF6B6B'},
+				{name: '金融业', value: 15, color: '#4ECDC4'},
+				{name: '其他', value: 10, color: '#FFEAA7'}
+			]
+		},
+		{
+			name: '武汉',
+			coord: [114.3054, 30.5931],
+			industries: [
+				{name: '制造业', value: 32, color: '#96CEB4'},
+				{name: '服务业', value: 28, color: '#45B7D1'},
+				{name: '科技业', value: 18, color: '#FF6B6B'},
+				{name: '金融业', value: 15, color: '#4ECDC4'},
+				{name: '其他', value: 7, color: '#FFEAA7'}
+			]
+		},
+		{
+			name: '西安',
+			coord: [108.9398, 34.3416],
+			industries: [
+				{name: '制造业', value: 30, color: '#96CEB4'},
+				{name: '科技业', value: 25, color: '#FF6B6B'},
+				{name: '服务业', value: 22, color: '#45B7D1'},
+				{name: '金融业', value: 13, color: '#4ECDC4'},
+				{name: '其他', value: 10, color: '#FFEAA7'}
+			]
+		}
+	];
+
+	// ==================== 3. 地图初始化 ====================
+	const map = new minemap.Map({
+		container: "map",
+		style: "https://service.minedata.cn/map/solu/style/11001",
+		center: [108, 34],
+		zoom: 4.5,
+		pitch: 0,
+		bearing: 0
+	});
+
+	// ==================== 4. ECharts 配置 ====================
+	map.on('load', function() {
+		// 生成饼图系列数据
+		const pieSeriesData = [];
+		cityIndustryData.forEach((city, index) => {
+			// 为每个城市创建一个饼图系列
+			pieSeriesData.push({
+				type: 'pie',
+				name: city.name,
+				centerCoord: 'minemap',
+				center: city.coord,
+				radius: [0, 40],
+				data: city.industries.map(industry => ({
+					name: industry.name,
+					value: industry.value,
+					itemStyle: {
+						color: industry.color,
+						borderColor: '#fff',
+						borderWidth: 2
+					}
+				})),
+				label: {
+					show: false
+				},
+				labelLine: {
+					show: false
+				},
+				emphasis: {
+					scale: true,
+					scaleSize: 10,
+					itemStyle: {
+						shadowBlur: 10,
+						shadowOffsetX: 0,
+						shadowColor: 'rgba(0, 0, 0, 0.5)'
+					}
+				},
+				animationType: 'scale',
+				animationEasing: 'elasticOut',
+				animationDelay: index * 200
+			});
+		});
+
+		// 城市标签系列
+		const cityLabelSeries = {
+			type: 'scatter',
+			name: '城市标签',
+			coordinateSystem: 'minemap',
+			data: cityIndustryData.map(city => ({
+				value: [city.coord[0], city.coord[1] + 0.5], // 使用地理坐标，稍微向北偏移
+				name: city.name,
+				itemStyle: {
+					opacity: 0
+				}
+			})),
+			label: {
+				show: true,
+				position: 'inside',
+				formatter: '{b}',
+				fontSize: 14,
+				fontWeight: 'bold',
+				color: '#333',
+				backgroundColor: 'rgba(255, 255, 255, 0.9)',
+				borderColor: '#ddd',
+				borderWidth: 1,
+				borderRadius: 4,
+				padding: [4, 8]
+			},
+			symbolSize: 0
+		};
+
+		// ECharts 配置选项
+		const option = {
+			animation: true,
+			series: [
+				...pieSeriesData,
+				cityLabelSeries
+			],
+			tooltip: {
+				trigger: 'item',
+				formatter: function (params) {
+					if (params.seriesType === 'pie') {
+						return `<strong>${params.seriesName}</strong><br/>
+								${params.name}: ${params.value}%<br/>
+								占比: ${params.percent}%`;
+					}
+					return params.name;
+				},
+				backgroundColor: 'rgba(0, 0, 0, 0.8)',
+				borderColor: '#777',
+				borderWidth: 1,
+				textStyle: {
+					color: '#fff'
+				}
+			},
+			legend: {
+				show: true,
+				orient: 'vertical',
+				right: 20,
+				top: 'center',
+				data: ['科技业', '金融业', '服务业', '制造业', '其他'],
+				textStyle: {
+					color: '#333',
+					fontSize: 12
+				},
+				itemWidth: 14,
+				itemHeight: 14,
+				backgroundColor: 'rgba(255, 255, 255, 0.9)',
+				borderColor: '#ddd',
+				borderWidth: 1,
+				borderRadius: 4,
+				padding: 10
+			}
+		};
+
+		// ==================== 5. 创建 ECharts Layer ====================
+		const echartsLayer = new MinemapEChartsLayer(map, option);
+	});
+</script>
+</body>
+</html>

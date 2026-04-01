@@ -1,0 +1,526 @@
+<!--
+ * @Author: defineconst
+ * @Date: 2025-10-28 13:46:17
+ * @LastEditors: defineconst
+ * @LastEditTime: 2026-02-04 09:34:30
+ * @Description: 动态时间条优化版本
+-->
+<!doctype html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8" />
+	<title>动态数据源PBF - 智能时间条</title>
+	<!-- demo样式文件 -->
+	<link rel="stylesheet" href="https://minedata.cn/mine-support/assets/web/support-data/css/demo.css">
+	<!-- 引入MineMap API插件 -->
+	<link rel="stylesheet" href="../../dist/minemap.css">
+	<script src="../../dist/minemap-dev.js"></script>
+	<script src="https://unpkg.com/dayjs@1.11.10/dayjs.min.js"></script>
+	<style>
+		#map {
+			width: 100%;
+			height: 100%;
+		}
+
+		/* 时间滑动条容器 */
+		.time-slider-container {
+			position: absolute;
+			bottom: 20px;
+			left: 50%;
+			transform: translateX(-50%);
+			width: 80%;
+			max-width: 800px;
+			background: rgba(255, 255, 255, 0.9);
+			border-radius: 8px;
+			padding: 15px;
+			box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+			z-index: 1000;
+		}
+
+		/* 当前时间显示 */
+		.current-time-display {
+			text-align: center;
+			margin-bottom: 15px;
+			padding: 10px;
+			background: rgba(33, 150, 243, 0.1);
+			border-radius: 5px;
+			border: 1px solid rgba(33, 150, 243, 0.3);
+		}
+
+		.time-label-text {
+			font-size: 14px;
+			color: #666;
+			margin-right: 8px;
+		}
+
+		.current-time {
+			font-size: 18px;
+			font-weight: bold;
+			color: #2196F3;
+			background: white;
+			padding: 4px 12px;
+			border-radius: 4px;
+			border: 1px solid #2196F3;
+		}
+
+		/* 自动播放控制 */
+		.time-control {
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			margin-bottom: 15px;
+		}
+
+		.control-label {
+			font-size: 14px;
+			color: #333;
+			margin: 0 10px;
+		}
+
+		/* 开关样式 */
+		.switch {
+			position: relative;
+			display: inline-block;
+			width: 60px;
+			height: 34px;
+		}
+
+		.switch input {
+			opacity: 0;
+			width: 0;
+			height: 0;
+		}
+
+		.slider-switch {
+			position: absolute;
+			cursor: pointer;
+			top: 0;
+			left: 0;
+			right: 0;
+			bottom: 0;
+			background-color: #ccc;
+			transition: .4s;
+			border-radius: 34px;
+		}
+
+		.slider-switch:before {
+			position: absolute;
+			content: "";
+			height: 26px;
+			width: 26px;
+			left: 4px;
+			bottom: 4px;
+			background-color: white;
+			transition: .4s;
+			border-radius: 50%;
+		}
+
+		input:checked+.slider-switch {
+			background-color: #2196F3;
+		}
+
+		input:checked+.slider-switch:before {
+			transform: translateX(26px);
+		}
+
+		/* 时间滑动条 */
+		.time-slider-wrapper {
+			position: relative;
+		}
+
+		.time-slider {
+			position: relative;
+			height: 6px;
+			margin: 10px 0;
+			cursor: pointer;
+		}
+
+		.slider-track {
+			position: absolute;
+			width: 100%;
+			height: 100%;
+			background-color: #ddd;
+			border-radius: 3px;
+		}
+
+		.slider-progress {
+			position: absolute;
+			height: 100%;
+			background-color: #2196F3;
+			border-radius: 3px;
+			width: 0%;
+			transition: width 0.3s ease;
+		}
+
+		.slider-handle {
+			position: absolute;
+			width: 16px;
+			height: 16px;
+			background-color: #2196F3;
+			border-radius: 50%;
+			top: -5px;
+			left: 0%;
+			cursor: pointer;
+			transition: left 0.3s ease;
+			box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+		}
+
+		.slider-handle:hover {
+			transform: scale(1.2);
+		}
+
+		/* 时间标签 */
+		.time-labels {
+			display: flex;
+			justify-content: space-between;
+			margin-top: 10px;
+			font-size: 12px;
+			color: #666;
+		}
+
+		.time-label {
+			text-align: center;
+			min-width: 20px;
+		}
+
+		.time-label.next-day {
+			color: #ff6b35;
+			font-weight: bold;
+		}
+	</style>
+</head>
+
+<body>
+<div id="map"></div>
+
+<!-- 时间滑动条控件 -->
+<div class="time-slider-container">
+	<div class="current-time-display">
+		<span class="time-label-text">当前时间:</span>
+		<span class="current-time" id="current-time-display">加载中...</span>
+	</div>
+	<div class="time-control">
+		<span class="control-label">关闭自动播放</span>
+		<label class="switch">
+			<input type="checkbox" id="autoplay-toggle" checked>
+			<span class="slider-switch"></span>
+		</label>
+		<span class="control-label">开启自动播放</span>
+	</div>
+	<div class="time-slider-wrapper">
+		<div class="time-slider" id="time-slider">
+			<div class="slider-track"></div>
+			<div class="slider-progress" id="slider-progress"></div>
+			<div class="slider-handle" id="slider-handle"></div>
+		</div>
+		<div class="time-labels" id="time-labels"></div>
+	</div>
+</div>
+<script>
+	/**
+	 * 全局参数设置
+	 */
+	minemap.domainUrl = 'https://minedata.cn';
+	minemap.serverDomainUrl = 'https://ol-data.minedata.cn';
+	window.minemapCDN = 'https://minedata.cn/minemapapi/minemap-CDN';
+	minemap.key = '<您的 key>';
+
+	/**
+	 * 初始化地图实例
+	 */
+	const map = new minemap.Map({
+		container: 'map',
+		style: 'https://minedata.cn/mine-support/assets/web/support-data/style/11001.json',
+		center: [113.32, 23.11],
+		zoom: 6,
+		pitch: 0,
+		maxZoom: 17,
+		minZoom: 3,
+		projection: 'MERCATOR'
+	});
+
+	const el = document.createElement('div');
+	el.id = 'marker';
+	el.style['border'] = 'solid 1px #F15F5F3';
+	el.style['backgroundColor'] = 'white';
+	el.style['padding'] = '4px 6px';
+	el.style['borderRadius'] = '2px';
+
+	const span1 = document.createElement('span');
+	span1.innerHTML = '自定义marker';
+	span1.style['color'] = '#2B2B33';
+	el.appendChild(span1);
+
+	const span2 = document.createElement('span');
+	span2.innerHTML = '&nbsp;&nbsp;x&nbsp;';
+	span2.style.color = 'red';
+	span2.style.cursor = 'pointer';
+	span2.title = '删除该点';
+
+	// 自定义点标记的内部事件
+	function _onDeletePoint() {
+		if (marker) {
+			marker.remove();
+		}
+		marker = null;
+	}
+
+	//子元素绑定点击事件
+	span2.addEventListener('click', _onDeletePoint);
+
+	el.appendChild(span2);
+
+	//添加marker
+	const lnglat = [116.46, 39.92];
+	const marker = new minemap.Marker(el, { offset: [-25, -50] })
+		.setLngLat(lnglat)
+		.addTo(map);
+
+	// 时间滑动条相关变量
+	const sourceLayerId = 'weather-layer';
+	const legend = [
+		{ type: 'rain', color: '#00ff00' },
+		{ type: 'snow', color: '#0000ff' },
+		{ type: 'cloud', color: '#888888' }
+	];
+
+	let currentTimeIndex = 0;
+	let autoplayInterval = null;
+	let isAutoplay = true;
+	let timeHours = [];
+	let timeUrls = {};
+	let timeObjects = [];
+
+	// 动态生成时间数组和URL映射的函数
+	// 生成动态时间数据
+	function generateDynamicTimeData() {
+		const now = dayjs().subtract(1, 'day'); // 取昨天
+		const currentHour = now.hour();
+		const newTimeHours = [];
+		const newTimeUrls = {};
+		const newTimeObjects = [];
+
+		console.log('=== 开始生成动态时间数据 ===');
+		console.log('当前时间:', now.format('YYYY-MM-DD HH:mm:ss'));
+		console.log('当前小时:', currentHour);
+
+		// 生成从当前小时开始的24小时时间数组
+		for (let i = 0; i < 24; i++) {
+			const targetTime = now.startOf('hour').add(i, 'hour'); // 从当前小时的整点开始
+			const hour = targetTime.hour();
+			const hourStr = hour.toString().padStart(2, '0');
+			const fullTimeStr = targetTime.format('YYYY-MM-DD+HH:mm:ss');
+
+			newTimeHours.push(hourStr);
+			// 随机1-7
+			const randomNum = Math.floor(Math.random() * 7) + 1;
+
+			newTimeUrls[hourStr] = `http://192.168.152.123:11187/demo-data/DynamicPBFDataSourceUpdate/${randomNum}.pbf`;
+			newTimeObjects.push(targetTime);
+		}
+
+		console.log('生成的时间数组:', newTimeHours);
+		console.log('生成的时间对象数量:', newTimeObjects.length);
+		console.log('第一个时间对象:', newTimeObjects[0].format('YYYY-MM-DD HH:mm:ss'));
+		console.log('最后一个时间对象:', newTimeObjects[23].format('YYYY-MM-DD HH:mm:ss'));
+
+		return {
+			timeHours: newTimeHours,
+			timeUrls: newTimeUrls,
+			currentHour: currentHour,
+			timeObjects: newTimeObjects
+		};
+	}
+
+	// 获取天气PBF数据源URL
+	function getWeatherPbf(time) {
+		// 随机获取1-7的pbf文件
+		const randomNum = Math.floor(Math.random() * 7) + 1;
+		return `http://192.168.152.123:11187/demo-data/DynamicPBFDataSourceUpdate/${randomNum}.pbf`;
+	}
+
+	// 添加图层函数
+	function addLayer(time) {
+
+		if (map.getSource(sourceLayerId) && map.getSource(sourceLayerId)) {
+			map.getSource(sourceLayerId).setTiles([getWeatherPbf(time)]);
+		} else {
+			// 移除现有图层和数据源
+			if (map.getLayer(sourceLayerId)) {
+				map.removeLayer(sourceLayerId);
+			}
+			if (map.getSource(sourceLayerId)) {
+				map.removeSource(sourceLayerId);
+			}
+
+			// 添加新的数据源
+			map.addSource(sourceLayerId, {
+				type: 'vector',
+				tiles: [getWeatherPbf(time)]
+			});
+
+			// 添加新的图层
+			map.addLayer({
+				id: sourceLayerId,
+				type: 'line',
+				source: sourceLayerId,
+				// 'source-layer': 'weather_pbf',
+				'source-layer': '1957',
+				layout: {
+					'line-join': 'round',
+					'line-cap': 'round'
+				},
+				paint: {
+					'line-width': 2,
+					'line-color': {
+						type: 'categorical',
+						property: 'type',
+						stops: legend.map(item => [item.type, item.color]),
+						default: '#ff0000'
+					}
+				},
+				minzoom: 1,
+				maxzoom: 20
+			});
+		}
+	}
+
+	// 滑动条相关DOM元素
+	const timeSlider = document.getElementById('time-slider');
+	const sliderProgress = document.getElementById('slider-progress');
+	const sliderHandle = document.getElementById('slider-handle');
+	const timeLabels = document.getElementById('time-labels');
+	const autoplayToggle = document.getElementById('autoplay-toggle');
+
+	// 初始化时间标签
+	function initTimeLabels() {
+		timeLabels.innerHTML = '';
+
+		timeHours.forEach((hour, index) => {
+			const label = document.createElement('span');
+			label.className = 'time-label';
+
+			// 直接显示小时数，不添加括号
+			label.textContent = hour;
+
+			timeLabels.appendChild(label);
+		});
+	}
+
+	// 更新滑动条位置
+	function updateSliderPosition() {
+		const percentage = (currentTimeIndex / (timeHours.length - 1)) * 100;
+		sliderProgress.style.width = percentage + '%';
+		sliderHandle.style.left = percentage + '%';
+	}
+
+	// 更新当前时间并加载图层
+	function updateCurrentTime() {
+		if (currentTimeIndex >= timeObjects.length) {
+			currentTimeIndex = 0;
+		}
+
+		const targetTime = timeObjects[currentTimeIndex];
+		const formattedTime = targetTime.format('YYYY-MM-DD+HH:mm:ss');
+
+		console.log('更新时间到:', formattedTime);
+
+		addLayer(formattedTime);
+		updateSliderPosition();
+		updateTimeDisplay(targetTime);
+	}
+
+	// 更新时间显示
+	function updateTimeDisplay(fullTime) {
+		const timeDisplay = document.getElementById('current-time-display');
+		if (timeDisplay && fullTime) {
+			const formattedTime = fullTime.format('HH:mm');
+			const dateInfo = fullTime.format('MM-DD');
+			const isNextDay = fullTime.date() !== dayjs().date();
+
+			if (isNextDay) {
+				timeDisplay.textContent = `${formattedTime} (${dateInfo})`;
+			} else {
+				timeDisplay.textContent = formattedTime;
+			}
+		}
+	}
+
+	// 开始自动播放
+	function startAutoplay() {
+		if (autoplayInterval) {
+			clearInterval(autoplayInterval);
+		}
+		autoplayInterval = setInterval(() => {
+			currentTimeIndex = (currentTimeIndex + 1) % timeHours.length;
+			updateCurrentTime();
+		}, 2000); // 每2秒切换一次
+	}
+
+	// 停止自动播放
+	function stopAutoplay() {
+		if (autoplayInterval) {
+			clearInterval(autoplayInterval);
+			autoplayInterval = null;
+		}
+	}
+
+	// 滑动条点击事件
+	timeSlider.addEventListener('click', (event) => {
+		const rect = timeSlider.getBoundingClientRect();
+		const clickX = event.clientX - rect.left;
+		const percentage = clickX / rect.width;
+		const newIndex = Math.round(percentage * (timeHours.length - 1));
+
+		if (newIndex >= 0 && newIndex < timeHours.length) {
+			currentTimeIndex = newIndex;
+			updateCurrentTime();
+		}
+	});
+
+	// 自动播放开关事件
+	autoplayToggle.addEventListener('change', (event) => {
+		isAutoplay = event.target.checked;
+		if (isAutoplay) {
+			startAutoplay();
+		} else {
+			stopAutoplay();
+		}
+	});
+
+	// 地图加载完成后初始化
+	map.on('load', () => {
+		// 检查 dayjs 是否正确加载
+		console.log('=== dayjs 库检查 ===');
+		console.log('dayjs 是否可用:', typeof dayjs !== 'undefined');
+		if (typeof dayjs !== 'undefined') {
+			console.log('dayjs 版本:', dayjs.version || 'unknown');
+			console.log('dayjs 测试:', dayjs().format());
+		} else {
+			console.error('dayjs 库未正确加载！');
+			return;
+		}
+
+		// 生成动态时间数据
+		const dynamicTimeData = generateDynamicTimeData();
+		timeHours = dynamicTimeData.timeHours;
+		timeUrls = dynamicTimeData.timeUrls;
+		timeObjects = dynamicTimeData.timeObjects;
+
+		console.log('=== 初始化完成 ===');
+		console.log('时间数组长度:', timeHours.length);
+		console.log('时间对象长度:', timeObjects.length);
+
+		initTimeLabels();
+		updateCurrentTime();
+
+		// 如果开启自动播放，则开始播放
+		if (isAutoplay) {
+			startAutoplay();
+		}
+	});
+</script>
+</body>
+
+</html>

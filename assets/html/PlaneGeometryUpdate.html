@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8"/>
+	<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no"/>
+	<title>PlaneGeometry更新</title>
+	<script src="../../dist/minemap-dev.js"></script>
+	<style>
+		html,
+		body,
+		#map {
+			margin: 0;
+			padding: 0;
+			width: 100%;
+			height: 100%;
+		}
+	</style>
+</head>
+
+<body>
+<div id="map"></div>
+<script>
+	/**
+	 * 全局参数设置
+	 */
+	minemap.domainUrl = "https://minedata.cn";
+	minemap.dataDomainUrl = "https://minedata.cn";
+	minemap.serverDomainUrl = "https://minedata.cn";
+	minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+	minemap.serviceUrl = "https://minedata.cn/service/";
+
+	minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+	minemap.solution = 11001;
+	window.minemapCDN = 'https://minedata.cn/minemapapi/minemap-CDN'; // minemapCDN 配置
+	// 定义空底图样式
+	var style = {
+		"glyphs": "minemap://fonts/{fontstack}/{range}",
+		"sprite": "minemap://sprite/sprite",
+		"sources": {},
+		"layers": [],
+		"version": 8
+	};
+
+	/**
+	 * 初始化地图实例
+	 */
+	var map = new minemap.Map({
+		container: 'map',
+		style: style, /*底图样式*/
+		center: [100.05040732071706, 39.995899989556406],
+		zoom: 11.907385644708754,
+		pitch: 25.820775595594462,
+		maxZoom: 22, /*地图最大缩放等级*/
+		minZoom: 1,  /*地图最小缩放等级*/
+		projection: 'MERCATOR'
+	});
+
+	/**
+	 * position 中心点坐标
+	 * normal 朝向
+	 * distance 距中心点距离(默认为0)
+	 * dimensions 长宽
+	 */
+	const yellowPlaneGeometry = new minemap.Geometries.PlaneGeometry({
+		normal: minemap.Math.Vector3.UNIT_Z,
+		distance: 0,
+		dimensions: new minemap.Math.Vector2(4000.0, 3000.0)
+	});
+
+	const yellowPlanePrimitive = new minemap.Primitive({
+		geometry: yellowPlaneGeometry,
+		material: minemap.StandardMaterial.fromType("Color", {
+			color: "yellow",
+			doubleSided: true
+		}),
+		allowPick: true,
+		modelMatrix: minemap.Transforms.cartographicToFixedFrame([100.0, 40.0, 50.0])
+	});
+	map.addPrimitive(yellowPlanePrimitive);
+
+	const yellowPlaneOutlineGeometry = new minemap.Geometries.PlaneOutlineGeometry({
+		normal: minemap.Math.Vector3.UNIT_Z,
+		distance: 0,
+		dimensions: new minemap.Math.Vector2(4000.0, 3000.0)
+	});
+
+	const yellowPlaneOutlinePrimitive = new minemap.Primitive({
+		geometry: yellowPlaneOutlineGeometry,
+		material: minemap.StandardMaterial.fromType("Color", {
+			color: new minemap.Color(1.0, 0.0, 0.0, 1)
+		}),
+		modelMatrix: minemap.Transforms.cartographicToFixedFrame([100.0, 40.0, 50.0])
+	});
+	map.addPrimitive(yellowPlaneOutlinePrimitive);
+
+	const yellowPlaneGeometry2 = new minemap.Geometries.PlaneGeometry({
+		normal: minemap.Math.Vector3.UNIT_Z,
+		distance: 0,
+		dimensions: new minemap.Math.Vector2(4000.0, 3000.0)
+	});
+
+	const yellowPlanePrimitive2 = new minemap.Primitive({
+		geometry: yellowPlaneGeometry2,
+		material: minemap.StandardMaterial.fromType("Color", {
+			color: "yellow",
+			doubleSided: true
+		}),
+		allowPick: true,
+		modelMatrix: minemap.Transforms.cartographicToFixedFrame([100.1, 40.0, 50.0])
+	});
+	map.addPrimitive(yellowPlanePrimitive2);
+
+	const yellowPlaneOutlineGeometry2 = new minemap.Geometries.PlaneOutlineGeometry({
+		normal: minemap.Math.Vector3.UNIT_Z,
+		distance: 0,
+		dimensions: new minemap.Math.Vector2(4000.0, 3000.0)
+	});
+
+	const yellowPlaneOutlinePrimitive2 = new minemap.Primitive({
+		geometry: yellowPlaneOutlineGeometry2,
+		material: minemap.StandardMaterial.fromType("Color", {
+			color: new minemap.Color(1.0, 0.0, 0.0, 1)
+		}),
+		modelMatrix: minemap.Transforms.cartographicToFixedFrame([100.1, 40.0, 50.0])
+	});
+	map.addPrimitive(yellowPlaneOutlinePrimitive2);
+
+	setTimeout(() => {
+		map.repaint = true;
+		yellowPlaneGeometry.setData({
+			normal: minemap.Math.Vector3.UNIT_Z,
+			distance: 0,
+			dimensions: new minemap.Math.Vector2(400.0, 300.0)
+		});
+
+		yellowPlaneOutlineGeometry.setData({
+			normal: minemap.Math.Vector3.UNIT_Z,
+			distance: 0,
+			dimensions: new minemap.Math.Vector2(400.0, 300.0)
+		})
+
+		map.repaint = false;
+	}, 3000);
+
+	map.on('load', function () {
+		/*添加栅格图*/
+		map.addSource("IMAGERY_SOURCE", {
+			type: "raster", //DEM的数据类型为"raster"
+			"tiles": ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+			tileSize: 512, //瓦片大小
+			translation: [0, 0, 0] //地形高度，是否上下移动
+			// demDataMaxZoom: 14 //dem最高切分zoom，30米一般是14级；12.5米一般是16级
+		});
+
+		map.addLayer({
+			id: "IMAGERY",
+			type: "raster", //图层类型为"raster"
+			source: "IMAGERY_SOURCE",
+			minzoom: 1,
+			maxzoom: 23,
+			paint: {
+				"raster-opacity": 1
+			},
+			"depth-test": true
+		});
+
+
+	})
+</script>
+</body>
+
+</html>

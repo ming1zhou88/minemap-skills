@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<title>路况综合-pattern形式</title>
+		<link rel="stylesheet" href="../style/demo.css" />
+		<link rel="stylesheet" href="../../dist/minemap.css" />
+		<script src="../../dist/minemap-dev.js"></script>
+		<script type="text/javascript" src="../js/lil-gui.umd.min.js"></script>
+		<style>
+			#map {
+				width: 100%;
+				height: 100%;
+			}
+		</style>
+	</head>
+	<body>
+		<div id="map"></div>
+		<script>
+			/*全局参数设置*/
+			minemap.domainUrl = "https://minemap.minedata.cn";
+			minemap.dataDomainUrl = "https://minemap.minedata.cn";
+			minemap.serverDomainUrl = "https://sd-data.minedata.cn";
+			minemap.spriteUrl = "http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite";
+			minemap.serviceUrl = "https://service.minedata.cn/service";
+
+			minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+			minemap.solution = 11001;
+
+			const timeInterval = 20000;
+			const map = new minemap.Map({
+				container: "map",
+				style: "https://service.minedata.cn/map/solu/style/11003",
+				// style: 'https://service.minedata.cn/map/solu/style/1058386285932613632', // 主站--我的--报错有问题--不能包含
+				position: [116.45999719510878, 39.91999999999996, 800],
+				zoom: 15,
+				pitch: 0,
+				maxZoom: 20,
+				minZoom: 3,
+				projection: "MERCATOR"
+			});
+			map.repaint = true;
+
+			const trafficLayerIds = [];
+			let trafficStatus = true;
+			let _interval = null;
+
+			map.on("load", function () {
+				initializeGUI();
+				// 增加自定义数据源、自定义图层
+				const urls = [
+					"https://minedata.cn/nce-static/support/demo/js-api/zh/images/traffic/gray@2x.png",
+					"https://minedata.cn/nce-static/support/demo/js-api/zh/images/traffic/green@2x.png",
+					"https://minedata.cn/nce-static/support/demo/js-api/zh/images/traffic/orange@2x.png",
+					"https://minedata.cn/nce-static/support/demo/js-api/zh/images/traffic/red@2x.png",
+					"https://minedata.cn/nce-static/support/demo/js-api/zh/images/traffic/deepRed@2x.png"
+				];
+				map.loadImages(urls, (error, images) => {
+					if (error) throw error;
+					// map.addImage("sprite-gray", images[urls[0]], { repeat: true });
+					// map.addImage("sprite-green", images[urls[1]], { repeat: true });
+					// map.addImage("sprite-orange", images[urls[2]], { repeat: true });
+					// map.addImage("sprite-red", images[urls[3]], { repeat: true });
+					// map.addImage("sprite-deepRed", images[urls[4]], { repeat: true });
+
+					updateTrafficSource();
+
+					trafficLayerIds.push("trafficlines");
+					trafficLayerIds.push("road-cond-sprite");
+
+					//定时刷新路况
+					if (_interval) {
+						clearInterval(_interval);
+						_interval = null;
+					}
+					_interval = setInterval(function () {
+						updateTrafficSource();
+					}, timeInterval);
+				});
+			});
+
+			const params = {
+				显示路况: true,
+				路况更新时间: ""
+			};
+
+			let updateTimeButton;
+			function initializeGUI() {
+				const gui = new lil.GUI({ width: 300 });
+				gui.onChange((event) => {
+					params[event.property] = event.value;
+				});
+
+				gui.add(params, "显示路况").onChange(() => {
+					controlTraffic();
+				});
+
+				updateTimeButton = gui.add(params, "路况更新时间");
+				updateTimeButton.disable();
+			}
+
+			function updateTrafficSource() {
+				if (map.getLayer("trafficlines")) {
+					map.removeLayer("trafficlines");
+				}
+				if (map.getLayer("road-cond-sprite")) {
+					map.removeLayer("road-cond-sprite");
+				}
+
+				if (map.getSource("TrafficSprite")) {
+					map.removeSource("TrafficSprite");
+				}
+
+				if (map.getSource("Traffic")) {
+					map.removeSource("Traffic");
+				}
+				const date = new Date();
+				if (!map.getSource("Traffic")) {
+					map.addSource("Traffic", {
+						type: "vector",
+						traffic: true,
+						tiles: [
+							"https://minedata.cn/service/data/dynamic-traffic/ertic?servicetype=0&z={z}&x={x}&y={y}&key=0c6ac62182404e5ebc7a789981f6db72&solu=12878"
+						]
+					});
+
+					map.addSource("TrafficSprite", {
+						type: "vector",
+						traffic: true,
+						tiles: [
+							"https://minedata.cn/service/data/dynamic-traffic/ertic?servicetype=1&z={z}&x={x}&y={y}&key=0c6ac62182404e5ebc7a789981f6db72&solu=12878"
+						]
+					});
+
+					//如果底图没有配置路况图层，需要自己手动增加
+					addLayer();
+					addLayersParticleEffect2();
+				}
+
+				updateTimeButton.setValue(
+					(date.getHours() < 10 ? "0" + date.getHours() : date.getHours()) +
+					":" +
+					(date.getMinutes() < 10 ? "0" + date.getMinutes() : date.getMinutes()) +
+					":" +
+					(date.getSeconds() < 10 ? "0" + date.getSeconds() : date.getSeconds()) +
+					"." +
+					date.getMilliseconds()
+				);
+			}
+
+			function updateTrafficLayerVisibility(v) {
+				trafficLayerIds.forEach(function (id) {
+					if (map.getLayer(id)) {
+						map.setLayoutProperty(id, "visibility", v);
+					} else {
+						addLayer();
+					}
+				});
+			}
+
+			function addLayer() {
+				map.addLayer({
+					id: "trafficlines",
+					type: "line",
+					source: "Traffic",
+					"source-layer": "Trafficrtic",
+					layout: {
+						"line-join": "round",
+						"line-cap": "round"
+					},
+					paint: {
+						"line-color": {
+							property: "status",
+							stops: [
+								[0, "#999999"],
+								[1, "#66cc00"],
+								[2, "#ff9900"],
+								[3, "#cc0000"],
+								[4, "#9d0404"]
+							]
+						},
+						"line-width": {
+							stops: [
+								[5, 1],
+								[18, 3]
+							],
+							base: 1.2
+						}
+					},
+					minzoom: 8,
+					maxzoom: 15
+				});
+			}
+
+			function addLayersParticleEffect2() {
+				map.addLayer({
+					id: "road-cond-sprite",
+					type: "sprite",
+					source: "Traffic",
+					"source-layer": "Trafficrtic",
+					layout: {
+						"sprite-cap": "round",
+						visibility: "visible",
+						"sprite-join": "round"
+					},
+					paint: {
+						"sprite-width": 5,
+						"sprite-pattern": {
+							property: "status",
+							stops: [
+								[0, "sprite-gray"],
+								[1, "sprite-green"],
+								[2, "sprite-orange"],
+								[3, "sprite-red"],
+								[4, "sprite-deepRed"]
+							],
+							type: "categorical"
+						},
+						"sprite-speed": {
+							property: "status",
+							stops: [
+								[0, 0.01],
+								[1, 1.8],
+								[2, 0.4],
+								[3, 0.2],
+								[4, 0.1]
+							],
+							type: "categorical"
+						}
+					},
+					minzoom: 8,
+					maxzoom: 20
+				});
+			}
+
+			function controlTraffic() {
+				if (trafficStatus) {
+					trafficStatus = false;
+					if (_interval) {
+						clearInterval(_interval);
+						_interval = null;
+					}
+					updateTrafficLayerVisibility("none");
+				} else {
+					trafficStatus = true;
+					if (_interval) {
+						clearInterval(_interval);
+						_interval = null;
+					}
+					updateTrafficSource();
+					_interval = setInterval(function () {
+						updateTrafficSource();
+					}, timeInterval);
+					updateTrafficLayerVisibility("visible");
+				}
+			}
+		</script>
+	</body>
+</html>

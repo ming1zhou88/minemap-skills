@@ -1,0 +1,78 @@
+<!--
+ * @Author: liwei
+ * @Date: 2023-04-03 15:36:40
+ * @LastEditTime: 2023-06-08 17:54:21
+ * @LastEditors: liwei
+ * @Description:
+ * @FilePath: \MineMap3DEngine\demo\html\EarthCrate.html
+-->
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+	<title>自定义地球</title>
+	<link rel="stylesheet" href="../style/demo.css">
+	<!-- 引入MineMap API插件 -->
+	<link rel="stylesheet" href="../../dist/minemap.css">
+	<script src="../../dist/minemap-dev.js"></script>
+	<style>
+		#map {
+			width: 100%;
+			height: 100%;
+		}
+	</style>
+</head>
+
+<body>
+	<div id="map"></div>
+	<script>
+		/**
+		 * 全局参数设置
+		 */
+		minemap.domainUrl = "https://minedata.cn";
+		minemap.dataDomainUrl = "https://minedata.cn";
+		minemap.serverDomainUrl = "https://minedata.cn";
+		minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+		minemap.serviceUrl = "https://minedata.cn/service/";
+		minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+		minemap.solution = 11001;
+
+		// 定义空底图样式
+		var style = {
+			"glyphs": "minemap://fonts/{fontstack}/{range}",
+			"sprite": "minemap://sprite/sprite",
+			"sources": {},
+			"layers": [],
+			"version": 8
+		};
+		var map = new minemap.Map({
+			container: 'map',
+			style,
+			center: [116.46, 39.92],
+			zoom: 2,
+			pitch: 0,
+			maxZoom: 17,
+			minZoom: 1,
+			projection: 'MERCATOR',
+			earthSkin: false, // 特别注意下这里，这里是不创建地球
+		});
+
+		map.repaint = true;
+		map.on('load', function () {
+			//创建和添加自定义地球
+			const earthCrate = new minemap.Earth({
+				url: "https://minemap.minedata.cn/minemapapi/v4.0.0/assets/Earth_Diffuse22.png", // 球体纹理
+				cloudImageUrl: "https://minemap.minedata.cn/minemapapi/v4.0.0/assets/Earth_Clouds4.png", // 大气云层纹理
+				nightImageUrl: "https://minemap.minedata.cn/minemapapi/v4.0.0/assets/imageNightLightEarth.png", // 夜景纹理
+				widthSegments: 128, // 水平方向的平滑度
+				heightSegments: 64, // 竖直方向的平滑度
+				cloudSpeed: 1.0 // 云层转速
+			});
+
+			map.addSceneComponent(earthCrate);
+		})
+
+	</script>
+</body>

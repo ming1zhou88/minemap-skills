@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+	<title>栅格图+矢量+DEM</title>
+	<!-- 引入MineMap API插件 -->
+	<link rel="stylesheet" href="../../dist/minemap.css">
+	<script src="../../dist/minemap-dev.js"></script>
+	<style>
+		html, body, #map {
+			margin: 0;
+			padding: 0;
+			width: 100%;
+			height: 100%;
+		}
+		#control-panel{
+			position: fixed;
+			top:0;
+			left: 0;
+			padding: 10px;
+			z-index: 999;
+		}
+	</style>
+</head>
+<body>
+<div id="control-panel">
+	<button onclick="hideLine()">隐藏线图层</button>
+	<button onclick="showLine()">显示线图层</button>
+	<button onclick="changeColor()">修改绿地面为棕色</button>
+</div>
+<div id="map"></div>
+<script>
+	/**
+	 * 全局参数设置
+	 */
+	minemap.domainUrl = 'https://minemap.minedata.cn';
+	minemap.dataDomainUrl = 'https://minemap.minedata.cn';
+	minemap.serverDomainUrl = 'https://sd-data.minedata.cn';
+	minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+	minemap.serviceUrl = 'https://service.minedata.cn/service';
+
+	minemap.key = '0c6ac62182404e5ebc7a789981f6db72';
+	minemap.solution = 11001;
+	window.minemapCDN = 'http://192.168.152.123/minemapapi/minemap-CDN';
+	/**
+	 * 初始化地图实例
+	 */
+	var style = {
+		"glyphs": "minemap://fonts/{fontstack}/{range}",
+		"sprite": "minemap://sprite/sprite",
+		"sources": {},
+		"layers": [],
+		"version": 8
+	};
+
+	var map = new minemap.Map({
+		container: 'map',
+		style: '../data/style/with_symbol_height_p.json', /*底图样式*/
+		center: [116.46,39.92], /*地图中心点*/
+		zoom: 10, /*地图默认缩放等级*/
+		pitch: 0, /*地图俯仰角度*/
+		maxZoom: 17, /*地图最大缩放等级*/
+		minZoom: 0,  /*地图最小缩放等级*/
+		projection: 'MERCATOR'
+	});
+
+	//开启大气透视
+	const skyAtmosphere = map.getSky();
+	skyAtmosphere.useAerialPerspective = true;
+
+	// map.repaint = true;
+	// map.showTileBoundaries = true;
+
+	map.setTerrain({
+		"tiles": ["https://staticdata-b.minedata.cn:14434/dem/{z}/{r}/{c}/{z}_{x}_{y}.terrain"], //瓦片服务地址
+		"tileSize": 512,  //瓦片大小
+		"maxzoom": 14        //dem最高切分zoom，30米一般是14级；12.5米一般是16级
+		// bounds: [130, 60, 140, 70],//要显示区域的经纬度外包框，按west，south，east，north填写
+	});
+
+	/**
+	 * 添加基本球体图层，包括球体表面、天空盒、大气层
+	 *
+	 */
+	map.on('load', function () {
+
+		/*添加DEM数字高程模型数据*/
+		map.addSource("3D_SOURCE", {
+			"type": "raster",//DEM的数据类型为"raster"
+			"tiles": ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+			"tileSize": 512,  //瓦片大小
+		});
+
+		map.addLayer(
+			{
+				"type": "raster",//DEM的图层类型为"raster"
+				"id": "3d-layer",
+				"source": "3D_SOURCE",
+				"minzoom": 1,
+				"maxzoom": 20,
+				"layout": {}
+			},
+			"1186759975375495216"//需要设置before图层，否则栅格默认放在最前面，会压盖矢量
+		);
+	});
+
+	function changeColor(){
+		map.setPaintProperty("1186759975375495183", "fill-color", "brown");
+	}
+
+	function showLine() {
+		map.setLayoutProperty("1186759975375495210", "visibility", "visible");
+		map.setLayoutProperty("1186759975375495209", "visibility", "visible");
+		map.setLayoutProperty("1186759975375495214", "visibility", "visible");
+		map.setLayoutProperty("1186759975371300899", "visibility", "visible");
+		map.setLayoutProperty("1186759975371300964", "visibility", "visible");
+		map.setLayoutProperty("1186759975371300972", "visibility", "visible");
+		map.setLayoutProperty("1186759975375495169", "visibility", "visible");
+		map.setLayoutProperty("1186759975371300901", "visibility", "visible");
+	}
+
+	function hideLine() {
+		map.setLayoutProperty("1186759975375495210", "visibility", "none");
+		map.setLayoutProperty("1186759975375495209", "visibility", "none");
+		map.setLayoutProperty("1186759975375495214", "visibility", "none");
+		map.setLayoutProperty("1186759975371300899", "visibility", "none");
+		map.setLayoutProperty("1186759975371300964", "visibility", "none");
+		map.setLayoutProperty("1186759975371300972", "visibility", "none");
+		map.setLayoutProperty("1186759975375495169", "visibility", "none");
+		map.setLayoutProperty("1186759975371300901", "visibility", "none");
+	}
+
+</script>
+</body>

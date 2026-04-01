@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+	<title>球体矢量+3DLandMark</title>
+	<!-- 引入MineMap API插件 -->
+	<link rel="stylesheet" href="../../dist/minemap.css">
+	<script src="../../dist/minemap-dev.js"></script>
+	<style>
+		html, body, #map {
+			margin: 0;
+			padding: 0;
+			width: 100%;
+			height: 100%;
+		}
+	</style>
+</head>
+<body>
+<div id="map"></div>
+<script>
+	/**
+	 * 全局参数设置
+	 */
+	minemap.domainUrl = 'https://minemap.minedata.cn';
+	minemap.dataDomainUrl = 'https://minemap.minedata.cn';
+	minemap.serverDomainUrl = 'https://sd-data.minedata.cn';
+	minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+	minemap.serviceUrl = 'https://service.minedata.cn/service';
+
+	minemap.key = '0c6ac62182404e5ebc7a789981f6db72';
+	minemap.solution = 12878;
+	window.minemapCDN = 'http://192.168.152.123/minemapapi/minemap-CDN';
+	/**
+	 * 初始化地图实例
+	 */
+	var style = {
+		"glyphs": "minemap://fonts/{fontstack}/{range}",
+		"sprite": "minemap://sprite/sprite",
+		"sources": {},
+		"layers": [],
+		"version": 8
+	};
+
+	var map = new minemap.Map({
+		container: 'map',
+		style: 'https://service.minedata.cn/map/solu/style/11002?key=0c6ac62182404e5ebc7a789981f6db72', /*底图样式*/
+		position: [116.43710804544799, 39.92569822419326, 330.4896943915153],
+		pitch: 76.78349213867412,
+		bearing: 103.54280286999092,
+		maxZoom: 24, /*地图最大缩放等级*/
+		minZoom: 0,  /*地图最小缩放等级*/
+		projection: 'MERCATOR'
+	});
+
+	map.addSceneComponent({
+		type: "3d-tiles",
+		urls:[
+			{url: "http://192.168.152.123/minemap-engine/EngineCanaryDemo/data/3dlandmark/tileset.json", name: "3dlandmark"}
+		],
+		lightingModel: minemap.LightingModelType.PHONG
+	})
+</script>
+</body>
