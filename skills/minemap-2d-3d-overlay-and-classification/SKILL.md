@@ -225,6 +225,30 @@ MineMap demo 已明确暴露两个常见坑：
 -   line/fill 视为最稳基线
 -   sprite/heatmap/pattern 视为“可参考 demo、但要逐场景验收”的扩展写法
 
+### 模式 6：threejs 点线面融合属于“场景增强层”，不是 style layer 主路径
+
+最近 master 新增了：
+
+-   `demo/html/Threejs-RoadEffect.html`
+
+这个 demo 很重要，因为它证明了当前仓库里已经有一条 shipped 的 threejs 融合场景组织方式：
+
+-   用 `ThreeLayer` 作为三维增强图层
+-   在同一个 MineMap 地图里叠加围栏、流动道路 tube、雷达圆等 threejs 对象
+-   通过 `minemap.util.getJSON(...)` 读取 GeoJSON，再在 threejs 层里生成点线面表达
+
+这条路径的定位应写清楚：
+
+-   它适合高表现力道路特效、围栏、雷达圈、程序化视觉增强
+-   它不是替代 `source/layer` 的常规专题图层主路径
+-   它也不是 `addSceneComponent()` 的标准 glTF / 3D Tiles 路径
+
+因此推荐理解是：
+
+-   常规业务底图、专题线面、可查询图层，仍优先 style/source/layer
+-   threejs 融合层用于“视觉增强”和“程序化特效对象”
+-   二者可以共存，但职责不要混淆
+
 ## Recommended Workflow
 
 1. 先判断表达层次：style layer 还是 primitive
@@ -238,6 +262,20 @@ MineMap demo 已明确暴露两个常见坑：
 ## Strict Constraints
 
 ### 1. `source.adaptTerrain` 不等于贴任意三维对象
+
+### 2. threejs 融合层不等于 MineMap 原生图层
+
+`Threejs-RoadEffect.html` 证明了 threejs 融合是可行路径，但它更适合：
+
+-   程序化特效
+-   视觉增强
+-   自定义网格对象
+
+不适合直接替代：
+
+-   feature-state
+-   图层查询
+-   原生 source/layer 管理
 
 它的主语义是贴 DEM 地形。不要把它写成“自动贴合全部 3D Tiles / 模型表面”的通用方案。
 
@@ -367,6 +405,7 @@ map.addLayer({
 ## See Also
 
 -   `minemap-style-and-data`
+-   `minemap-threejs-integration`
 -   `minemap-scene-components`
 -   `minemap-primitives-and-materials`
 -   `minemap-primitive-adapt-terrain`

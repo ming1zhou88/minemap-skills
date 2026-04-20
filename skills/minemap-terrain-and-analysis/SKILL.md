@@ -9,42 +9,42 @@ description: MineMap 地形设置（setTerrain）、DEM 高程查询、地形分
 
 ```javascript
 const map = new minemap.Map({
-    container: "map",
-    style,
-    position: [89.11, 27.40, 15000],
-    pitch: 55,
-    projection: minemap.ProjectionType.MERCATOR,
-    minHeightToDemSurface: 5,
-    terrainSkirtHeight: -1
+	container: "map",
+	style,
+	position: [89.11, 27.4, 15000],
+	pitch: 55,
+	projection: minemap.ProjectionType.MERCATOR,
+	minHeightToDemSurface: 5,
+	terrainSkirtHeight: -1
 });
 
 map.on("load", () => {
-    map.setTerrain({
-        tiles: ["https://example.com/dem/{z}/{r}/{c}/{z}_{x}_{y}.terrain"],
-        availabilities: ["https://example.com/dem/layer.json"],
-        tileSize: 512,
-        maxzoom: 14,
-        extensions: {
-            requestVertexNormals: false,
-            requestWaterMask: false,
-            requestHeightFieldNormals: false
-        }
-    });
+	map.setTerrain({
+		tiles: ["https://example.com/dem/{z}/{r}/{c}/{z}_{x}_{y}.terrain"],
+		availabilities: ["https://example.com/dem/layer.json"],
+		tileSize: 512,
+		maxzoom: 14,
+		extensions: {
+			requestVertexNormals: false,
+			requestWaterMask: false,
+			requestHeightFieldNormals: false
+		}
+	});
 
-    map.addSource("imagery", {
-        type: "raster",
-        tiles: ["https://example.com/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"],
-        tileSize: 512
-    });
+	map.addSource("imagery", {
+		type: "raster",
+		tiles: ["https://example.com/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"],
+		tileSize: 512
+	});
 
-    map.addLayer({
-        id: "imagery",
-        type: "raster",
-        source: "imagery"
-    });
+	map.addLayer({
+		id: "imagery",
+		type: "raster",
+		source: "imagery"
+	});
 
-    const height = map.queryDEMHeightByLngLat([89.11316, 27.40665]);
-    console.log(height.z);
+	const height = map.queryDEMHeightByLngLat([89.11316, 27.40665]);
+	console.log(height.z);
 });
 ```
 
@@ -147,7 +147,7 @@ terrain 瓦片 URL 模板。
 常见形式是 `.terrain` 文件：
 
 ```javascript
-tiles: ["https://example.com/dem/{z}/{r}/{c}/{z}_{x}_{y}.terrain"]
+tiles: ["https://example.com/dem/{z}/{r}/{c}/{z}_{x}_{y}.terrain"];
 ```
 
 语义：
@@ -425,23 +425,23 @@ map.minHeightToDemSurface = 5;
 
 ```javascript
 map.on("load", () => {
-    map.setTerrain({
-        tiles: [terrainUrl],
-        tileSize: 512,
-        maxzoom: 14
-    });
+	map.setTerrain({
+		tiles: [terrainUrl],
+		tileSize: 512,
+		maxzoom: 14
+	});
 
-    map.addSource("imagery", {
-        type: "raster",
-        tiles: [imageryUrl],
-        tileSize: 512
-    });
+	map.addSource("imagery", {
+		type: "raster",
+		tiles: [imageryUrl],
+		tileSize: 512
+	});
 
-    map.addLayer({
-        id: "imagery",
-        type: "raster",
-        source: "imagery"
-    });
+	map.addLayer({
+		id: "imagery",
+		type: "raster",
+		source: "imagery"
+	});
 });
 ```
 
@@ -451,8 +451,8 @@ map.on("load", () => {
 
 ```javascript
 map.on("click", async (e) => {
-    const point = await map.queryAccurateDEMHeightByPoint(e.point);
-    console.log(point.z);
+	const point = await map.queryAccurateDEMHeightByPoint(e.point);
+	console.log(point.z);
 });
 ```
 
@@ -570,17 +570,17 @@ terrain 开启后，如果 primitive 本身支持：
 
 ```javascript
 map.setTerrainAnalysis({
-    type: minemap.InterpolationType.EXPONENTIAL,
-    property: minemap.TerrainAnalysisType.SLOPE,
-    stops: [
-        [0, "#00FF00"],
-        [30, "#FFFF66"],
-        [60, "#FF8000"],
-        [90, "#FF0000"]
-    ],
-    default: "rgba(0,0,255,1)",
-    region: region,
-    hasArrow: true
+	type: minemap.InterpolationType.EXPONENTIAL,
+	property: minemap.TerrainAnalysisType.SLOPE,
+	stops: [
+		[0, "#00FF00"],
+		[30, "#FFFF66"],
+		[60, "#FF8000"],
+		[90, "#FF0000"]
+	],
+	default: "rgba(0,0,255,1)",
+	region: region,
+	hasArrow: true
 });
 ```
 
@@ -617,8 +617,8 @@ map.setTerrainAnalysis({
 
 ```javascript
 const leveling = new minemap.TerrainLeveling({
-    region: [89.1, 27.4, 89.2, 27.4, 89.2, 27.3, 89.1, 27.3],
-    depth: 50
+	region: [89.1, 27.4, 89.2, 27.4, 89.2, 27.3, 89.1, 27.3],
+	depth: 50
 });
 
 map.addSceneComponent(leveling);
@@ -718,7 +718,7 @@ leveling.setDepth(80);
 
 ```javascript
 if (map.isTerrain()) {
-    console.log("terrain enabled");
+	console.log("terrain enabled");
 }
 ```
 

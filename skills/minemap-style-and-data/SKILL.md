@@ -64,8 +64,22 @@ MineMap 使用 style spec `version: 8`，核心字段仍然是：
 ### 5) 图像资源
 
 -   `loadImage(url, cb)` + `addImage(id, image, options)`
+-   `loadImages([{ id, url, imageOptions? }], cb, options)`
 -   `updateImage(id, image)`
 -   `hasImage(id)` / `removeImage(id)` / `listImages()`
+
+最近版本补充结论：
+
+-   `loadImages` 当前主路径是描述符数组，不再推荐只传 `string[]`
+-   描述符模式下会在内部自动执行 `addImage(...)`
+-   单项结果按数组返回，每项包含 `id`、`url`、`isOk`、`image/error`
+-   每个图片项可带 `imageOptions`，会透传到内部 `addImage(...)`
+
+兼容说明：
+
+-   `string[]` 仍兼容，但已进入弃用兼容模式
+-   兼容模式下不会自动 `addImage(...)`
+-   回调第二个参数是以原始 URL 为 key 的图片对象，而不是新数组结果结构
 
 ### 6) WMTS、RTL 与辅助数据工具
 
@@ -289,6 +303,60 @@ map.addSource("line-source", {
 
 ## Common Patterns
 
+### `loadImages` 新主路径
+
+```javascript
+map.loadImages(
+	[
+		{ id: "cat", url: "https://example.com/cat.png", imageOptions: { pixelRatio: 2 } },
+		{ id: "dog", url: "https://example.com/dog.png" }
+	],
+	(error, result) => {
+		if (error) console.error(error);
+		console.log(result);
+	},
+	{
+		onProgress: (loaded, total) => console.log(loaded, total)
+	}
+);
+```
+
+这条路径的优点是：
+
+-   加载完成后自动 `addImage(...)`
+-   图片 id 明确，不再依赖 URL 推导
+-   单项失败不会把成功项的结果结构抹平
+
+### `loadImages` 兼容旧写法时要知道的边界
+
+```javascript
+const legacyUrls = ["https://example.com/cat.png"];
+map.loadImages(legacyUrls, (error, images) => {
+	if (!error) {
+		map.addImage("cat", images[legacyUrls[0]]);
+	}
+});
+```
+
+这是兼容路径，不是当前推荐路径。
+
+### `addSource` / `addLayer` 先后添加的当前行为
+
+最近 master 有专门修复 `addSource`、`addLayer` 场景下“不加载”的问题，但该修复主要落在历史 `3d-model` source/layer 路径。
+
+对 style/source/layer 的常规结论是：
+
+-   当前版本 `map.addSource(...)` 会先执行 `_lazyInitEmptyStyle()`
+-   然后 `style.addSource(...)`
+-   最后 `_update(true)`
+
+因此在空样式、晚绑定样式或运行时动态加 source/layer 的场景里，现版本比旧版本更稳。
+
+但推荐顺序仍然不变：
+
+-   常规二维图层尽量放在 `style.load` 后添加
+-   不要因为修复了历史问题，就把所有时序都写成“随便什么时候加都行”
+
 ### 样式加载后再添加数据
 
 ```javascript
@@ -348,6 +416,7 @@ minemap.setRTLTextPlugin("https://example.com/rtl-text.js");
 -   `VectorTileSource` 的 `bounds`、`minzoom`、`maxzoom` 要收紧
 -   `promoteId` 提前设计好，避免后期 feature-state 很难补
 -   `queryRenderedFeatures` 指定 `layers` 范围，减少遍历
+-   `loadImages` 批量图标场景优先用 `maxConcurrent`、`timeout`、`retryCount` 做受控加载，不要手搓一层并发队列
 
 ## See Also
 

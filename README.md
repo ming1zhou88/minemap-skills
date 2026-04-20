@@ -1,4 +1,4 @@
-# MineMap Skills（基于 MineMap 4.22 源码）
+# MineMap Skills（基于 MineMap 4.23 源码）
 
 本目录按 `threejs-skills-main` 的结构，整理了 MineMap 地图引擎的技能规范文件（`SKILL.md`）。
 
@@ -72,6 +72,17 @@
     -   `source/util/createWebglContext.js`
     -   `docs/src-cn/*.js`（官方 API 注释源）
 
+### 近一个月 master 变更已补入的重点
+
+本轮 skill 补充，额外参考了 `master` 近一个月内与开发者使用面直接相关的提交，重点包括：
+
+-   `2026-03-25` 到 `2026-03-30`：`loadImages` 接口设计完善，主路径改成 `[{ id, url, imageOptions? }]`
+-   `2026-03-24`：修复 `addSource + addLayer(type='3d-model')` 的实际加载问题，并补了 `GLBAddSourceOfficialStyle.html`
+-   `2026-03-23`：补充 `_crease_edge` 内置尾缀识别与对应线框 demo
+-   `2026-03-26`：新增 `Threejs-RoadEffect.html`，补出 threejs 点线面融合示例
+
+这些内容在 skill 中都按“当前版本仍有效的行为”方式落盘，而不是只按提交标题转述。
+
 ## Skills 列表
 
 | Skill                                       | 说明                                                                                |
@@ -85,6 +96,7 @@
 | `minemap-layer-system`                      | 图层类型、增删改移、过滤、缩放范围、渲染顺序与图层交互组织                          |
 | `minemap-style-system`                      | style v8 结构、`setStyle()`、diff/keepUserInfo、sprite/glyphs 与样式工作流          |
 | `minemap-2d-3d-overlay-and-classification`  | 二三维叠加、贴地、贴模型、自动赋高与分类控制                                        |
+| `minemap-threejs-integration`               | `ThreeLayer`、threejs 融合、自定义 mesh、OBJ/FBX/IFC/VTK 与 GeoJSON 驱动特效        |
 | `minemap-scene-components`                  | `addSceneComponent` 体系（3d-model / 3d-tiles / scene-object）                      |
 | `minemap-3d-tiles-runtime-control`          | 3D Tiles 加载完成、TileFeature 样式、按属性显隐/着色、按子 URL 控制与实例拾取       |
 | `minemap-model-runtime-debug`               | 模型爆炸视图、材质/纹理更新、线框显示、属性外挂、运行时调试与可见性控制             |
@@ -160,6 +172,7 @@
 -   图层系统与图层顺序控制 → `minemap-layer-system`
 -   style 结构、切换与样式工作流 → `minemap-style-system`
 -   二维图层与三维场景叠加 → `minemap-2d-3d-overlay-and-classification`
+-   `ThreeLayer` / threejs 融合 / OBJ / FBX / IFC / VTK / 道路围栏雷达特效 → `minemap-threejs-integration`
 -   模型、3D Tiles、场景对象 → `minemap-scene-components`
 -   3D Tiles 运行时着色、显隐与属性查询 → `minemap-3d-tiles-runtime-control`
 -   模型运行时调试、线框、材质/纹理更新 → `minemap-model-runtime-debug`

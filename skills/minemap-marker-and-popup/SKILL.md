@@ -369,10 +369,7 @@ popup.setLngLat([116.39, 39.9]).setAltitude(120);
 ```javascript
 const popup = new minemap.Popup({ closeOnClick: false }).setText("站点 A");
 
-new minemap.Marker({ color: "#ff0000" })
-	.setLngLat([116.39, 39.9])
-	.setPopup(popup)
-	.addTo(map);
+new minemap.Marker({ color: "#ff0000" }).setLngLat([116.39, 39.9]).setPopup(popup).addTo(map);
 ```
 
 ### 模式 2：带三维高度的业务点
@@ -399,9 +396,7 @@ marker.setPopup(popup);
 ### 模式 3：地形上拖拽选点
 
 ```javascript
-const marker = new minemap.Marker({ draggable: true })
-	.setLngLat([116.39, 39.9])
-	.addTo(map);
+const marker = new minemap.Marker({ draggable: true }).setLngLat([116.39, 39.9]).addTo(map);
 ```
 
 terrain 开启时，拖拽会走地表 pick，高度可能自动更新。
@@ -415,9 +410,7 @@ const hoverPopup = new minemap.Popup({
 }).trackPointer();
 
 map.on("mousemove", "poi-layer", (e) => {
-	hoverPopup
-		.setText(e.features[0].properties.name)
-		.addTo(map);
+	hoverPopup.setText(e.features[0].properties.name).addTo(map);
 });
 ```
 

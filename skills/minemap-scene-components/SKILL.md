@@ -44,6 +44,16 @@ map.on("load", () => {
 -   `addSource(type="3d-model" | "3d-tiles")` + `addLayer(...)` 是历史路径
 -   4.22 继续兼容，但源码注释已经明确不推荐继续新增
 
+最近 master 补充的一个重要现实情况是：
+
+-   历史 `addSource + addLayer(type='3d-model')` 路径在当前版本仍被修复维护
+-   `demo/html/GLBAddSourceOfficialStyle.html` 就是专门补给这条历史路径的 shipped demo
+
+因此文档应写成：
+
+-   新业务仍优先 `addSceneComponent()`
+-   但如果你在维护旧项目，`addSource + addLayer(type='3d-model')` 不是“理论兼容而已”，当前 master 仍在修复其实际加载问题
+
 ### 3) 统一生命周期管理
 
 推荐统一用：
@@ -195,6 +205,21 @@ map.on("load", () => {
 
 -   有些 glTF 节点名本身就带 `_wireframe` / `_crease_edge`
 -   没有内置线框时，可以让引擎在装配阶段按折痕阈值生成
+
+最近 master 需要补充的一条行为是：
+
+-   `_crease_edge` 已被明确纳入内置线框尾缀识别
+-   不只是 `_wireframe`，带 `_crease_edge` 的内置数据也会进入这套兼容逻辑
+
+对应 demo：
+
+-   `demo/html/ModelCreaseEdgeWireframeRender.html`
+
+因此当前版本更准确的表述是：
+
+-   内置线框命名兼容至少覆盖 `_wireframe` / `_crease_edge`
+-   如果资产本身已经带好这类内置线框数据，应优先用 `showEmbeddedWireframe`
+-   只有没有内置线框数据时，再考虑 `generateWireframe`
 
 ### 自定义属性
 
@@ -456,8 +481,12 @@ sceneModel.clippingPlanes = clippingPlanes;
 -   不要把 `extrusion` 当 glTF 替代品
 -   不要默认对所有 scene component 都开 `allowPick`
 -   不要把 `adaptTerrain` 和 “贴 3D Tiles / 贴模型”混为一谈
+-   不要把 `ThreeLayer` 融合层和原生 `SceneModel` / `SceneTileset` 当成同一套对象体系
 
 ## Demo-backed References
+
+-   `demo/html/GLBAddSourceOfficialStyle.html`
+-   `demo/html/ModelCreaseEdgeWireframeRender.html`
 
 常见业务 demo 已经普遍采用 scene component 作为主入口，尤其是：
 
@@ -483,6 +512,8 @@ sceneModel.clippingPlanes = clippingPlanes;
 -   线框、实时精确包围盒、压缩纹理 mipmaps 都是高成本开关
 
 ## See Also
+
+-   `minemap-threejs-integration`
 
 -   `minemap-2d-3d-overlay-and-classification`
 -   `minemap-transforms`
