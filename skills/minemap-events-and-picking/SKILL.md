@@ -98,10 +98,36 @@ map.on("mousemove", "building-layer", (e) => {
 
 两者不要在同一点击链路里无意义重复调用。
 
+## Source Feature 查询
+
+需要查看 GeoJSON 或 vector source 中已经加载到本地缓存的要素时，使用 `map.querySourceFeatures(sourceId, parameters)`。如果目标是屏幕命中测试，仍然使用 `queryRenderedFeatures`。
+
+```javascript
+const features = map.querySourceFeatures("campus-source", {
+	sourceLayer: "campus-point-layer",
+	filter: ["==", "kind", "school"]
+});
+```
+
+当前 source 行为：
+
+- vector source 优先传真实 MVT `source-layer`。
+- 为了兼容旧写法，如果 `sourceLayer` 传入的是绑定同一 source 的 style layer id，`querySourceFeatureParams.js` 会映射到真实 `source-layer`。
+- GeoJSON source 里如果误传 style layer id 作为 `sourceLayer`，源码会容忍并在查询前移除。
+- 该方法只查询当前已加载的 source cache 数据，不是服务端全量查询。
+
+批量过滤、结果面板、把查询结果写回高亮 GeoJSON source 时使用它。屏幕空间图层点选继续用 `queryRenderedFeatures`，三维场景对象继续用 `getFeatureByGPUPick`。
+
+Demo 依据：
+
+-   `demo/html/QuerySourceFeaturesSimpleDemo.html`
+-   `demo/html/QuerySourceFeaturesMVTDemo.html`
+
 ## Performance Tips
 
 -   高频事件（`mousemove`）里避免重计算
 -   `queryRenderedFeatures` 必须传 `layers` 限定范围
+-   `querySourceFeatures` 必须明确 source id，并尽量给 `filter` 收窄结果
 -   `mouseenter/leave` 优于每帧全量命中检测
 
 ## Failure Cases
@@ -109,10 +135,13 @@ map.on("mousemove", "building-layer", (e) => {
 -   对二维图层不加 `layers` 就直接 `queryRenderedFeatures`，导致结果范围过大
 -   对关闭了 `allowPick` 的三维对象仍然期待 GPU 拾取结果
 -   `mousemove` 中同时做 `queryRenderedFeatures` 和 `getFeatureByGPUPick`，导致重复开销
+-   把 `querySourceFeatures` 当成服务端全量查询；它只返回当前 source cache 已加载的 feature
 
 ## Demo References
 
 -   `demo/html/GeoJSONWithHover.html`
+-   `demo/html/QuerySourceFeaturesSimpleDemo.html`
+-   `demo/html/QuerySourceFeaturesMVTDemo.html`
 -   `demo/html/GridBoxSelect.html`
 -   `demo/html/SymbolPick.html`
 -   `demo/html/3DTilesNextPick.html`

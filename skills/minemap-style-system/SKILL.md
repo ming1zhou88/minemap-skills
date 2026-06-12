@@ -181,6 +181,8 @@ style 是地图渲染主状态，不是一般 UI 配置。
 ## See Also
 
 -   `minemap-style-and-data`
+-   `minemap-style-v8-differences`
+-   `minemap-tile-url-and-data-security`
 -   `minemap-layer-system`
 -   `minemap-fundamentals`
 -   `minemap-scene-components`

@@ -59,6 +59,17 @@ WebGL1 下对高级能力（MRT、Transform Feedback、3D/2DArray 纹理）要�
 
 ## Demo-backed Patterns
 
+### 压缩纹理也属于后端兼容问题
+
+KTX2 / Basis / CRN / DDS / DXT 纹理不能只从材质层排查。WebGL1 对 NPOT 纹理和 mipmap filter 更严格；如果出现黑纹理、远处闪烁、摩尔纹或只显示 level 0，先检查：
+
+- `CompressedTexture` 是否接受了完整 mip chain。
+- WebGL1 下是否触发 NPOT wrap/filter 降级。
+- S3M CRN 是否依赖 `window.minemapCDN` 和 WASM 请求。
+- `renderBackendResolved` 是否从预期的 WebGL2 降到了 WebGL1。
+
+详细排查看 `minemap-compressed-texture-runtime`。
+
 ### 阴影是典型高成本开关
 
 多个 demo 都采用同一套路：
@@ -167,3 +178,4 @@ map.postProcessStages.add(stage);
 -   `minemap-terrain-and-analysis`
 -   `minemap-events-and-picking`
 -   `minemap-post-process-and-render-pipeline`
+-   `minemap-compressed-texture-runtime`

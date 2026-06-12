@@ -32,10 +32,7 @@ map.on("load", () => {
 
 	map.addLayer(threeLayer);
 
-	const mesh = new THREE.Mesh(
-		new THREE.BoxGeometry(20, 20, 20),
-		new THREE.MeshStandardMaterial({ color: 0x00aaff })
-	);
+	const mesh = new THREE.Mesh(new THREE.BoxGeometry(20, 20, 20), new THREE.MeshStandardMaterial({ color: 0x00aaff }));
 	mesh.position.set(0, 0, 10);
 	threeLayer.addObject(mesh);
 });

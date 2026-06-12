@@ -1,4 +1,4 @@
-# MineMap Skills（基于 MineMap 4.23 源码）
+# MineMap Skills（基于 MineMap 4.24 源码）
 
 本目录按 `threejs-skills-main` 的结构，整理了 MineMap 地图引擎的技能规范文件（`SKILL.md`）。
 
@@ -95,6 +95,8 @@
 | `minemap-style-and-data`                    | Style、Source、Layer、图像资源与数据更新                                            |
 | `minemap-layer-system`                      | 图层类型、增删改移、过滤、缩放范围、渲染顺序与图层交互组织                          |
 | `minemap-style-system`                      | style v8 结构、`setStyle()`、diff/keepUserInfo、sprite/glyphs 与样式工作流          |
+| `minemap-style-v8-differences`              | MineMap style v8 与 Mapbox v8 的字段差异、迁移检查与误用规避                        |
+| `minemap-tile-url-and-data-security`        | 瓦片 URL 模板、`{r}/{c}` 分目录、内部协议归一化、鉴权参数与加密保密边界             |
 | `minemap-2d-3d-overlay-and-classification`  | 二三维叠加、贴地、贴模型、自动赋高与分类控制                                        |
 | `minemap-threejs-integration`               | `ThreeLayer`、threejs 融合、自定义 mesh、OBJ/FBX/IFC/VTK 与 GeoJSON 驱动特效        |
 | `minemap-scene-components`                  | `addSceneComponent` 体系（3d-model / 3d-tiles / scene-object）                      |
@@ -171,6 +173,8 @@
 -   图层、数据源、样式更新 → `minemap-style-and-data`
 -   图层系统与图层顺序控制 → `minemap-layer-system`
 -   style 结构、切换与样式工作流 → `minemap-style-system`
+-   MineMap style v8 与 Mapbox v8 差异核对 → `minemap-style-v8-differences`
+-   瓦片地址模板、`{r}/{c}` 目录、鉴权与数据安全边界 → `minemap-tile-url-and-data-security`
 -   二维图层与三维场景叠加 → `minemap-2d-3d-overlay-and-classification`
 -   `ThreeLayer` / threejs 融合 / OBJ / FBX / IFC / VTK / 道路围栏雷达特效 → `minemap-threejs-integration`
 -   模型、3D Tiles、场景对象 → `minemap-scene-components`
@@ -297,3 +301,11 @@ description: 触发该技能的典型场景
 -   `demo/html/*.html`
 
 后续若继续扩充，仍按同一规则处理：**先核源码，再核 demo，最后入技能库**。
+
+## 2026-06-12 新增补充
+
+- `minemap-s3m-tiles`：补充 S3M/S3MB/SCP 通过 `map.addSceneComponent({ type: "s3m" })` 加载、CRN 纹理 CDN/WASM 依赖、`readyPromise` 后相机跳转、选择、LOD 与显隐控制。
+- `minemap-compressed-texture-runtime`：补充 KTX2/Basis/CRN/DDS 压缩纹理 mip 链、WebGL1 NPOT 降级、摩尔纹/黑纹理排查与 S3M CRN 诊断。
+- `minemap-tile-url-and-data-security`：补充 `{z}/{r}/{c}/{z}_{x}_{y}`、`{z}/{x}/{y}`、`{TileMatrix}/{TileCol}/{TileRow}` 等瓦片模板，以及内部协议、鉴权参数和加密数据保密边界。
+- `minemap-style-v8-differences`：补充 MineMap style v8 与 Mapbox v8 的 root/source/layer/paint/layout 差异，重点规避 `fill-extrusion-*`、`hillshade`、`sky`、`slot`、`model` 等误用。
+- `minemap-events-and-picking`：补充 `querySourceFeatures`，说明它只查询已加载 source cache 中的 feature，并注意 style layer id 兼容。
