@@ -1,0 +1,49 @@
+﻿minemap-2d-3d-overlay-and-classification :: MineMap 浜屼笁缁村彔鍔犺鑼冦€傝鐩栫煝閲忚创鍦般€佽创妯″瀷銆佸璞℃帴鍙?鎷掔粷璐村悎銆乻ymbol 鑷姩璧嬮珮銆佷互鍙?raster 娣卞害娴嬭瘯涓庡浘灞傞『搴忔帶鍒躲€?
+minemap-3d-tiles-runtime-control :: MineMap 3D Tiles 杩愯鏃舵帶鍒惰鑼冦€傜敤浜?TileFeature 鐫€鑹?鏄鹃殣銆佸疄渚嬫嬀鍙栥€佸姞杞藉畬鎴愭鏌ヤ笌鎸夊瓙 URL 鎺у埗銆?---
+minemap-anti-aliasing :: MineMap 鎶楅敮榻夸笌杈圭紭骞虫粦瑙勮寖銆傜敤浜?MSAA銆丗XAA銆乀AA銆乫ill-antialias 鐨勯€夊瀷銆佸惎鍋滀笌鎬ц兘鍙栬垗銆?---
+minemap-business-admin-division :: MineMap 琛屾斂鍖哄垝涓氬姟瑙勮寖銆傜敤浜庡尯鍩熸媺浼搞€佽竟鐣屽浣撱€佷笓棰樺尯鍒掑睍绀恒€?---
+minemap-business-airline-and-lines :: MineMap 鑸嚎銆侀绾裤€佸姩鎬佹祦鍏夌嚎涓氬姟瑙勮寖銆傜敤浜庣┖涓埅绾裤€佺墿娴侀绾裤€佹€佸娍杩炵嚎銆佹祦鍚戣〃杈俱€?---
+minemap-business-beidou-grid :: MineMap 鍖楁枟缃戞牸鐮佷笟鍔¤鑼冦€傜敤浜庣綉鏍肩紪鐮佸彲瑙嗗寲銆佸姩鎬佽皟搴︺€佺綉鏍奸珮浜笌绌洪棿绱㈠紩琛ㄨ揪銆?---
+minemap-business-flood-and-shadow :: MineMap 娣规病鍒嗘瀽涓庨槾褰卞垎鏋愪笟鍔¤鑼冦€傜敤浜庨槻鐏俱€佹帓娑濄€佹棩鐓ц瘎浼般€佸洯鍖虹幆澧冨垎鏋愩€?---
+minemap-business-gaussian-splatting :: MineMap Gaussian Splatting 涓氬姟瑙勮寖銆傜敤浜庨珮淇濈湡瀹炴櫙閲嶅缓銆佽交閲忓寲鐐瑰満鏅覆鏌撱€佺収鐗囨祴閲忔垚鏋滃睍绀恒€?---
+minemap-business-measurement :: MineMap 涓夌淮閲忕畻涓氬姟瑙勮寖銆傜敤浜庨潰绉€佽创鍦伴潰绉€佽緟鍔╂祴閲忎笌瑙勫垝鏍℃牳銆?---
+minemap-business-oblique-bim :: MineMap 鍊炬枩鎽勫奖銆丅IM銆乬lTF 涓?3D Tiles 涓氬姟瑙勮寖銆傜敤浜庡洯鍖恒€佸煄甯傚疄鏅€佸巶鍖?BIM銆佸崟浣撴ā鍨嬭杞姐€?---
+minemap-business-particle-and-special-effects :: MineMap 绮掑瓙绯荤粺涓庣壒鏁堜笟鍔¤鑼冦€傜敤浜庣伀鐒般€佺儫闆俱€佸柗娉夈€佸憡璀︾壒鏁堛€佹皼鍥存晥鏋溿€?---
+minemap-business-roaming-and-tracking :: MineMap 杞ㄨ抗鍔ㄧ敾銆佹ā鍨嬫极娓搞€佺浉鏈鸿窡韪笟鍔¤鑼冦€傜敤浜庡贰妫€銆佽溅杈嗚椹躲€佹棤浜烘満璺緞鍥炴斁銆佹暟瀛楀鐢熸极娓搞€?---
+minemap-business-spatial-analysis-suite :: MineMap 绌洪棿鍒嗘瀽琛ュ厖鑳藉姏瑙勮寖銆傝鐩栧湴褰笓棰樺垎鏋愩€佸墫闈€侀檺楂樸€佹寲濉柟銆佸湴褰㈠紑鎸栥€佸紑鏁炲害銆佸共鎵板垎鏋愮瓑闈炲彲瑙嗗煙/娣规病/閲忕畻绫诲垎鏋愩€?---
+minemap-business-video-projection :: MineMap 瑙嗛鎶曞皠涓庤棰戠鐞嗕笟鍔¤鑼冦€傜敤浜庣洃鎺ц鍩熴€佹憚鍍忓ご瑕嗙洊妯℃嫙銆佽棰戣创鎶曞埌妯″瀷/鍦拌〃/3D Tiles銆?---
+minemap-business-visibility-analysis :: MineMap 鍙鍩熶笌閫氳鍒嗘瀽涓氬姟瑙勮寖銆傜敤浜庡畨闃层€侀€夊潃銆佽娴嬬偣瑙嗗煙璇勪及銆侀伄鎸″垽瀹氥€?---
+minemap-camera-constraints-and-screenshot :: MineMap 鐩告満闄愬埗涓庢埅鍥捐鑼冦€傜敤浜庤繎瑁佸壀闈㈤槇鍊笺€佸尯鍩熺浉鏈洪檺鍒躲€佹埅鍥惧鍑轰笌鐩告満浜や簰绾︽潫銆?---
+minemap-clouds-and-atmosphere :: MineMap 浜戜笌澶ф皵娓叉煋閾俱€傜敤浜庡惎鐢ㄤ綋绉簯锛堝灞?CloudLayer锛夈€佸崟鐗囧疄渚嬪寲浜戯紙map.cloudCollection锛夈€佸ぇ姘旀暎灏勪笌澶槼 / 澶╃┖杈愮収搴︼紝閲嶇偣璇存槑涓诲垎鏀叕寮€鍙傛暟涓庣鐢ㄥ瓧娈点€?---
+minemap-collision-and-bounding :: MineMap 鍖呭洿浣撲笌纰版挒妫€娴嬭鑼冦€傜敤浜?AABB/OBB/鍖呭洿鐞冪浉浜ゅ垽鏂€丅VH 纰版挒銆佽鑹茬鎾炰笌璋冭瘯杈圭晫妗嗐€?---
+minemap-events-and-picking :: MineMap 浜嬩欢璁㈤槄妯″瀷銆佸浘灞備簨浠朵唬鐞嗐€乷nce/off 绠＄悊銆佺煝閲忎笌涓夌淮瀵硅薄鎷惧彇銆?
+minemap-fundamentals :: MineMap 鍦板浘鍒濆鍖栥€佸熀纭€鐩告満鍙傛暟銆佺敓鍛藉懆鏈熶簨浠躲€佹帶浠舵坊鍔犱笌娓呯悊銆傜敤浜庢柊寤哄湴鍥俱€佸垵濮嬪寲浜や簰銆佽鑼冨寲鍚姩娴佺▼銆?
+minemap-global-configuration :: MineMap 鍏ㄥ眬閰嶇疆銆乲ey/solution銆佸煙鍚嶅湴鍧€銆乻prite/fonts銆乵inemapCDN 涓庡惎鍔ㄥ墠閰嶇疆椤哄簭銆傜敤浜庢寚瀵肩敤鎴锋纭畬鎴愬湴鍥惧垵濮嬪寲鍓嶇殑閰嶇疆锛屼笉鍐嶆妸 accessToken 浣滀负涓绘帹鑽愯矾寰勩€?
+minemap-kml-source :: MineMap KML 鏁版嵁婧愩€傜敤浜庡姞杞?KML / KMZ 鏂囦欢锛岃В鏋?LineStyle / IconStyle / LabelStyle / PolyStyle 绛夋牱寮忕户鎵匡紝骞舵妸 KML 灞炴€ф槧灏勪负 line / circle / fill / symbol 娲剧敓鍥惧眰銆?---
+minemap-layer-system :: MineMap 鍥惧眰绯荤粺瑙勮寖銆傜敤浜庡浘灞傜被鍨嬮€夊瀷銆佸悇绫?layer 鍙傛暟灞曞紑銆佸鍒犳敼绉汇€佽繃婊ゃ€佺缉鏀捐寖鍥翠笌娓叉煋椤哄簭鎺у埗銆?
+minemap-lighting-and-shadows :: MineMap 鍏夌収涓庨槾褰辫鑼冦€傝鐩?`enableLight()`銆乣enableShadow()`銆佸お闃虫椂闂淬€佺伅鍏夊璞°€佷互鍙?`castShadow` / `receiveShadow` 鐨勫伐绋嬭竟鐣屻€?---
+minemap-marker-and-popup :: MineMap 鐨?Marker 涓?Popup 瑙勮寖銆傛兜鐩?DOM 瑕嗙洊鐗┿€佷笁缁撮珮搴︺€乨istanceDisplayCondition銆佹嫋鎷姐€佸唴瀹?API銆佸湴褰㈠満鏅笌甯歌澶辫触鍦烘櫙銆?
+minemap-material-system-and-shading :: MineMap 鏉愯川涓庣潃鑹茶鑼冦€傝鐩?`StandardMaterial`銆乣PhongMaterial`銆乣PhysicalMaterial`銆乣LambertMaterial`銆乣PolylineMaterial` 绛変富娴佹潗璐ㄧ殑閫夊瀷涓庤皟鍙傘€?
+minemap-math-foundations :: MineMap 鏁板鍩虹瑙勮寖銆傝鐩?`Vector2/3/4`銆乣Matrix3/4`銆乣Quaternion`銆乣HeadingPitchRoll`銆乣Cartographic`銆佷互鍙婅搴﹀姬搴﹁浆鎹㈢殑瀹為檯鐢ㄦ硶銆?---
+minemap-model-runtime-debug :: MineMap 妯″瀷杩愯鏃惰皟璇曡鑼冦€傜敤浜庣垎鐐歌鍥俱€佹潗璐?绾圭悊鏇存柊銆佺嚎妗嗘樉绀恒€佸睘鎬у鎸傘€佽繍琛屾椂鏌ョ湅涓庤窛绂诲彲瑙佹€ф帶鍒躲€?
+minemap-official-resources-and-onboarding :: MineMap 瀹樼綉銆佸府鍔╀腑蹇冦€佽处鍙峰紑閫氥€佹枃妗ｆ煡鎵俱€佺ず渚嬫煡鎵句笌鐗堟湰鏍稿瑙勮寖銆傜敤浜庢柊椤圭洰鎺ュ叆鍓嶇殑璧勬枡瀹氫綅鍜屽畼鏂瑰叆鍙ｅ鑸€?
+minemap-performance-and-backend :: MineMap 娓叉煋鍚庣锛坅uto/webgpu/webgl2/webgl1锛夐€夋嫨銆侀檷绾х瓥鐣ャ€佺壒鏁堝紑鍏充笌鎬ц兘璋冧紭銆?
+minemap-plugin-compare-swipe :: MineMap 鍗峰笜瀵规瘮鎻掍欢瑙勮寖銆傜敤浜庡弻鍦板浘 Compare 鍗峰笜銆佸悓姝ヨ瑙掍笌鎻掍欢閿€姣併€?---
+minemap-plugin-demo-editor :: MineMap demo 鍦ㄧ嚎缂栬緫鍣ㄨ鑼冦€傜敤浜?Monaco 缂栬緫銆乮frame 棰勮銆乄ebGL 妯″紡鍒囨崲涓庣ず渚嬭瘯璺戝彴銆?---
+minemap-plugin-echarts-integration :: MineMap 涓?ECharts 闆嗘垚瑙勮寖銆傜敤浜庢暎鐐广€侀绾裤€侀ゼ鍥俱€侀浄杈惧浘銆?D 鏌卞浘绛夊湴鍥惧彔鍔犲彲瑙嗗寲銆?---
+minemap-plugin-edit :: MineMap 缂栬緫鎻掍欢瑙勮寖銆傜敤浜庤绱犵粯鍒躲€侀€変腑銆佹牱寮忚鍐欍€侀攣瀹氥€佹壒閲忓啓鍏ヤ笌鍙犲姞缂栬緫銆?---
+minemap-post-process-and-render-pipeline :: MineMap 鍚庡鐞嗛樁娈典笌娓叉煋鏁堟灉閾捐鑼冦€傜敤浜庡瑙嗐€侀粦鐧姐€侀洦闆€侀浘鏁堛€佹弿杈广€佸ぉ闄呯嚎绛夊睆骞曞悗澶勭悊銆?---
+minemap-primitive-adapt-terrain :: MineMap Primitive 璐村湴瑙勮寖銆傝鐩?`primitive.adaptTerrain`銆佸嚑浣曞墠鎻愩€乣classificationType` 鑱斿姩銆佷互鍙?raster `depth-test` 瀵硅创鍦扮粨鏋滅殑褰卞搷銆?---
+minemap-primitives-and-materials :: MineMap Primitive 浣撶郴銆佸嚑浣曚笌鏉愯川缁勫悎銆丳ointPrimitiveCollection 涓庢覆鏌撻『搴忔帶鍒躲€?---
+minemap-s3m :: MineMap S3M 鍊炬枩鎽勫奖鏁版嵁婧愩€傜敤浜庡姞杞藉煄甯傜骇涓夌淮妯″瀷锛圤SGB / S3M 鍒囩墖 / 閿︽睙绀轰緥锛夈€丼3M tileset 浣嶇疆鏍℃銆佸お闃冲厜鑱斿姩涓庡満鏅粍浠剁敓鍛藉懆鏈熺鐞嗐€?---
+minemap-scene-components :: MineMap 涓夌淮鍦烘櫙缁勪欢浣撶郴锛歋ceneModel銆丼ceneTileset銆丼ceneObject锛圗arth/Skybox/AirLine 绛夛級锛岄噸鐐硅ˉ鍏?glTF/glb 涓?3D Tiles 鍙傛暟杈圭晫銆?
+minemap-screen-space-reflection :: MineMap 灞忓箷绌洪棿鍙嶅皠锛圫SR锛夎鑼冦€傝鐩?`map.SSR` 寮€鍏炽€佽繍琛屾椂璋冨弬杈圭晫銆佷笌姘撮潰鏉愯川鍜屽弽灏勫璞＄殑鍏崇郴銆?---
+minemap-style-and-data :: MineMap 鏍峰紡瑙勮寖锛坰tyle v8锛夈€乻ource/layer 绠＄悊銆佸浘鏍囪祫婧愩€丟eoJSON 鏇存柊涓庢暟鎹簮缁勭粐锛岄噸鐐硅ˉ鍏?VectorTileSource 鍙傛暟涓庣害鏉熴€?
+minemap-style-system :: MineMap style 绯荤粺瑙勮寖銆傜敤浜?style v8 缁撴瀯銆乣setStyle()`銆乨iff/keepUserInfo銆乻prite/glyphs 涓庢牱寮忓垏鎹㈠伐浣滄祦銆?
+minemap-terrain-and-analysis :: MineMap 鍦板舰璁剧疆锛坰etTerrain锛夈€丏EM 楂樼▼鏌ヨ銆佸湴褰㈠垎鏋愩€乀errainLeveling銆佺浉鏈虹鎾為珮搴︿笌 terrain 鐩稿叧绾︽潫銆?
+minemap-threejs-integration :: MineMap 涓?threejs 铻嶅悎瑙勮寖銆傝鐩?ThreeLayer銆佽嚜瀹氫箟 three 鍦烘櫙鎺ュ叆銆丱BJ/FBX/IFC/VTK 绛夊绉嶆暟鎹姞杞斤紝浠ュ強 GeoJSON 椹卞姩鐨勯亾璺?鍥存爮/闆疯揪鐗规晥銆?
+minemap-transforms :: MineMap 鍧愭爣鍙樻崲瑙勮寖銆傝鐩?`cartographicToCartesian3()`銆乣cartographicToFixedFrame()`銆乣headingPitchRollToFixedFrame()`銆乣fixedFrameToHeadingPitchRoll()` 绛夐珮棰戝彉鎹㈠叆鍙ｃ€?---
+minemap-volume-rendering :: MineMap 3D 浣撴覆鏌擄紙VolumeShell锛夊満鏅粍浠躲€傜敤浜庡尰瀛︺€佸湴璐ㄣ€佹捣娲嬬瓑鍦烘櫙鐨勫鏃舵 / 澶氭暟鎹被鍨嬩綋娓叉煋锛屽彔鍔?2D 鍒囩墖鍫嗗彔骞舵敮鎸?urlBuilder 鍔ㄦ€佸垏鎹㈡暟鎹簮銆?---
+minemap-water-surface-and-refraction :: MineMap 姘撮潰鏁堟灉瑙勮寖銆傝鐩?`WaterMaterial`銆乫ill 姘撮潰鍥惧眰銆乣waterRenderingMode`銆佷互鍙婂璞℃槸鍚﹀厑璁告按闈㈡姌灏?鍙嶅皠鐨勬帶鍒躲€?---
+minemap-widget-and-controls :: MineMap 鎺т欢涓?widget 浣撶郴銆傛兜鐩?IControl 鍗忚銆乵ap.addControl/removeControl/hasControl銆佽嚜瀹氫箟鎺т欢锛屼互鍙?Navigation/Scale/Fullscreen/Geolocate/Attribution銆乀humbnail銆丗PSControl銆丮odelTransformationControl銆丅atchAddInstanceControl 鐨勪娇鐢ㄨ竟鐣屻€?
+minemap-wms-source :: MineMap WMS 鏍呮牸鏁版嵁婧愩€傜敤浜庨€氳繃 capabilities URL 鑷姩鏋勫缓 WMS 鏁版嵁婧愩€佹墜宸ラ厤缃?GetMap 鍙傛暟銆佺摝鐗囪皟搴︺€佸弬鏁版牎楠屼互鍙婃妸 WMS 褰撲綔搴曞浘 / 鍥惧眰浣跨敤銆?---

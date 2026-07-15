@@ -1,0 +1,74 @@
+<!--
+ * @Author: GitHub Copilot
+ * @Date: 2026-04-07
+ * @LastEditors: GitHub Copilot
+ * @LastEditTime: 2026-04-07
+ * @Description: 地球纹理 webp 优先、png 回退示例
+-->
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+	<title>地球纹理兼容加载</title>
+	<link rel="stylesheet" href="../style/demo.css">
+	<link rel="stylesheet" href="../../dist/minemap.css">
+	<script src="../../dist/minemap-dev.js"></script>
+	<style>
+		#map {
+			width: 100%;
+			height: 100%;
+		}
+	</style>
+</head>
+
+<body>
+	<div id="map"></div>
+	<script>
+		minemap.domainUrl = "https://minedata.cn";
+		minemap.dataDomainUrl = "https://minedata.cn";
+		minemap.serverDomainUrl = "https://minedata.cn";
+		minemap.spriteUrl = "http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite";
+		minemap.serviceUrl = "https://minedata.cn/service/";
+		minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+		minemap.solution = 11001;
+
+		var style = {
+			glyphs: "minemap://fonts/{fontstack}/{range}",
+			sprite: "minemap://sprite/sprite",
+			sources: {},
+			layers: [],
+			version: 8
+		};
+
+		var map = new minemap.Map({
+			container: "map",
+			style: style,
+			center: [116.46, 39.92],
+			zoom: 2,
+			pitch: 0,
+			maxZoom: 17,
+			minZoom: 1,
+			projection: "MERCATOR",
+			earthSkin: false
+		});
+
+		map.repaint = true;
+		map.on("load", function () {
+			var assetBaseUrl = "http://192.168.152.123/minemapapi/v4/v4.23.0/assets";
+			var earthCrate = new minemap.Earth({
+				url: assetBaseUrl + "/Earth_Diffuse22.webp",
+				cloudImageUrl: assetBaseUrl + "/Earth_Clouds4.webp",
+				nightImageUrl: assetBaseUrl + "/imageNightLightEarth.webp",
+				widthSegments: 128,
+				heightSegments: 64,
+				cloudSpeed: 1.0
+			});
+
+			map.addSceneComponent(earthCrate);
+		});
+	</script>
+</body>
+
+</html>

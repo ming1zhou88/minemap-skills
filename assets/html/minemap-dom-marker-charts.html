@@ -15,7 +15,7 @@
             width: 100%;
             height: 100%;
         }
-        
+
         .info-panel {
             position: absolute;
             top: 20px;
@@ -28,20 +28,20 @@
             z-index: 1000;
             max-width: 300px;
         }
-        
+
         .info-panel h3 {
             margin: 0 0 10px 0;
             color: #333;
             font-size: 16px;
         }
-        
+
         .info-panel p {
             margin: 5px 0;
             color: #666;
             font-size: 14px;
             line-height: 1.4;
         }
-        
+
         /* 自定义marker样式 */
         .chart-marker {
             background: rgba(255, 255, 255, 0.95);
@@ -52,13 +52,13 @@
             transition: all 0.3s ease;
             position: relative;
         }
-        
+
         .chart-marker:hover {
             transform: scale(1.05);
             box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
             border-color: #45a049;
         }
-        
+
         .chart-marker::before {
             content: '';
             position: absolute;
@@ -71,7 +71,7 @@
             border-right: 8px solid transparent;
             border-top: 8px solid #4CAF50;
         }
-        
+
         .marker-title {
             position: absolute;
             top: -25px;
@@ -85,7 +85,7 @@
             white-space: nowrap;
             pointer-events: none;
         }
-        
+
         .control-panel {
             position: absolute;
             top: 20px;
@@ -96,7 +96,7 @@
             box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
             z-index: 1000;
         }
-        
+
         .control-panel button {
             display: block;
             width: 100%;
@@ -110,11 +110,11 @@
             font-size: 14px;
             transition: background 0.3s ease;
         }
-        
+
         .control-panel button:hover {
             background: #45a049;
         }
-        
+
         .control-panel button.active {
             background: #2196F3;
         }
@@ -148,7 +148,7 @@
      */
     minemap.domainUrl = 'https://minemap.minedata.cn';
     minemap.dataDomainUrl = 'https://minemap.minedata.cn';
-    minemap.serverDomainUrl = 'https://sd-data.minedata.cn';
+    minemap.serverDomainUrl = 'https://ol-data.minedata.cn';
     minemap.spriteUrl = 'https://minemap.minedata.cn/minemapapi/v3.4.0/sprite/sprite';
     minemap.serviceUrl = 'https://service.minedata.cn/service';
     minemap.key = '0c6ac62182404e5ebc7a789981f6db72';
@@ -251,7 +251,7 @@
 
         cityData.forEach(city => {
             const markerElement = createSimpleMarkerElement(city);
-            
+
             const marker = new minemap.Marker({
                 element: markerElement,
                 offset: [0, -8]
@@ -279,7 +279,7 @@
             box-shadow: 0 2px 4px rgba(0,0,0,0.3);
             transition: background 0.3s ease, box-shadow 0.3s ease, width 0.3s ease, height 0.3s ease;
         `;
-        
+
         // 添加城市名称标签
         const label = document.createElement('div');
         label.style.cssText = `
@@ -297,13 +297,13 @@
         `;
         label.textContent = city.name;
         container.appendChild(label);
-        
+
         // 添加点击事件
         container.addEventListener('click', (e) => {
             e.stopPropagation();
             showChartForCity(city, container);
         });
-        
+
         // 鼠标悬停效果
         container.addEventListener('mouseenter', () => {
             if (activeMarker !== container) {
@@ -313,7 +313,7 @@
                 container.style.boxShadow = '0 4px 8px rgba(0,0,0,0.4)';
             }
         });
-        
+
         container.addEventListener('mouseleave', () => {
             if (activeMarker !== container) {
                 container.style.width = '20px';
@@ -322,9 +322,9 @@
                 container.style.boxShadow = '0 2px 4px rgba(0,0,0,0.3)';
             }
         });
-        
+
         container._cityData = city;
-        
+
         return container;
     }
 
@@ -336,7 +336,7 @@
         if (activeChart) {
             hideActiveChart();
         }
-        
+
         // 创建图表容器
         const chartContainer = document.createElement('div');
         chartContainer.className = 'chart-marker active';
@@ -349,19 +349,19 @@
             z-index: 1000;
             pointer-events: auto;
         `;
-        
+
         // 添加城市名称标题
         const title = document.createElement('div');
         title.className = 'marker-title';
         title.textContent = city.name;
         chartContainer.appendChild(title);
-        
+
         // 创建ECharts容器
         const echartsDiv = document.createElement('div');
         echartsDiv.style.width = '100%';
         echartsDiv.style.height = '100%';
         chartContainer.appendChild(echartsDiv);
-        
+
         // 添加关闭按钮
         const closeBtn = document.createElement('div');
         closeBtn.style.cssText = `
@@ -386,31 +386,31 @@
             hideActiveChart();
         });
         chartContainer.appendChild(closeBtn);
-        
+
         // 将图表容器添加到marker元素
         markerElement.appendChild(chartContainer);
-        
+
         // 初始化ECharts实例
         const chart = echarts.init(echartsDiv);
         const option = getChartOption(city, currentChartType);
         chart.setOption(option);
-        
+
         // 设置活跃状态
         activeMarker = markerElement;
         activeChart = { container: chartContainer, chart: chart, cityData: city };
-        
+
         // 更新marker样式
         markerElement.style.width = '26px';
         markerElement.style.height = '26px';
         markerElement.style.background = '#ff6b6b';
         markerElement.style.boxShadow = '0 4px 8px rgba(0,0,0,0.5)';
-        
+
         // 点击地图其他地方关闭图表
         setTimeout(() => {
             document.addEventListener('click', hideActiveChart, { once: true });
         }, 100);
     }
-    
+
     /**
      * 隐藏活跃的图表
      */
@@ -420,7 +420,7 @@
             activeChart.container.remove();
             activeChart = null;
         }
-        
+
         if (activeMarker) {
             activeMarker.style.width = '20px';
             activeMarker.style.height = '20px';
@@ -435,7 +435,7 @@
      */
     function getChartOption(city, type) {
         const data = city.data;
-        
+
         switch(type) {
             case 'pie':
                 return {
@@ -461,7 +461,7 @@
                     }],
                     color: ['#ff6b6b', '#4ecdc4', '#45b7d1']
                 };
-                
+
             case 'bar':
                 return {
                     grid: {
@@ -495,7 +495,7 @@
                         }
                     }]
                 };
-                
+
             case 'line':
                 const timeData = generateTimeSeriesData(data);
                 return {
@@ -556,17 +556,17 @@
             switchChartType('pie');
             updateActiveButton('pieChart');
         });
-        
+
         document.getElementById('barChart').addEventListener('click', () => {
             switchChartType('bar');
             updateActiveButton('barChart');
         });
-        
+
         document.getElementById('lineChart').addEventListener('click', () => {
             switchChartType('line');
             updateActiveButton('lineChart');
         });
-        
+
         document.getElementById('refreshData').addEventListener('click', () => {
             refreshData();
         });
@@ -577,7 +577,7 @@
      */
     function switchChartType(type) {
         currentChartType = type;
-        
+
         // 如果有活跃的图表，更新它
         if (activeChart) {
             const option = getChartOption(activeChart.cityData, type);
@@ -605,7 +605,7 @@
             city.data.traffic = Math.max(40, Math.min(95, city.data.traffic + (Math.random() - 0.5) * 15));
             city.data.temperature = Math.max(-10, Math.min(40, city.data.temperature + (Math.random() - 0.5) * 10));
         });
-        
+
         // 如果有活跃的图表，更新它
         if (activeChart) {
             const option = getChartOption(activeChart.cityData, currentChartType);

@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<title>SceneModel Instance Euler Tutorial</title>
+	<link rel="stylesheet" href="../style/demo.css" />
+	<link rel="stylesheet" href="../../dist/minemap.css" />
+	<script src="../../dist/minemap-dev.js"></script>
+	<script src="../js/lil-gui.umd.min.js"></script>
+	<style>
+		html, body, #map {
+			width: 100%;
+			height: 100%;
+			margin: 0;
+			padding: 0;
+		}
+
+		#note {
+			position: absolute;
+			left: 16px;
+			top: 16px;
+			z-index: 20;
+			max-width: 560px;
+			background: rgba(0, 0, 0, 0.58);
+			color: #edf4ff;
+			font-family: Consolas, monospace;
+			font-size: 12px;
+			line-height: 1.6;
+			padding: 10px 12px;
+			border-radius: 6px;
+			white-space: pre-wrap;
+		}
+
+		#status {
+			position: absolute;
+			left: 16px;
+			bottom: 16px;
+			z-index: 20;
+			max-width: 560px;
+			background: rgba(0, 0, 0, 0.5);
+			color: #fff;
+			font-family: Consolas, monospace;
+			font-size: 12px;
+			line-height: 1.5;
+			padding: 6px 8px;
+			border-radius: 4px;
+			white-space: pre-wrap;
+		}
+	</style>
+</head>
+<body>
+<div id="map"></div>
+<div id="note">1. 实例化模型的欧拉角写法
+2. 初始加载重点：rotations 直接传入欧拉角度数 Vector3[]，默认会自动识别为欧拉角。
+3. 运行时修改重点：直接给 instance.rotation 赋值欧拉角 Vector3，欧拉解释逻辑放在引擎内部完成。</div>
+<div id="status">loading...</div>
+<script>
+	// -----------------------------------------------------------------------------
+	// 1. 引擎初始化
+	// -----------------------------------------------------------------------------
+	minemap.domainUrl = "https://minedata.cn";
+	minemap.dataDomainUrl = "https://minedata.cn";
+	minemap.serverDomainUrl = "https://minedata.cn";
+	minemap.serviceUrl = "https://mineservice.minedata.cn/service/";
+	minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+	minemap.solution = 11001;
+
+	var emptyStyle = {
+		glyphs: "minemap://fonts/{fontstack}/{range}",
+		sprite: "minemap://sprite/sprite",
+		sources: {},
+		layers: [],
+		version: 8
+	};
+
+	var map = new minemap.Map({
+		container: "map",
+		style: emptyStyle,
+		position: [116.24717159548905, 40.06797747528279, 165.840742231634],
+		pitch: 79.30277416875467,
+		bearing: -30,
+		maxZoom: 22,
+		minZoom: 1,
+		projection: "MERCATOR",
+		logDepth: true
+	});
+	map.enableLight();
+	map.repaint = true;
+
+	var statusEl = document.getElementById("status");
+	var selectedColor = new minemap.Color(1, 0.85, 0.1, 1);
+	var emptyColor = new minemap.Color(0, 0, 0, 0);
+	var rotationOrders = ["XYZ", "XZY", "YXZ", "YZX", "ZXY", "ZYX"];
+
+	// -----------------------------------------------------------------------------
+	// 2. 示例数据
+	// 关键点：实例初始旋转数据全部保存为欧拉角度数。
+	// -----------------------------------------------------------------------------
+	var instancePositions = buildInstancePositions();
+	var instanceStates = [
+		createEulerState(0, 0, 0),
+		createEulerState(20, 10, 0),
+		createEulerState(0, 35, 50),
+		createEulerState(15, 0, 90)
+	];
+
+	var runtimeConfig = {
+		rotationOrder: "ZYX",
+		flipYZ: false
+	};
+
+	var uiState = {
+		selectedIndex: 0,
+		rotationOrder: runtimeConfig.rotationOrder,
+		flipYZ: runtimeConfig.flipYZ,
+		eulerX: instanceStates[0].eulerX,
+		eulerY: instanceStates[0].eulerY,
+		eulerZ: instanceStates[0].eulerZ,
+		scale: instanceStates[0].scale,
+		focus: function () {
+			focusToInstances();
+		}
+	};
+
+	var sceneState = {
+		model: null
+	};
+	var syncingControls = false;
+	var gui = new lil.GUI({ title: "实例化欧拉角教程" });
+	var controllers = {};
+
+	function createEulerState(eulerX, eulerY, eulerZ) {
+		return {
+			eulerX: eulerX,
+			eulerY: eulerY,
+			eulerZ: eulerZ,
+			scale: 100
+		};
+	}
+
+	function setStatus(text) {
+		statusEl.textContent = text;
+	}
+
+	function buildInstancePositions() {
+		var baseLng = 116.24433782743151;
+		var baseLat = 40.07330251849555;
+		return [
+			new minemap.Math.Vector3(baseLng - 0.001, baseLat - 0.001, 0),
+			new minemap.Math.Vector3(baseLng, baseLat - 0.001, 0),
+			new minemap.Math.Vector3(baseLng - 0.001, baseLat, 0),
+			new minemap.Math.Vector3(baseLng, baseLat, 0)
+		];
+	}
+
+	function focusToInstances() {
+		if (!map || !map.easeTo) {
+			return;
+		}
+
+		map.easeTo({
+			center: [116.24383782743151, 40.07280251849555],
+			zoom: 17.3,
+			pitch: 68.0,
+			bearing: -30,
+			duration: 600
+		});
+	}
+
+	// -----------------------------------------------------------------------------
+	// 3. 初始实例化创建
+	// 关键点：直接把欧拉角度数写进 rotations。
+	// -----------------------------------------------------------------------------
+	function buildInitialEulerRotations() {
+		var rotations = [];
+		for (var i = 0; i < instanceStates.length; i++) {
+			var state = instanceStates[i];
+			rotations.push(new minemap.Math.Vector3(state.eulerX, state.eulerY, state.eulerZ));
+		}
+		return rotations;
+	}
+
+	function buildInitialScaleVectors() {
+		var scales = [];
+		for (var i = 0; i < instanceStates.length; i++) {
+			var scaleValue = instanceStates[i].scale;
+			scales.push(new minemap.Math.Vector3(scaleValue, scaleValue, scaleValue));
+		}
+		return scales;
+	}
+
+	function createSceneModel() {
+		map.addSource("IMAGERY_SOURCE", {
+			type: "raster",
+			tiles: ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"],
+			tileSize: 512
+		});
+
+		map.addLayer({
+			id: "IMAGERY",
+			type: "raster",
+			source: "IMAGERY_SOURCE",
+			minzoom: 1,
+			maxzoom: 23
+		});
+
+		sceneState.model = map.addSceneComponent({
+			id: "instance-euler-tutorial-model",
+			type: "3d-model",
+			data: "../data/2.0/potato/xihongshi.glb",
+			modelFolder: "../data/2.0/potato/",
+			positions: instancePositions,
+			rotations: buildInitialEulerRotations(),                    // Vector3[] 会默认自动识别为欧拉角度数
+			scales: buildInitialScaleVectors(),
+			instanceNames: ["sample-0", "sample-1", "sample-2", "sample-3"],
+			shows: [true, true, true, true],
+			minimumPixelSize: 96,
+			rotationOrder: runtimeConfig.rotationOrder,               // 如果需要控制欧拉角顺序，可以显式填写
+			flipYZ: runtimeConfig.flipYZ,                             // 如果需要局部 Y/Z 翻转补偿，可以显式填写
+			loaded: function () {
+				refreshAllInstances();
+				focusToInstances();
+			}
+		});
+	}
+
+	// -----------------------------------------------------------------------------
+	// 4. 运行时更新
+	// 关键点：运行时也直接给 instance.rotation 传入欧拉角 Vector3。
+	// 解释欧拉角的逻辑放在引擎内部，不在 demo 里重复计算。
+	// -----------------------------------------------------------------------------
+	function getSelectedState() {
+		return instanceStates[uiState.selectedIndex] || instanceStates[0];
+	}
+
+	function applyRuntimeEulerConfig() {
+		if (!sceneState.model || !sceneState.model.modelInstanceCollection) {
+			return;
+		}
+
+		sceneState.model.modelInstanceCollection.rotationOrder = runtimeConfig.rotationOrder;
+		sceneState.model.modelInstanceCollection.flipYZ = runtimeConfig.flipYZ;
+	}
+
+	function applySelectionHighlight() {
+		if (!sceneState.model || !sceneState.model.modelInstanceCollection) {
+			return;
+		}
+
+		var instances = sceneState.model.modelInstanceCollection.instances;
+		instances.forEach(function (instance) {
+			instance.color = emptyColor;
+		});
+
+		var selected = sceneState.model.modelInstanceCollection.getInstance(uiState.selectedIndex);
+		if (selected) {
+			selected.color = selectedColor;
+		}
+
+		map.repaint = true;
+	}
+
+	function applyStateToInstance(index) {
+		if (!sceneState.model || !sceneState.model.modelInstanceCollection) {
+			return;
+		}
+
+		var state = instanceStates[index];
+		var instance = sceneState.model.modelInstanceCollection.getInstance(index);
+		if (!state || !instance) {
+			return;
+		}
+
+		applyRuntimeEulerConfig();
+		instance.rotation = new minemap.Math.Vector3(state.eulerX, state.eulerY, state.eulerZ);
+		instance.scale = new minemap.Math.Vector3(state.scale, state.scale, state.scale);
+	}
+
+	function refreshSelectedInstance() {
+		applyStateToInstance(uiState.selectedIndex);
+		applySelectionHighlight();
+		updateStatusPanel();
+		map.repaint = true;
+	}
+
+	function refreshAllInstances() {
+		if (!sceneState.model || !sceneState.model.modelInstanceCollection) {
+			return;
+		}
+
+		for (var i = 0; i < instanceStates.length; i++) {
+			applyStateToInstance(i);
+		}
+
+		applySelectionHighlight();
+		updateStatusPanel();
+		map.repaint = true;
+	}
+
+	// -----------------------------------------------------------------------------
+	// 5. 界面同步
+	// 把“全局欧拉解释配置”和“当前实例欧拉角输入”拆开，便于阅读主线。
+	// -----------------------------------------------------------------------------
+	function updateStatusPanel() {
+		var state = getSelectedState();
+		setStatus([
+			"selected: instance-" + uiState.selectedIndex,
+			"rotationOrder: " + runtimeConfig.rotationOrder,
+			"flipYZ: " + runtimeConfig.flipYZ,
+			"Euler: " + state.eulerX + ", " + state.eulerY + ", " + state.eulerZ,
+			"scale: " + state.scale,
+			"runtime write: instance.rotation = new Vector3(x, y, z)"
+		].join("\n"));
+	}
+
+	function syncUiFromSelectedState() {
+		var state = getSelectedState();
+		syncingControls = true;
+		uiState.rotationOrder = runtimeConfig.rotationOrder;
+		uiState.flipYZ = runtimeConfig.flipYZ;
+		uiState.eulerX = state.eulerX;
+		uiState.eulerY = state.eulerY;
+		uiState.eulerZ = state.eulerZ;
+		uiState.scale = state.scale;
+		controllers.selectedIndex.updateDisplay();
+		controllers.rotationOrder.updateDisplay();
+		controllers.flipYZ.updateDisplay();
+		controllers.eulerX.updateDisplay();
+		controllers.eulerY.updateDisplay();
+		controllers.eulerZ.updateDisplay();
+		controllers.scale.updateDisplay();
+		syncingControls = false;
+		updateStatusPanel();
+	}
+
+	function mutateSelectedState(mutator) {
+		if (syncingControls) {
+			return;
+		}
+		mutator(getSelectedState());
+		refreshSelectedInstance();
+	}
+
+	function mutateGlobalEulerConfig(mutator) {
+		if (syncingControls) {
+			return;
+		}
+		mutator(runtimeConfig);
+		refreshAllInstances();
+	}
+
+	// -----------------------------------------------------------------------------
+	// 6. GUI 与拾取
+	// -----------------------------------------------------------------------------
+	function initGui() {
+		var selectionFolder = gui.addFolder("1. 选择实例");
+		controllers.selectedIndex = selectionFolder
+			.add(uiState, "selectedIndex", [0, 1, 2, 3])
+			.name("selected")
+			.onChange(function (value) {
+				if (syncingControls) {
+					return;
+				}
+				uiState.selectedIndex = Number(value);
+				syncUiFromSelectedState();
+				applySelectionHighlight();
+			});
+		selectionFolder.add(uiState, "focus").name("focus models");
+		selectionFolder.open();
+
+		var configFolder = gui.addFolder("2. 全局欧拉解释配置");
+		controllers.rotationOrder = configFolder.add(uiState, "rotationOrder", rotationOrders).name("order").onChange(function () {
+			mutateGlobalEulerConfig(function (config) {
+				config.rotationOrder = uiState.rotationOrder;
+			});
+		});
+		controllers.flipYZ = configFolder.add(uiState, "flipYZ").name("flipYZ").onChange(function () {
+			mutateGlobalEulerConfig(function (config) {
+				config.flipYZ = uiState.flipYZ;
+			});
+		});
+		configFolder.open();
+
+		var eulerFolder = gui.addFolder("3. 当前实例欧拉角");
+		controllers.eulerX = eulerFolder.add(uiState, "eulerX", -180, 180, 1).name("x").onChange(function () {
+			mutateSelectedState(function (state) {
+				state.eulerX = uiState.eulerX;
+			});
+		});
+		controllers.eulerY = eulerFolder.add(uiState, "eulerY", -180, 180, 1).name("y").onChange(function () {
+			mutateSelectedState(function (state) {
+				state.eulerY = uiState.eulerY;
+			});
+		});
+		controllers.eulerZ = eulerFolder.add(uiState, "eulerZ", -180, 180, 1).name("z").onChange(function () {
+			mutateSelectedState(function (state) {
+				state.eulerZ = uiState.eulerZ;
+			});
+		});
+		eulerFolder.open();
+
+		var scaleFolder = gui.addFolder("4. 当前实例缩放");
+		controllers.scale = scaleFolder.add(uiState, "scale", 20, 160, 1).name("scale").onChange(function () {
+			mutateSelectedState(function (state) {
+				state.scale = uiState.scale;
+			});
+		});
+		scaleFolder.open();
+	}
+
+	map.on("load", function () {
+		createSceneModel();
+	});
+
+	map.on("click", function (event) {
+		var picked = map.getFeatureByGPUPick(event.point);
+		if (picked && picked instanceof minemap.ModelInstance) {
+			uiState.selectedIndex = picked.instanceId;
+			syncUiFromSelectedState();
+			applySelectionHighlight();
+		}
+	});
+
+	initGui();
+	syncUiFromSelectedState();
+</script>
+</body>
+</html>

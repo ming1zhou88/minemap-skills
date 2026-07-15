@@ -15,7 +15,7 @@
             width: 100%;
             height: 100%;
         }
-        
+
         .info-panel {
             position: absolute;
             top: 20px;
@@ -28,25 +28,25 @@
             z-index: 1000;
             max-width: 320px;
         }
-        
+
         .info-panel h3 {
             margin: 0 0 10px 0;
             color: #333;
             font-size: 16px;
         }
-        
+
         .info-panel p {
             margin: 5px 0;
             color: #666;
             font-size: 14px;
             line-height: 1.4;
         }
-        
+
         /* 自定义popup样式 */
         .custom-popup {
             font-family: 'Arial', sans-serif;
         }
-        
+
         .popup-header {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
@@ -57,11 +57,11 @@
             font-size: 16px;
             text-align: center;
         }
-        
+
         .popup-content {
             padding: 0 5px;
         }
-        
+
         .chart-container {
             width: 400px;
             height: 300px;
@@ -70,39 +70,39 @@
             border-radius: 6px;
             background: #fafafa;
         }
-        
+
         .data-summary {
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 10px;
             margin: 15px 0;
         }
-        
+
         .data-item {
             background: #f8f9fa;
             padding: 8px 12px;
             border-radius: 6px;
             border-left: 4px solid #4CAF50;
         }
-        
+
         .data-item .label {
             font-size: 12px;
             color: #666;
             margin-bottom: 2px;
         }
-        
+
         .data-item .value {
             font-size: 16px;
             font-weight: bold;
             color: #333;
         }
-        
+
         .chart-tabs {
             display: flex;
             margin-bottom: 10px;
             border-bottom: 1px solid #e0e0e0;
         }
-        
+
         .chart-tab {
             padding: 8px 16px;
             margin: 0 4px;
@@ -112,20 +112,20 @@
             font-size: 12px;
             transition: background 0.3s ease, color 0.3s ease;
         }
-        
+
         .chart-tab.active {
             background: #4CAF50;
             color: white;
         }
-        
+
         .chart-tab:hover {
             background: #e0e0e0;
         }
-        
+
         .chart-tab.active:hover {
             background: #45a049;
         }
-        
+
         .region-marker {
             width: 20px;
             height: 20px;
@@ -135,12 +135,12 @@
             cursor: pointer;
             transition: background 0.3s ease, box-shadow 0.3s ease, width 0.3s ease, height 0.3s ease;
         }
-        
+
         .region-marker:hover {
             transform: scale(1.2);
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
         }
-        
+
         .control-panel {
             position: absolute;
             top: 20px;
@@ -151,7 +151,7 @@
             box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
             z-index: 1000;
         }
-        
+
         .control-panel button {
             display: block;
             width: 100%;
@@ -165,18 +165,18 @@
             font-size: 14px;
             transition: background 0.3s ease;
         }
-        
+
         .control-panel button:hover {
             background: #1976D2;
         }
-        
+
         /* 自定义popup样式覆盖 */
         .minemap-popup-content {
             padding: 10px !important;
             max-width: none !important;
             border-radius: 8px !important;
         }
-        
+
         .minemap-popup-close-button {
             font-size: 18px !important;
             padding: 4px 8px !important;
@@ -211,7 +211,7 @@
      */
     minemap.domainUrl = 'https://minemap.minedata.cn';
     minemap.dataDomainUrl = 'https://minemap.minedata.cn';
-    minemap.serverDomainUrl = 'https://sd-data.minedata.cn';
+    minemap.serverDomainUrl = 'https://ol-data.minedata.cn';
     minemap.spriteUrl = 'https://minemap.minedata.cn/minemapapi/v3.4.0/sprite/sprite';
     minemap.serviceUrl = 'https://service.minedata.cn/service';
     minemap.key = '0c6ac62182404e5ebc7a789981f6db72';
@@ -356,19 +356,19 @@
             const markerElement = document.createElement('div');
             markerElement.className = 'region-marker';
             markerElement.style.backgroundColor = region.color;
-            
+
             // 创建marker
             const marker = new minemap.Marker({
                 element: markerElement
             })
             .setLngLat(region.coordinates)
             .addTo(map);
-            
+
             // 添加点击事件
             markerElement.addEventListener('click', () => {
                 showRegionPopup(region, marker);
             });
-            
+
             markers.push(marker);
         });
     }
@@ -380,10 +380,10 @@
         // 关闭其他弹窗
         popups.forEach(popup => popup.remove());
         popups = [];
-        
+
         // 创建弹窗内容
         const popupContent = createPopupContent(region);
-        
+
         // 创建弹窗
         const popup = new minemap.Popup({
             closeOnClick: false,
@@ -395,9 +395,9 @@
         .setHTML(popupContent)
         .setLngLat(region.coordinates)
         .addTo(map);
-        
+
         popups.push(popup);
-        
+
         // 弹窗显示后初始化图表
         setTimeout(() => {
             initializePopupCharts(region);
@@ -409,7 +409,7 @@
      */
     function createPopupContent(region) {
         const data = region.data;
-        
+
         return `
             <div class="custom-popup">
                 <div class="popup-header">
@@ -434,13 +434,13 @@
                             <div class="value">${data.growth}%</div>
                         </div>
                     </div>
-                    
+
                     <div class="chart-tabs">
                         <button class="chart-tab active" data-chart="industry">产业分布</button>
                         <button class="chart-tab" data-chart="trend">发展趋势</button>
                         <button class="chart-tab" data-chart="comparison">对比分析</button>
                     </div>
-                    
+
                     <div class="chart-container" id="chart-${region.name}"></div>
                 </div>
             </div>
@@ -453,12 +453,12 @@
     function initializePopupCharts(region) {
         const chartContainer = document.getElementById(`chart-${region.name}`);
         if (!chartContainer) return;
-        
+
         const chart = echarts.init(chartContainer);
-        
+
         // 显示产业分布图表
         showIndustryChart(chart, region);
-        
+
         // 设置标签页切换事件
         const tabs = chartContainer.parentElement.querySelectorAll('.chart-tab');
         tabs.forEach(tab => {
@@ -466,7 +466,7 @@
                 // 更新活跃标签
                 tabs.forEach(t => t.classList.remove('active'));
                 tab.classList.add('active');
-                
+
                 // 切换图表
                 const chartType = tab.dataset.chart;
                 switch(chartType) {
@@ -482,7 +482,7 @@
                 }
             });
         });
-        
+
         // 存储chart实例
         chartContainer._chart = chart;
     }
@@ -493,7 +493,7 @@
     function showIndustryChart(chart, region) {
         const industries = region.data.industries;
         const data = Object.entries(industries).map(([name, value]) => ({name, value}));
-        
+
         const option = {
             title: {
                 text: '产业分布',
@@ -538,7 +538,7 @@
             }],
             color: ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7']
         };
-        
+
         chart.setOption(option, true);
     }
 
@@ -548,7 +548,7 @@
     function showTrendChart(chart, region) {
         const monthlyData = region.data.monthlyTrend;
         const months = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
-        
+
         const option = {
             title: {
                 text: '年度发展趋势',
@@ -607,7 +607,7 @@
                 }
             }]
         };
-        
+
         chart.setOption(option, true);
     }
 
@@ -623,10 +623,10 @@
             region.data.patents / 50,
             region.data.investment / 20
         ];
-        
+
         // 计算平均水平（模拟数据）
         const averageData = [60, 65, 55, 70, 58];
-        
+
         const option = {
             title: {
                 text: '综合对比分析',
@@ -678,7 +678,7 @@
                 ]
             }]
         };
-        
+
         chart.setOption(option, true);
     }
 
@@ -694,12 +694,12 @@
             });
             map.fitBounds(bounds, {padding: 50});
         });
-        
+
         document.getElementById('hideAllPopups').addEventListener('click', () => {
             popups.forEach(popup => popup.remove());
             popups = [];
         });
-        
+
         document.getElementById('randomData').addEventListener('click', () => {
             // 随机更新数据
             regionData.forEach(region => {
@@ -707,7 +707,7 @@
                 region.data.companies = Math.floor(Math.random() * 1000 + 1000);
                 region.data.revenue = Math.floor(Math.random() * 1000 + 500);
             });
-            
+
             // 如果有打开的弹窗，刷新图表
             popups.forEach(popup => {
                 const chartContainers = popup.getElement().querySelectorAll('[id^="chart-"]');

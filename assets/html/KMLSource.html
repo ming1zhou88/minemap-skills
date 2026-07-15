@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+	<title>KML Source - 2015北京地铁</title>
+	<link rel="stylesheet" href="../style/demo.css" />
+	<link rel="stylesheet" href="https://minemap.minedata.cn/minemapapi/v4.0.0/minemap.css" />
+	<script src="../../dist/minemap-dev.js"></script>
+
+	<style>
+		#map {
+			width: 100%;
+			height: 100%;
+		}
+
+		#info {
+			position: absolute;
+			top: 10px;
+			left: 10px;
+			background: rgba(255, 255, 255, 0.92);
+			padding: 10px 14px;
+			border-radius: 4px;
+			font-size: 13px;
+			font-family: sans-serif;
+			z-index: 1;
+			max-width: 400px;
+			line-height: 1.6;
+			box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+		}
+
+		#info .ok { color: #27ae60; }
+		#info .warn { color: #e67e22; }
+		#info .err { color: #c0392b; }
+	</style>
+</head>
+<body>
+<div id="map"></div>
+<div id="info">加载中…</div>
+<script>
+	minemap.domainUrl = 'https://minemap.minedata.cn';
+	minemap.dataDomainUrl = 'https://minemap.minedata.cn';
+	minemap.serverDomainUrl = 'https://sd-data.minedata.cn';
+	minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+	minemap.serviceUrl = 'https://service.minedata.cn/service';
+	minemap.key = '0c6ac62182404e5ebc7a789981f6db72';
+	minemap.solution = 11001;
+
+	var infoEl = document.getElementById('info');
+
+	function setInfo(html) {
+		infoEl.innerHTML = html;
+	}
+
+	var style = {
+		glyphs: 'minemap://fonts/{fontstack}/{range}',
+		sprite: 'minemap://sprite/sprite',
+		sources: {},
+		layers: [{
+			id: 'background',
+			type: 'background',
+			source: '',
+			paint: {
+				'background-color': '#eef2f7',
+				'background-opacity': 1
+			}
+		}],
+		version: 8
+	};
+
+	var map = new minemap.Map({
+		container: 'map',
+		style: style,
+		center: [116.40, 39.92],
+		zoom: 10,
+		pitch: 0,
+		maxZoom: 17,
+		minZoom: 3,
+		projection: 'MERCATOR'
+	});
+	map.repaint = true;
+
+	map.on('error', function (e) {
+		setInfo('<span class="err">地图错误: ' + (e.error && e.error.message ? e.error.message : e) + '</span>');
+	});
+
+	map.on('load', function () {
+		setInfo('正在加载 KML…<br><code>demo/data/kml/2015beijingsubway.kml</code>');
+
+		map.addSource('kml-subway', {
+			type: 'kml',
+			data: '../data/kml/2015beijingsubway.kml',
+			maxzoom: 16
+		});
+
+		// LineString ← KML LineStyle → stroke / stroke-width / stroke-opacity
+		map.addLayer({
+			id: 'kml-subway-line',
+			type: 'line',
+			source: 'kml-subway',
+			filter: ['==', '$type', 'LineString'],
+			paint: {
+				'line-color': ['get', 'stroke'],
+				'line-width': ['get', 'stroke-width'],
+				'line-opacity': ['get', 'stroke-opacity']
+			}
+		});
+
+		// Point ← KML IconStyle → icon-id / icon-scale（图片由 KMLSource 自动注册）
+		map.addLayer({
+			id: 'kml-subway-icon',
+			type: 'symbol',
+			source: 'kml-subway',
+			filter: ['all', ['==', '$type', 'Point'], ['has', 'icon-id']],
+			layout: {
+				'icon-image': ['get', 'icon-id'],
+				'icon-size': ['get', 'icon-scale'],
+				'icon-allow-overlap': true
+			}
+		});
+
+		// Point 无 Icon href 时 ← KML IconStyle/PolyStyle color → fill
+		map.addLayer({
+			id: 'kml-subway-point',
+			type: 'circle',
+			source: 'kml-subway',
+			filter: ['all', ['==', '$type', 'Point'], ['!has', 'icon-id']],
+			paint: {
+				'circle-color': ['get', 'fill'],
+				'circle-opacity': ['get', 'fill-opacity']
+			}
+		});
+
+		// 站名 ← KML name + LabelStyle
+		map.addLayer({
+			id: 'kml-subway-label',
+			type: 'symbol',
+			source: 'kml-subway',
+			filter: ['==', '$type', 'Point'],
+			layout: {
+				'text-field': ['get', 'name'],
+				'text-anchor': 'top',
+				'text-allow-overlap': false,
+				'text-size': ['get', 'text-size']
+			},
+			paint: {
+				'text-color': ['get', 'text-color'],
+				'text-opacity': ['get', 'text-opacity']
+			},
+			minzoom: 11
+		});
+
+		// Polygon ← KML PolyStyle → fill / fill-opacity
+		map.addLayer({
+			id: 'kml-subway-fill',
+			type: 'fill',
+			source: 'kml-subway',
+			filter: ['==', '$type', 'Polygon'],
+			paint: {
+				'fill-color': ['get', 'fill'],
+				'fill-opacity': ['get', 'fill-opacity']
+			}
+		});
+
+		var loadTimeout = setTimeout(function () {
+			setInfo('<span class="warn">KML 加载超时（>30s），请检查控制台</span>');
+		}, 30000);
+
+		map.on('data', function (e) {
+			if (e.sourceId !== 'kml-subway') return;
+			if (e.sourceDataType === 'content') {
+				clearTimeout(loadTimeout);
+				setInfo(
+					'<span class="ok">KML 加载成功</span><br>' +
+					'样式全部来自 KML 解析 properties，demo 未设置 fallback 默认值<br>' +
+					'line: stroke · point: icon-id · label: text-color/text-size'
+				);
+			}
+		});
+
+		map.getSource('kml-subway').on('kmlIconsLoaded', function (e) {
+			var ids = (e.icons || []).map(function (i) { return i.id; }).join(', ');
+			setInfo(
+				'<span class="ok">KML 图标已注册</span><br>' +
+				'<code>' + ids + '</code>'
+			);
+		});
+
+		map.on('click', function (e) {
+			var features = map.queryRenderedFeatures(e.point, {
+				layers: ['kml-subway-line', 'kml-subway-icon', 'kml-subway-point', 'kml-subway-label']
+			});
+			if (features.length > 0) {
+				var f = features[0];
+				var p = f.properties || {};
+				setInfo(
+					'<span class="ok">选中: ' + (p.name || '(无名称)') + '</span><br>' +
+					'类型: ' + f.geometry.type + '<br>' +
+					'<pre style="margin:4px 0;font-size:11px;white-space:pre-wrap">' +
+					JSON.stringify(p, null, 2) + '</pre>'
+				);
+			}
+		});
+	});
+</script>
+</body>
+</html>

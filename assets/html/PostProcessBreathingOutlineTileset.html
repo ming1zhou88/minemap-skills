@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+		<title>SceneTileset 泛光描边呼吸</title>
+		<script src="../js/lil-gui.umd.min.js"></script>
+		<link rel="stylesheet" href="../../dist/minemap.css" />
+		<script src="../../dist/minemap-dev.js"></script>
+		<style>
+			html,
+			body,
+			#map {
+				margin: 0;
+				padding: 0;
+				width: 100%;
+				height: 100%;
+			}
+
+			.info-panel {
+				position: absolute;
+				top: 16px;
+				left: 16px;
+				z-index: 2;
+				width: 340px;
+				padding: 14px 16px;
+				border-radius: 12px;
+				background: rgba(10, 20, 30, 0.72);
+				color: #f8fafc;
+				font-family: "Microsoft YaHei", sans-serif;
+				line-height: 1.65;
+				backdrop-filter: blur(8px);
+			}
+
+			.info-panel h1 {
+				margin: 0 0 8px;
+				font-size: 18px;
+			}
+
+			.info-panel p {
+				margin: 0 0 6px;
+				font-size: 13px;
+			}
+		</style>
+	</head>
+	<body>
+		<div id="map"></div>
+		<div class="info-panel">
+			<h1>SceneTileset 泛光描边呼吸</h1>
+			<p>数据来源：demo 内置 3D Tiles 数据 ../data/天河科技园/tileset.json。</p>
+			<p>选择模式支持：点击单个要素呼吸、整体 SceneTileset 呼吸、清空选择。</p>
+			<p>参数面板与泛光描边呼吸示例保持一致。</p>
+		</div>
+		<script>
+			minemap.domainUrl = "https://minemap.minedata.cn";
+			minemap.dataDomainUrl = "https://minemap.minedata.cn";
+			minemap.serverDomainUrl = "https://ol-data.minedata.cn";
+			minemap.spriteUrl = "http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite";
+			minemap.serviceUrl = "https://service.minedata.cn/service";
+			minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+			minemap.solution = 11001;
+			window.minemapCDN = "http://192.168.152.123/minemap-engine/minemap-CDN/";
+
+			const style = {
+				glyphs: "minemap://fonts/{fontstack}/{range}",
+				sprite: "minemap://sprite/sprite",
+				sources: {},
+				layers: [],
+				version: 8
+			};
+
+			const map = new minemap.Map({
+				container: "map",
+				style,
+				bearing: -8.929747663603393,
+				pitch: 48.528315843246176,
+				roll: -0.03932369662492531,
+				position:[116.39202632860008, 39.908312887182134, 157.17574950997772],
+				projection: "MERCATOR"
+			});
+			map.repaint = true;
+
+			let tileset;
+			let outlineStage;
+			let singleSelectedFeature = null;
+			let singleSelectedOriginalColor = null;
+			let singleSelectedPrimitives = [];
+			let lastAllPrimitiveCount = -1;
+
+			const demoState = {
+				enabled: true,
+				selectMode: "all",
+				color: "#d716da",
+				occludedColor: "#ffb703",
+				width: 3.5,
+				softness: 1.8,
+				glowStrength: 2,
+				coreOpacity: 1.0,
+				breathing: true,
+				breathSpeed: 0.4,
+				breathMinAlpha: 0.45,
+				breathMaxAlpha: 1.0
+			};
+
+			map.on("load", function () {
+				// 初始化流程：先建 tileset，再挂 outline，最后绑定交互与自动同步。
+				addImageryLayer();
+				createTileset();
+				outlineStage = minemap.PostProcessStageLibrary.createBreathingOutlineStage(map.painter, demoState);
+				map.postProcessStages.add(outlineStage);
+				applyDemoState();
+				initializeGUI();
+				bindClickSelect();
+				bindAllModeAutoSync();
+			});
+
+			function addImageryLayer() {
+				map.addSource("IMAGERY_SOURCE", {
+					type: "raster",
+					tiles: ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"],
+					tileSize: 512
+				});
+
+				map.addLayer({
+					id: "IMAGERY",
+					type: "raster",
+					source: "IMAGERY_SOURCE",
+					minzoom: 0,
+					maxzoom: 23
+				});
+			}
+
+			function createTileset() {
+				tileset = map.addSceneComponent({
+					id: "breathing-outline-tileset",
+					type: "3d-tiles",
+					show: true,
+					translation: new minemap.Math.Vector3(0, 0, 0),
+					url: "../data/天河科技园/tileset.json",
+					skipLevelOfDetail: true,
+					maximumScreenSpaceError: 8,
+					backCulling: false,
+					lightingModel: minemap.LightingModelType.PBR,
+					allowPick: true,
+					sourceLoaded: function (loadedTileset) {
+						// map.flyTo({
+						// 	target: loadedTileset,
+						// 	bearing: 0,
+						// 	pitch: 0,
+						// 	duration: 2000,
+						// 	range: 1000
+						// });
+						applyDemoState();
+					},
+					geoBoundsOptions: {
+						index: 0,
+						combine: false
+					}
+				});
+			}
+
+			function bindClickSelect() {
+				// single 模式下点击 tileFeature：既做颜色高亮，也同步 outline 选中集合。
+				map.on("click", function (e) {
+					if (demoState.selectMode !== "single") return;
+					const picked = map.getFeatureByGPUPick(e.point);
+					if (picked && picked._content && tileset && tileset.isTileSetByTileFeature(picked)) {
+						applyFeatureHighlight(picked);
+						singleSelectedFeature = picked;
+						singleSelectedPrimitives = Array.isArray(picked.primitives) ? picked.primitives.filter(Boolean) : [];
+					} else {
+						resetSingleFeatureHighlight();
+						singleSelectedFeature = null;
+						singleSelectedPrimitives = [];
+					}
+					applyDemoState();
+				});
+			}
+
+			function applyFeatureHighlight(feature) {
+				// 保存旧色并覆盖为高亮色，便于取消时无损恢复。
+				if (!feature) return;
+				if (singleSelectedFeature === feature) return;
+				resetSingleFeatureHighlight();
+				singleSelectedOriginalColor = feature.color;
+				feature.color = [1.0, 0.86, 0.1, 1.0];
+			}
+
+			function resetSingleFeatureHighlight() {
+				// 取消选择时恢复 feature 原色；处理对象失效场景避免报错。
+				if (!singleSelectedFeature) return;
+				try {
+					singleSelectedFeature.color =
+						singleSelectedOriginalColor === null || typeof singleSelectedOriginalColor === "undefined"
+							? [1.0, 1.0, 1.0, 0.0]
+							: singleSelectedOriginalColor;
+				} catch (err) {
+					// ignore stale feature references
+				}
+				singleSelectedOriginalColor = null;
+			}
+
+			function bindAllModeAutoSync() {
+				// all 模式下 tileset 会持续流式加载，因此按 primitive 数量变化重同步。
+				map.on("render", function () {
+					if (!outlineStage || !tileset || demoState.selectMode !== "all") return;
+					const count = getTilesetPrimitives().length;
+					if (count > 0 && count !== lastAllPrimitiveCount) {
+						lastAllPrimitiveCount = count;
+						applyDemoState();
+					}
+				});
+			}
+
+			function getTilesetPrimitives() {
+				if (!tileset) return [];
+				const opaque = Array.isArray(tileset._opaqueList) ? tileset._opaqueList : [];
+				const translucent = Array.isArray(tileset._translucentList) ? tileset._translucentList : [];
+				return opaque.concat(translucent).filter(Boolean);
+			}
+
+			function getSelectedPayload() {
+				// Outline 统一走 primitives 通道，避免 tileFeatures 样式链路覆盖手动颜色高亮。
+				if (!tileset || demoState.selectMode === "none") {
+					return { primitives: [] };
+				}
+
+				if (demoState.selectMode === "all") {
+					return {
+						primitives: getTilesetPrimitives()
+					};
+				}
+
+				if (singleSelectedFeature && singleSelectedPrimitives.length > 0) {
+					return {
+						primitives: singleSelectedPrimitives
+					};
+				}
+
+				return {
+					primitives: []
+				};
+			}
+
+			function applyDemoState() {
+				if (!outlineStage) return;
+				if (demoState.selectMode !== "single") {
+					resetSingleFeatureHighlight();
+					singleSelectedFeature = null;
+					singleSelectedPrimitives = [];
+				}
+				outlineStage.enabled = demoState.enabled;
+				outlineStage.uniforms.color = demoState.color;
+				outlineStage.uniforms.occludedColor = demoState.occludedColor;
+				outlineStage.uniforms.width = demoState.width;
+				outlineStage.uniforms.softness = demoState.softness;
+				outlineStage.uniforms.glowStrength = demoState.glowStrength;
+				outlineStage.uniforms.coreOpacity = demoState.coreOpacity;
+				outlineStage.uniforms.breathing = demoState.breathing;
+				outlineStage.uniforms.breathSpeed = demoState.breathSpeed;
+				outlineStage.uniforms.breathMinAlpha = demoState.breathMinAlpha;
+				outlineStage.uniforms.breathMaxAlpha = demoState.breathMaxAlpha;
+				if (demoState.selectMode !== "all") {
+					lastAllPrimitiveCount = -1;
+				}
+				outlineStage.setSelected(getSelectedPayload());
+				map.repaint = true;
+			}
+
+			function initializeGUI() {
+				const gui = new lil.GUI({ width: 330 });
+				const folder = gui.addFolder("Breathing Outline - SceneTileset");
+				folder.open();
+
+				folder.add(demoState, "enabled").name("开启描边").onChange(applyDemoState);
+				folder
+					.add(demoState, "selectMode", {
+						"点击单个要素": "single",
+						"整体SceneTileset": "all",
+						"清空选择": "none"
+					})
+					.name("选择模式")
+					.onChange(function (value) {
+						if (value !== "single") {
+							resetSingleFeatureHighlight();
+							singleSelectedFeature = null;
+							singleSelectedPrimitives = [];
+						}
+						applyDemoState();
+					});
+				folder.addColor(demoState, "color").name("可见颜色").onChange(applyDemoState);
+				folder.addColor(demoState, "occludedColor").name("遮挡颜色").onChange(applyDemoState);
+				folder.add(demoState, "width", 0.5, 12, 0.1).name("描边宽度").onChange(applyDemoState);
+				folder.add(demoState, "softness", 0.1, 4, 0.05).name("软边强度").onChange(applyDemoState);
+				folder.add(demoState, "glowStrength", 0, 2.5, 0.05).name("泛光强度").onChange(applyDemoState);
+				folder.add(demoState, "coreOpacity", 0, 2, 0.05).name("核心实边").onChange(applyDemoState);
+				folder.add(demoState, "breathing").name("开启呼吸").onChange(applyDemoState);
+				folder.add(demoState, "breathSpeed", 0.33, 0.5, 0.01).name("呼吸速度").onChange(applyDemoState);
+				folder.add(demoState, "breathMinAlpha", 0, 1, 0.01).name("最低透明度").onChange(applyDemoState);
+				folder.add(demoState, "breathMaxAlpha", 0, 1, 0.01).name("最高透明度").onChange(applyDemoState);
+
+				folder
+					.add(
+						{
+							clearSingleSelection: function () {
+								resetSingleFeatureHighlight();
+								singleSelectedFeature = null;
+								singleSelectedPrimitives = [];
+								if (demoState.selectMode === "single") {
+									applyDemoState();
+								}
+							}
+						},
+						"clearSingleSelection"
+					)
+					.name("清空单选结果");
+			}
+		</script>
+	</body>
+</html>

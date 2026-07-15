@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+		<title>泛光描边呼吸示例</title>
+		<script src="../js/lil-gui.umd.min.js"></script>
+		<link rel="stylesheet" href="../../dist/minemap.css" />
+		<script src="../../dist/minemap-dev.js"></script>
+		<style>
+			html,
+			body,
+			#map {
+				margin: 0;
+				padding: 0;
+				width: 100%;
+				height: 100%;
+			}
+
+			.info-panel {
+				position: absolute;
+				top: 16px;
+				left: 16px;
+				z-index: 2;
+				width: 320px;
+				padding: 14px 16px;
+				border-radius: 12px;
+				background: rgba(10, 20, 30, 0.72);
+				color: #f8fafc;
+				font-family: "Microsoft YaHei", sans-serif;
+				line-height: 1.65;
+				backdrop-filter: blur(8px);
+			}
+
+			.info-panel h1 {
+				margin: 0 0 8px;
+				font-size: 18px;
+			}
+
+			.info-panel p {
+				margin: 0 0 6px;
+				font-size: 13px;
+			}
+		</style>
+	</head>
+	<body>
+		<div id="map"></div>
+		<div class="info-panel">
+			<h1>泛光描边呼吸</h1>
+			<p>这个示例在现有 Outline 后处理基础上增加了软边和呼吸控制。</p>
+			<p>点击选中模式支持：Primitive 单选、SceneModel 单构件单选。</p>
+			<p>目标模式也支持直接切换整个 SceneModel 完整选中。</p>
+			<p>靠近模型边缘的位置更实，往外逐渐变虚、变透明，再叠加呼吸闪烁。</p>
+		</div>
+		<script>
+			minemap.domainUrl = "https://minemap.minedata.cn";
+			minemap.dataDomainUrl = "https://minemap.minedata.cn";
+			minemap.serverDomainUrl = "https://ol-data.minedata.cn";
+			minemap.spriteUrl = "http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite";
+			minemap.serviceUrl = "https://service.minedata.cn/service";
+			minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+			minemap.solution = 11001;
+			window.minemapCDN = "http://192.168.152.123/minemap-engine/minemap-CDN/";
+
+			const style = {
+				glyphs: "minemap://fonts/{fontstack}/{range}",
+				sprite: "minemap://sprite/sprite",
+				sources: {},
+				layers: [],
+				version: 8
+			};
+
+			const map = new minemap.Map({
+				container: "map",
+				style,
+				center: [117.0739, 31.6559],
+				zoom: 15.5,
+				pitch: 63,
+				bearing: -18,
+				projection: "MERCATOR"
+			});
+			map.repaint = true;
+
+			let boxPrimitive;
+			let linePrimitive;
+			let sceneModel;
+			let outlineStage;
+			let clickedPrimitive = null;
+			let highlightedPrimitive = null;
+			let highlightedState = null;
+
+			const demoState = {
+				enabled: true,
+				targetMode: "clickSingle",
+				color: "#d716da",
+				occludedColor: "#ffb703",
+				width: 3.5,
+				softness: 1.8,
+				glowStrength: 2,
+				coreOpacity: 1.0,
+				breathing: true,
+				breathSpeed: 0.4,
+				breathMinAlpha: 0.45,
+				breathMaxAlpha: 1.0
+			};
+
+			map.on("load", function () {
+				// 初始化顺序：底图 -> 可拾取对象 -> 后处理 -> 交互绑定 -> GUI。
+				addImageryLayer();
+				createPrimitiveTargets();
+				createSceneModelTarget();
+				outlineStage = minemap.PostProcessStageLibrary.createBreathingOutlineStage(map.painter, demoState);
+				map.postProcessStages.add(outlineStage);
+				bindClickSelection();
+				applyDemoState();
+				initializeGUI();
+			});
+
+			function addImageryLayer() {
+				map.addSource("IMAGERY_SOURCE", {
+					type: "raster",
+					tiles: ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"],
+					tileSize: 512
+				});
+
+				map.addLayer({
+					id: "IMAGERY",
+					type: "raster",
+					source: "IMAGERY_SOURCE",
+					minzoom: 0,
+					maxzoom: 23
+				});
+			}
+
+			function createPrimitiveTargets() {
+				const boxMatrix = minemap.Transforms.cartographicToFixedFrame(
+					new minemap.Math.Vector3([117.0751, 31.6561, 85])
+				);
+				boxMatrix.multiplyRight(new minemap.Math.Matrix4().rotateX(Math.PI / 2));
+
+				boxPrimitive = new minemap.Primitive({
+					modelMatrix: boxMatrix,
+					geometry: new minemap.Geometries.BoxGeometry({
+						width: 85,
+						height: 85,
+						depth: 85
+					}),
+					material: minemap.StandardMaterial.fromType("Color", {
+						color: "#0f766e",
+						opacity: 1,
+						doubleSided: false,
+						hasNormal: false
+					}),
+					allowPick: true,
+					name: "breathing-outline-box"
+				});
+				map.addPrimitive(boxPrimitive);
+
+				linePrimitive = new minemap.Primitive({
+					geometry: new minemap.Geometries.PolylineGeometry({
+						positions: minemap.Math.Vector3.fromDegreesArrayHeights([
+							117.0731,
+							31.6571,
+							12,
+							117.0742,
+							31.6571,
+							12,
+							117.0748,
+							31.6578,
+							12
+						]),
+						width: 12,
+						arcType: minemap.ARCTYPE.GEODESIC
+					}),
+					material: minemap.PolylineMaterial.fromType("Color", {
+						color: "#ea580c"
+					}),
+					allowPick: true,
+					name: "breathing-outline-line"
+				});
+				map.addPrimitive(linePrimitive);
+			}
+
+			function createSceneModelTarget() {
+				sceneModel = map.addSceneComponent({
+					id: "breathing-outline-model",
+					type: "3d-model",
+					data: "../data/test-gltf/GroundVehicle.glb",
+					modelFolder: "",
+					scale: [55, 55, 55],
+					rotation: [90, 0, 0],
+					position: [117.0735, 31.6552, 0],
+					allowPick: true,
+					loaded: function () {
+						applyDemoState();
+					}
+				});
+			}
+
+			function getSceneModelPrimitives(model) {
+				if (!model) return [];
+				return model.opaqueList.concat(model.translucentList).filter(Boolean);
+			}
+
+			function isSceneModelPrimitive(primitive) {
+				if (!primitive || !sceneModel) return false;
+				const sceneModelPrimitives = getSceneModelPrimitives(sceneModel);
+				return sceneModelPrimitives.includes(primitive);
+			}
+
+			function bindClickSelection() {
+				// 点击拾取优先用于 clickSingle 模式，其它模式仍由 targetMode 决定选中集合。
+				map.on("click", function (e) {
+					const picked = map.getFeatureByGPUPick(e.point);
+					if (!picked) {
+						clickedPrimitive = null;
+						resetPrimitiveHighlight();
+						if (demoState.targetMode === "clickSingle") {
+							applyDemoState();
+						}
+						return;
+					}
+
+					const isOtherPrimitive = picked === boxPrimitive || picked === linePrimitive;
+					if (isOtherPrimitive || isSceneModelPrimitive(picked)) {
+						clickedPrimitive = picked;
+						applyPrimitiveHighlight(picked);
+						if (demoState.targetMode === "clickSingle") {
+							applyDemoState();
+						}
+					}
+				});
+			}
+
+			function resetPrimitiveHighlight() {
+				// 每次切换目标前先恢复旧材质，避免“残留高亮”。
+				if (!highlightedPrimitive || !highlightedState) return;
+				try {
+					if (highlightedState.mode === "baseColor" && highlightedPrimitive._material) {
+						highlightedPrimitive._material.baseColor = highlightedState.baseColor;
+					} else if (highlightedState.mode === "material") {
+						highlightedPrimitive.material = highlightedState.material;
+					}
+				} catch (err) {
+					// ignore stale primitive states
+				}
+				highlightedPrimitive = null;
+				highlightedState = null;
+			}
+
+			function applyPrimitiveHighlight(primitive) {
+				if (!primitive) {
+					resetPrimitiveHighlight();
+					return;
+				}
+				if (highlightedPrimitive === primitive) {
+					return;
+				}
+				resetPrimitiveHighlight();
+
+				highlightedPrimitive = primitive;
+				// 通过替换材质提升高亮可见度；取消选中时回写原材质。
+				highlightedState = {
+					mode: "material",
+					material: primitive.material
+				};
+				if (primitive === linePrimitive) {
+					primitive.material = minemap.PolylineMaterial.fromType("Color", {
+						color: "#22c55e"
+					});
+				} else {
+					primitive.material = minemap.StandardMaterial.fromType("Color", {
+						color: "#ffd60a",
+						opacity: 1,
+						doubleSided: true,
+						hasNormal: false
+					});
+				}
+			}
+
+			function resolveSelectedPrimitives() {
+				// Outline 的真正输入统一收敛为 primitives，避免多通道选择互相覆盖。
+				if (demoState.targetMode === "clickSingle") return clickedPrimitive ? [clickedPrimitive] : [];
+				if (demoState.targetMode === "primitiveBox") return boxPrimitive ? [boxPrimitive] : [];
+				if (demoState.targetMode === "primitiveLine") return linePrimitive ? [linePrimitive] : [];
+				if (demoState.targetMode === "sceneModelAll") return getSceneModelPrimitives(sceneModel);
+				return []
+					.concat(boxPrimitive ? [boxPrimitive] : [])
+					.concat(linePrimitive ? [linePrimitive] : [])
+					.concat(getSceneModelPrimitives(sceneModel));
+			}
+
+			function applyDemoState() {
+				if (!outlineStage) return;
+				// 非 clickSingle 模式下主动清空点击高亮，保持模式语义一致。
+				if (demoState.targetMode !== "clickSingle") {
+					resetPrimitiveHighlight();
+				}
+				outlineStage.enabled = demoState.enabled;
+				outlineStage.uniforms.color = demoState.color;
+				outlineStage.uniforms.occludedColor = demoState.occludedColor;
+				outlineStage.uniforms.width = demoState.width;
+				outlineStage.uniforms.softness = demoState.softness;
+				outlineStage.uniforms.glowStrength = demoState.glowStrength;
+				outlineStage.uniforms.coreOpacity = demoState.coreOpacity;
+				outlineStage.uniforms.breathing = demoState.breathing;
+				outlineStage.uniforms.breathSpeed = demoState.breathSpeed;
+				outlineStage.uniforms.breathMinAlpha = demoState.breathMinAlpha;
+				outlineStage.uniforms.breathMaxAlpha = demoState.breathMaxAlpha;
+				outlineStage.setSelected({
+					primitives: resolveSelectedPrimitives()
+				});
+				map.repaint = true;
+			}
+
+			function initializeGUI() {
+				const gui = new lil.GUI({ width: 330 });
+				const folder = gui.addFolder("Breathing Outline");
+				folder.open();
+
+				folder.add(demoState, "enabled").name("开启描边").onChange(applyDemoState);
+				folder
+					.add(demoState, "targetMode", {
+						"点击单选(Primitive/SceneModel构件)": "clickSingle",
+						"单个Primitive-盒子": "primitiveBox",
+						"单个Primitive-折线": "primitiveLine",
+						"整个SceneModel": "sceneModelAll",
+						"全部目标": "all"
+					})
+					.name("目标模式")
+					.onChange(applyDemoState);
+				folder.addColor(demoState, "color").name("可见颜色").onChange(applyDemoState);
+				folder.addColor(demoState, "occludedColor").name("遮挡颜色").onChange(applyDemoState);
+				folder.add(demoState, "width", 0.5, 12, 0.1).name("描边宽度").onChange(applyDemoState);
+				folder.add(demoState, "softness", 0.1, 4, 0.05).name("软边强度").onChange(applyDemoState);
+				folder.add(demoState, "glowStrength", 0, 2.5, 0.05).name("泛光强度").onChange(applyDemoState);
+				folder.add(demoState, "coreOpacity", 0, 2, 0.05).name("核心实边").onChange(applyDemoState);
+				folder.add(demoState, "breathing").name("开启呼吸").onChange(applyDemoState);
+				folder.add(demoState, "breathSpeed", 0.33, 0.5, 0.01).name("呼吸速度").onChange(applyDemoState);
+				folder.add(demoState, "breathMinAlpha", 0, 1, 0.01).name("最低透明度").onChange(applyDemoState);
+				folder.add(demoState, "breathMaxAlpha", 0, 1, 0.01).name("最高透明度").onChange(applyDemoState);
+				folder
+					.add(
+						{
+							clearClickSelection: function () {
+								clickedPrimitive = null;
+								resetPrimitiveHighlight();
+								if (demoState.targetMode === "clickSingle") {
+									applyDemoState();
+								}
+							}
+						},
+						"clearClickSelection"
+					)
+					.name("清空点击单选");
+			}
+		</script>
+	</body>
+</html>

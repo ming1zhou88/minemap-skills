@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>3DGS PLY加载演示</title>
+	<link rel="stylesheet" href="https://minedata.cn/mine-support/assets/web/support-data/css/demo.css">
+	<link rel="stylesheet" href="../../dist/minemap.css">
+	<script src="../../dist/minemap-dev.js"></script>
+	<style>
+		#map {
+			width: 100vw;
+			height: 100vh;
+		}
+
+		.toolContainer {
+			position: absolute;
+			top: 0;
+			left: 0;
+			z-index: 999;
+		}
+	</style>
+</head>
+<body>
+<div id="map"></div>
+<script>
+	minemap.domainUrl = 'https://minedata.cn';
+	minemap.dataDomainUrl = 'https://minedata.cn';
+	minemap.serverDomainUrl = 'https://minedata.cn';
+	minemap.spriteUrl = 'https://minedata.cn/minemapapi/v3.2.0/sprite/sprite';
+	minemap.serviceUrl = 'https://mineservice.minedata.cn/service/';
+	minemap.key = '0c6ac62182404e5ebc7a789981f6db72';
+	minemap.solution = 11001;
+	var style = {
+		"glyphs": "minemap://fonts/{fontstack}/{range}",
+		"sprite": "minemap://sprite/sprite",
+		"sources": {},
+		"layers": [],
+		"version": 8
+	};
+	var map = new minemap.Map({
+		container: 'map',
+		style: style,
+		position: [116.37999364868205, 39.89999022369744, 3.681322058405732],
+		pitch: 80,
+		bearing: 21,
+		roll: 0,
+		minZoom: 1,
+		projection: 'MERCATOR'
+	});
+	map.repaint = true;
+	map.on('load', function () {
+		map.addSource("3D_SOURCE", {
+			"type": "raster",
+			"tiles": ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"],
+			"tileSize": 512,
+		});
+		map.addLayer({
+			"type": "raster",
+			"id": "3d-layer",
+			"source": "3D_SOURCE",
+			"minzoom": 1,
+			"maxzoom": 22,
+			"layout": {},
+			"depth-test": true
+		});
+		// 加载PLY格式3DGS数据
+		const gs = new minemap.GaussianSplatting({
+			data: "../data/splat/point_cloud_29999_standard.ply",
+			id: "gauss-ply",
+			position: [116.38, 39.9, 3],
+			rotation: [-0 / 180 * Math.PI, 0, 0],
+			scale: [1, 1, 1]
+		});
+		map.addSceneComponent(gs);
+	});
+</script>
+</body>
+</html>

@@ -316,17 +316,108 @@ map.minHeightToDemSurface = 5;
 
 ### `enableUnderGround`
 
-这不是 terrain 参数本身，但和 terrain 强相关。
+地下模式。**注意**：`enableUnderGround` 在主分支上是一个**属性赋值**，不是方法，调用方式与 `enableLight` / `enableClouds` 不同。
 
-开启后：
+来源：`source/api/map.js` line 4999+。
 
--   会忽略地形碰撞检测
--   相机可以进入地下
+**两种开启方式**：
 
-源码注释同时提醒：
+```javascript
+// 方式 A：构造选项（推荐一次性开启）
+var map = new minemap.Map({
+	container: "map",
+	style,
+	enableUnderGround: true, // 地下模式
+	position: [108.96, 34.21, 338],
+	pitch: 90,
+	maxZoom: 100, // 地下模式要尽量大于 24
+	logDepth: true // 必须配 logDepth
+});
 
--   地下模式通常要配合 `logDepth`
--   否则进入地下后可能出现地形闪烁
+// 方式 B：运行时动态切换
+map.enableUnderGround = true; // 开启
+map.enableUnderGround = false; // 关闭
+```
+
+**开启后行为**：
+
+-   忽略地形碰撞检测
+-   相机可以进入地下（position 高度为负）
+-   引擎自动隐藏天空大气（大气透视与太阳盘等自动关闭）
+-   地形层（`raster` / 影像）继续渲染，需要显式关闭 `depth-test` 避免被地形遮挡
+
+**配套设置**：
+
+| 配套项              | 推荐值  | 说明                                             |
+| ------------------- | ------- | ------------------------------------------------ |
+| `logDepth`          | `true`  | 源码注释：否则进入地下后地形会闪烁（z-fighting） |
+| `maxZoom`           | `>= 24` | 地下模式要求 maxZoom 至少大于 24，否则可能报错   |
+| `pitch`             | `>= 80` | 高俯仰角更利于观察地下场景                       |
+| raster `depth-test` | `false` | 影像层在地下时需关闭深度测试，否则会被地形遮住   |
+
+**示例**（参考 `demo/html/Underground.html`）：
+
+```javascript
+var map = new minemap.Map({
+	container: "map",
+	style,
+	position: [108.96, 34.21, 338],
+	bearing: 90,
+	pitch: 90,
+	roll: 0,
+	maxZoom: 100,
+	minZoom: 1,
+	projection: "MERCATOR",
+	logDepth: true,
+	enableUnderGround: true
+});
+
+map.enableLight();
+map.setTerrain({
+	tiles: ["https://.../dem/{z}/{r}/{c}/{z}_{x}_{y}.terrain"],
+	tileSize: 512,
+	maxzoom: 14
+});
+
+map.on("load", function () {
+	map.addSource("IMAGERY_SOURCE", {
+		type: "raster",
+		tiles: ["https://.../satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"],
+		tileSize: 512
+	});
+	map.addLayer({
+		id: "IMAGERY",
+		type: "raster",
+		source: "IMAGERY_SOURCE",
+		minzoom: 0,
+		maxzoom: 23,
+		"depth-test": false, // 地下时影像不能被地形挡住
+		paint: { "raster-opacity": 1 }
+	});
+
+	// 地下管廊 / 隧道 / 设施
+	map.addSceneComponent({
+		id: "pipeline",
+		type: "3d-model",
+		data: "../data/UndergroundTube/pipeline.gltf",
+		modelFolder: "../data/UndergroundTube/",
+		rotation: [90, 0, 0],
+		position: [108.965, 34.218, 360] // z 大于 0 仍然显示为"在地下"
+	});
+});
+```
+
+**注意事项**：
+
+-   `enableUnderGround` 是**属性赋值**，不是 `enableUnderGround()` 方法调用；`map.enableUnderGround()` 会报错
+-   `position` 第三项（z/alt）填负值也可以工作，但源码注释提醒：未开启 `enableUnderGround` 时传负高度，会被定位到 `[0, 0, 6378137*6]`
+-   地下模式下 `Sky` 自动隐藏，相机飞到地下不会渲染天空盒
+
+**适用场景**：
+
+-   管廊 / 隧道 / 地下空间可视化
+-   地下停车场 / 地铁站 / 综合管沟
+-   数字孪生中的"透视"或"剖切"效果
 
 ### `requestInterval`
 

@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8"/>
+	<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no"/>
+	<title>threejs融合</title>
+	<!-- demo样式文件 -->
+	<link rel="stylesheet" href="https://minedata.cn/nce-static/support/demo/js-3d-ultra/zh/css/demo.css"/>
+	<!-- 引入MineMap API插件 -->
+	<link rel="stylesheet" href="http://192.168.152.123/minemap-engine/v4.0.0/minemap.css"/>
+	<script src="../../dist/minemap-dev.js"></script>
+	<script src="../js/lil-gui.umd.min.js"></script>
+	<style>
+		#map {
+			width: 100%;
+			height: 100%;
+		}
+	</style>
+</head>
+
+<body>
+<div id="map"></div>
+<script type="importmap">
+	{
+	  "imports": {
+		"three": "https://unpkg.com/three@0.165.0/build/three.module.js",
+		"three/examples/": "https://unpkg.com/three@0.165.0/examples/",
+		"three/addons/": "https://unpkg.com/three@0.165.0/examples/jsm/"
+	  }
+	}
+</script>
+<script type="module">
+	import * as THREE from 'three'
+
+	window.THREE = THREE
+	import { ThreeLayer, createFenceMesh, createTubeMesh, createCircleMesh } from '../js/minemap-three-plugin/index.js'
+
+	/**
+	 * 全局参数设置
+	 */
+	minemap.domainUrl = 'https://minemap.minedata.cn'
+	minemap.dataDomainUrl = 'https://minemap.minedata.cn'
+	minemap.serverDomainUrl = 'https://ol-data.minedata.cn'
+	minemap.spriteUrl = 'https://minemap.minedata.cn/minemapapi/v4.0.0/sprite/sprite'
+	minemap.serviceUrl = 'https://service.minedata.cn/service'
+
+	minemap.key = 'fe68957c8e374122a807c146bacc794d'
+	minemap.solution = 11003
+
+	// 定义空底图样式
+	const style = {
+		glyphs: 'minemap://fonts/{fontstack}/{range}',
+		sprite: 'minemap://sprite/sprite',
+		sources: {},
+		layers: [],
+		version: 8
+	}
+
+	/**
+	 * 初始化地图实例
+	 */
+	window.map = new minemap.Map({
+		container: 'map',
+		style: 'https://service.minedata.cn/map/solu/style/11003',
+		position: [120.60325, 31.362, 440.52508226222104],
+		pitch: 71.69167517525204 /*地图俯仰角度*/,
+		bearing: 19.75459385606422,
+		maxZoom: 24 /*地图最大缩放等级*/,
+		minZoom: 1 /*地图最小缩放等级*/,
+		projection: 'MERCATOR',
+		logoControl: false
+	})
+	map.repaint = true
+
+	map.on('load', function () {
+		const threeLayer = new ThreeLayer({
+			id: 'test-scene',
+			refCenter: [120.60325, 31.362]
+		})
+		map.addLayer(threeLayer)
+
+		// 添加围栏
+		const fences = {
+			'zhongxin.json': 'yellow'
+		}
+		for (const [fenceData, fenceColor] of Object.entries(fences)) {
+			minemap.util.getJSON({
+				url: `../data/suzhou/${fenceData}`
+			}, (error, data) => {
+				if (data) {
+					const coordinates = data.features[0].geometry.coordinates[0]
+					const fence = createFenceMesh({
+						layer: threeLayer, // threejs图层
+						coordinates, // 坐标数据，目前仅支持传入一个墙体坐标
+						color: fenceColor, // 墙体颜色
+						opacity: 0.7,
+						material: 'ripple', // 材质，支持'ripple','wave'和'fade'
+						num: 5, // 流动数量
+						speed: 1,  // 流动速度
+						height: 20 // 墙体高度
+					})
+					threeLayer.addObject(fence)
+				}
+			})
+		}
+
+		// 添加道路线
+		// 添加道路线的贴图
+		const texture = new THREE.TextureLoader().load('../data/suzhou/line.png')
+		texture.wrapS = texture.wrapT = THREE.RepeatWrapping
+		const roads = {
+			'roads0.geojson': {
+				color: '#FF9900',
+				speed: 0.5,
+				radius: 12
+			},
+			'roads1.geojson': {
+				color: '#FF6B00',
+				speed: 0.5,
+				radius: 8
+			},
+			'roads2.geojson': {
+				color: '#00FFFF',
+				speed: 1.0,
+				radius: 5
+			},
+			'roads3.geojson': {
+				color: '#BBBBBB',
+				speed: 1.0,
+				radius: 3
+			}
+		}
+		for (const [roadData, roadInfo] of Object.entries(roads)) {
+			const color = roadInfo.color
+			const speed = roadInfo.speed
+			const radius = roadInfo.radius
+
+			minemap.util.getJSON({
+				url: `../data/suzhou/${roadData}`
+			}, (error, data) => {
+				if (data) {
+					const multiRoadCoordinates = []
+					// 支持多条线数据传入
+					for (const feature of data.features) {
+						multiRoadCoordinates.push(feature.geometry.coordinates[0])
+					}
+					// 添加道路线
+					const tube = createTubeMesh({
+						layer: threeLayer, // threejs图层
+						coordinates: multiRoadCoordinates, // 多条线数据
+						material: {
+							map: texture, // 纹理
+							transparent: true,
+							side: THREE.DoubleSide,
+							depthWrite: true,
+							color: color
+						},
+						radius: radius, // 圆管半径
+						speed: speed // 流动速度
+					})
+					threeLayer.addObject(tube)
+				}
+			})
+		}
+
+		// 添加特效圆形
+		const pointData = {
+			type: 'FeatureCollection',
+			features: [
+				{
+					type: 'Feature',
+					properties: {
+						w: 100
+					},
+					geometry: {
+						type: 'Point',
+						coordinates: [120.595, 31.362]
+					}
+				},
+				{
+					type: 'Feature',
+					properties: {
+						w: 200
+					},
+					geometry: {
+						type: 'Point',
+						coordinates: [120.62, 31.36]
+					}
+				},
+				{
+					type: 'Feature',
+					properties: {
+						w: 250
+					},
+					geometry: {
+						type: 'Point',
+						coordinates: [120.60, 31.36]
+					}
+				}
+			]
+		}
+		const coordinates = pointData.features.map(feature => feature.geometry.coordinates)
+
+		threeLayer.addObject(createCircleMesh({
+			layer: threeLayer, // threejs图层
+			'id': 'point',
+			coordinates, // 圆心坐标数组，支持多个圆心
+			'type': 'circle',
+			material: 'radar', // 雷达材质，支持'radar'、'ripple'、'spread'三种预设特效，也可自定义材质
+			color: 'yellow', // 颜色
+			speed: 0.5, // 速度
+			followWidth: 0.2, // 尾迹宽度，值越小，扫描线更细、更锐利；值越大，扫描扇区更宽、拖尾更明显
+			opacity: 0.5, // 透明度
+			radius: [100, 200, 250] // 每个圆半径，对应多个圆心
+		}))
+
+		threeLayer.addObject(createCircleMesh({
+			layer: threeLayer,
+			'id': 'point',
+			coordinates,
+			'type': 'circle',
+			material: 'ripple',
+			color: 'yellow',
+			speed: 1,
+			num: 5,
+			opacity: 1.0,
+			radius: [100, 200, 250]
+		}))
+
+		threeLayer.addObject(createCircleMesh({
+			layer: threeLayer,
+			'id': 'point',
+			coordinates,
+			'type': 'circle',
+			material: 'spread',
+			color: 'red',
+			speed: 1.5,
+			opacity: 1.0,
+			radius: [100, 200, 250]
+		}))
+
+	})
+</script>
+</body>
+
+</html>

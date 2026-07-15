@@ -424,8 +424,6 @@ minemap.setRTLTextPlugin("https://example.com/rtl-text.js");
 -   `minemap-anti-aliasing`
 -   `minemap-layer-system`
 -   `minemap-style-system`
--   `minemap-style-v8-differences`
--   `minemap-tile-url-and-data-security`
 -   `minemap-2d-3d-overlay-and-classification`
 -   `minemap-water-surface-and-refraction`
 -   `minemap-scene-components`

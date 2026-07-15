@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+	<title>querySourceFeatures MVT 多 source-layer 示例</title>
+	<link rel="stylesheet" href="../style/demo.css" />
+	<link rel="stylesheet" href="../../dist/minemap.css" />
+	<script src="../../dist/minemap-dev.js"></script>
+	<style>
+		:root {
+			--bg: rgba(255, 255, 255, 0.96);
+			--border: rgba(15, 23, 42, 0.1);
+			--title: #0f172a;
+			--text: #475569;
+			--primary: #2563eb;
+			--primary-soft: rgba(37, 99, 235, 0.12);
+			--warning: #ea580c;
+			--warning-soft: rgba(234, 88, 12, 0.12);
+			--danger: #dc2626;
+		}
+
+		body {
+			margin: 0;
+			overflow: hidden;
+			font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+		}
+
+		#map {
+			width: 100%;
+			height: 100%;
+		}
+
+		.panel {
+			position: absolute;
+			top: 16px;
+			left: 16px;
+			width: 440px;
+			max-height: calc(100% - 32px);
+			overflow: auto;
+			padding: 16px;
+			border-radius: 16px;
+			background: var(--bg);
+			backdrop-filter: blur(12px);
+			box-shadow: 0 16px 40px rgba(15, 23, 42, 0.18);
+			border: 1px solid var(--border);
+			z-index: 10;
+		}
+
+		.panel h1 {
+			margin: 0 0 8px;
+			font-size: 20px;
+			color: var(--title);
+		}
+
+		.panel p,
+		.panel li,
+		.panel span,
+		.panel code,
+		.panel pre,
+		.panel button,
+		.panel select,
+		.panel strong {
+			font-size: 13px;
+		}
+
+		.intro {
+			margin: 0 0 14px;
+			line-height: 1.7;
+			color: var(--text);
+		}
+
+		.section {
+			margin-top: 14px;
+			padding: 14px;
+			border-radius: 12px;
+			background: #fff;
+			border: 1px solid rgba(148, 163, 184, 0.2);
+		}
+
+		.section h2 {
+			margin: 0 0 10px;
+			font-size: 14px;
+			color: var(--title);
+		}
+
+		.list {
+			margin: 0;
+			padding-left: 18px;
+			line-height: 1.7;
+			color: var(--text);
+		}
+
+		.select-row {
+			display: flex;
+			gap: 10px;
+			align-items: center;
+			flex-wrap: wrap;
+		}
+
+		.select-row .tag {
+			align-self: auto;
+		}
+
+		.button-grid {
+			display: grid;
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+			gap: 10px;
+			margin-top: 10px;
+		}
+
+		button {
+			border: none;
+			border-radius: 10px;
+			padding: 10px 12px;
+			cursor: pointer;
+			font-weight: 600;
+			transition: transform 0.2s ease, box-shadow 0.2s ease;
+		}
+
+		button:hover {
+			transform: translateY(-1px);
+			box-shadow: 0 8px 18px rgba(15, 23, 42, 0.12);
+		}
+
+		.primary-btn {
+			background: var(--primary-soft);
+			color: var(--primary);
+		}
+
+		.warning-btn {
+			background: var(--warning-soft);
+			color: var(--warning);
+		}
+
+		.danger-btn {
+			background: rgba(220, 38, 38, 0.1);
+			color: var(--danger);
+		}
+
+		.status {
+			margin-top: 10px;
+			padding: 10px 12px;
+			border-radius: 10px;
+			background: #f8fafc;
+			color: var(--text);
+			line-height: 1.6;
+		}
+
+		.code-block {
+			margin-top: 10px;
+			padding: 12px;
+			border-radius: 10px;
+			background: #0f172a;
+			color: #e2e8f0;
+			white-space: pre-wrap;
+			word-break: break-word;
+			line-height: 1.6;
+			overflow: auto;
+		}
+
+		#query-code {
+			max-height: 150px;
+		}
+
+		.result-summary {
+			display: flex;
+			justify-content: space-between;
+			align-items: baseline;
+			margin-bottom: 10px;
+		}
+
+		.result-summary strong {
+			font-size: 24px;
+			color: var(--title);
+		}
+
+		.result-summary span {
+			color: var(--text);
+		}
+
+		.tag {
+			display: inline-flex;
+			align-items: center;
+			padding: 2px 8px;
+			border-radius: 999px;
+			background: rgba(37, 99, 235, 0.1);
+			color: var(--primary);
+			font-weight: 700;
+		}
+
+		.result-list {
+			display: flex;
+			flex-direction: column;
+			gap: 10px;
+			max-height: 360px;
+			overflow: auto;
+		}
+
+		.result-card {
+			padding: 12px;
+			border-radius: 10px;
+			border: 1px solid rgba(148, 163, 184, 0.2);
+			background: #fff;
+			cursor: pointer;
+			transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+		}
+
+		.result-card:hover {
+			transform: translateY(-1px);
+			border-color: rgba(37, 99, 235, 0.45);
+			box-shadow: 0 10px 24px rgba(37, 99, 235, 0.12);
+		}
+
+		.result-card.active {
+			border-color: #2563eb;
+			box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.14);
+			background: rgba(37, 99, 235, 0.04);
+		}
+
+		.result-card h3 {
+			margin: 0 0 6px;
+			font-size: 14px;
+			color: var(--title);
+		}
+
+		.result-card p {
+			margin: 4px 0;
+			color: var(--text);
+			line-height: 1.5;
+		}
+
+		.empty {
+			padding: 14px;
+			border-radius: 10px;
+			background: #f8fafc;
+			text-align: center;
+			color: var(--text);
+		}
+	</style>
+</head>
+
+<body>
+	<div id="map"></div>
+	<!-- 左侧面板：突出 building 查询、高亮反馈和结果列表交互 -->
+	<div class="panel">
+		<h1>querySourceFeatures MVT 多 source-layer 示例</h1>
+		<p class="intro">
+			本示例聚焦 MVT 的 <code>building</code> 图层，验证真实 <code>source-layer</code> 查询、
+			样式图层 id 兼容查询，以及查询后高亮与视角联动效果。
+		</p>
+
+		<div class="section">
+			<h2>演示重点</h2>
+			<ul class="list">
+				<li>当前示例仅保留 <code>building</code>，避免无效候选图层干扰</li>
+				<li>真实 MVT 查询应使用真实 <code>source-layer</code></li>
+				<li>再次查询前会自动把视角拉回可查询的 14+ 级三维视角</li>
+			</ul>
+		</div>
+
+		<div class="section">
+			<h2>当前 source-layer</h2>
+			<div class="select-row">
+				<span class="tag">固定 source-layer</span>
+				<strong>building</strong>
+			</div>
+			<div class="button-grid">
+				<button class="primary-btn" id="query-selected-btn">按 building source-layer 查询</button>
+				<button class="warning-btn" id="query-building-btn">查高层 building</button>
+				<button class="primary-btn" id="query-style-layer-btn">按样式图层 id 查询</button>
+				<button class="danger-btn" id="clear-btn">清空高亮</button>
+			</div>
+			<div class="status" id="status-text">当前示例固定查询 building，可直接执行。</div>
+			<pre class="code-block" id="query-code">等待执行查询...</pre>
+		</div>
+
+		<div class="section">
+			<div class="result-summary">
+				<div>
+					<div style="color:#475569;">命中结果</div>
+					<strong id="result-count">0</strong>
+				</div>
+				<span id="result-desc">尚未执行查询</span>
+			</div>
+			<div class="result-list" id="result-list">
+				<div class="empty">执行查询后，这里会显示当前 source-layer 的返回结果摘要。</div>
+			</div>
+		</div>
+	</div>
+
+	<script>
+		// Demo 配置：聚焦 building，并约束查询时的最小缩放和三维视角。
+		const DEMO_CONFIG = {
+			center: [116.3913, 39.9075],
+			zoom: 15.2,
+			queryMinZoom: 15.2,
+			focusPitch: 60,
+			focusBearing: -18,
+			resultListLimit: 20,
+			previewHighlightLimit: 60,
+			baseStyle: 'https://service.minedata.cn/map/solu/style/11001',
+			sourceId: 'mvt-merge-source',
+			tiles: ['cloudservice://mvt-layer/merge/{z}/{r}/{c}/{z}_{x}_{y}.pbf'],
+			sourceLayer: 'building',
+			highlightSourceId: 'mvt-query-highlight-source',
+			buildingStyleLayerId: 'mvt-building-layer'
+		};
+
+		// 页面节点缓存。
+		const UI = {
+			statusText: document.getElementById('status-text'),
+			queryCode: document.getElementById('query-code'),
+			querySelectedBtn: document.getElementById('query-selected-btn'),
+			queryBuildingBtn: document.getElementById('query-building-btn'),
+			queryStyleLayerBtn: document.getElementById('query-style-layer-btn'),
+			clearBtn: document.getElementById('clear-btn'),
+			resultCount: document.getElementById('result-count'),
+			resultDesc: document.getElementById('result-desc'),
+			resultList: document.getElementById('result-list')
+		};
+
+		// 运行时状态：缓存最近一次查询结果，供列表点击后二次高亮/定位。
+		const state = {
+			lastQueryFeatures: [],
+			selectedFeatureIndex: -1
+		};
+
+		minemap.domainUrl = 'https://minedata.cn';
+		minemap.dataDomainUrl = 'https://minedata.cn';
+		minemap.serverDomainUrl = 'https://service.minedata.cn';
+		minemap.spriteUrl = 'https://minedata.cn/minemapapi/sprite/latest/sprite';
+		minemap.serviceUrl = 'https://service.minedata.cn/service/';
+		minemap.key = '0c6ac62182404e5ebc7a789981f6db72';
+		minemap.solution = 11001;
+
+		const map = new minemap.Map({
+			container: 'map',
+			style: DEMO_CONFIG.baseStyle,
+			center: DEMO_CONFIG.center,
+			zoom: DEMO_CONFIG.zoom,
+			pitch: DEMO_CONFIG.focusPitch,
+			bearing: DEMO_CONFIG.focusBearing,
+			maxZoom: 18,
+			minZoom: 3,
+			projection: 'MERCATOR'
+		});
+
+		map.on('load', function () {
+			addSources();
+			addLayers();
+			bindUI();
+		});
+
+		// 主 source 使用 MVT building；高亮 source 使用 GeoJSON 承接查询结果。
+		function addSources() {
+			map.addSource(DEMO_CONFIG.sourceId, {
+				type: 'vector',
+				tiles: DEMO_CONFIG.tiles
+			});
+
+			map.addSource(DEMO_CONFIG.highlightSourceId, {
+				type: 'geojson',
+				data: emptyFeatureCollection()
+			});
+		}
+
+		// 原始建筑图层 + 查询结果高亮图层。
+		// 高亮层分成 extrusion / fill / line / point，便于兼容不同几何类型。
+		function addLayers() {
+			map.addLayer({
+				id: DEMO_CONFIG.buildingStyleLayerId,
+				type: 'extrusion',
+				source: DEMO_CONFIG.sourceId,
+				'source-layer': 'building',
+				minzoom: 10,
+				paint: {
+					'extrusion-height': ['coalesce', ['get', 'levels'], 20],
+					'extrusion-color': [
+						'interpolate',
+						['linear'],
+						['coalesce', ['get', 'levels'], 20],
+						1, '#93c5fd',
+						30, '#3b82f6',
+						80, '#1d4ed8'
+					],
+					'extrusion-opacity': 0.86
+				}
+			});
+
+			map.addLayer({
+				id: 'mvt-highlight-extrusion',
+				type: 'extrusion',
+				source: DEMO_CONFIG.highlightSourceId,
+				filter: ['==', '$type', 'Polygon'],
+				minzoom: 10,
+				paint: {
+					'extrusion-height': [
+						'coalesce',
+						['get', 'height'],
+						['*', ['coalesce', ['get', 'levels'], 20], 3],
+						30
+					],
+					'extrusion-color': '#facc15',
+					'extrusion-opacity': 0.92
+				}
+			});
+
+			map.addLayer({
+				id: 'mvt-highlight-fill',
+				type: 'fill',
+				source: DEMO_CONFIG.highlightSourceId,
+				filter: ['==', '$type', 'Polygon'],
+				paint: {
+					'fill-color': '#facc15',
+					'fill-opacity': 0.18,
+					'fill-outline-color': '#ca8a04'
+				}
+			});
+
+			map.addLayer({
+				id: 'mvt-highlight-line',
+				type: 'line',
+				source: DEMO_CONFIG.highlightSourceId,
+				filter: ['==', '$type', 'LineString'],
+				paint: {
+					'line-color': '#ef4444',
+					'line-width': 7
+				}
+			});
+
+			map.addLayer({
+				id: 'mvt-highlight-point',
+				type: 'circle',
+				source: DEMO_CONFIG.highlightSourceId,
+				filter: ['==', '$type', 'Point'],
+				paint: {
+					'circle-color': '#facc15',
+					'circle-radius': 12,
+					'circle-stroke-width': 2,
+					'circle-stroke-color': '#ca8a04'
+				}
+			});
+		}
+
+		// 绑定三个查询入口：真实 source-layer、业务筛选、样式图层 id 兼容查询。
+		function bindUI() {
+			UI.querySelectedBtn.addEventListener('click', function () {
+				executeQueryWithViewGuard({
+					description: '按 building source-layer 查询',
+					parameters: {
+						sourceLayer: DEMO_CONFIG.sourceLayer
+					}
+				});
+			});
+
+			UI.queryBuildingBtn.addEventListener('click', function () {
+				executeQueryWithViewGuard({
+					description: '查询 building source-layer 中的高层建筑',
+					parameters: {
+						sourceLayer: DEMO_CONFIG.sourceLayer,
+						filter: ['all', ['has', 'levels'], ['>=', 'levels', 80]]
+					}
+				});
+			});
+
+			UI.queryStyleLayerBtn.addEventListener('click', function () {
+				executeQueryWithViewGuard({
+					description: '按样式图层 id 兼容查询 building',
+					parameters: {
+						sourceLayer: DEMO_CONFIG.buildingStyleLayerId,
+						filter: ['all', ['has', 'levels'], ['>=', 'levels', 80]]
+					}
+				});
+			});
+
+			UI.clearBtn.addEventListener('click', function () {
+				map.getSource(DEMO_CONFIG.highlightSourceId).setData(emptyFeatureCollection());
+				state.lastQueryFeatures = [];
+				state.selectedFeatureIndex = -1;
+				UI.statusText.textContent = '已清空高亮结果';
+				UI.queryCode.textContent = '等待执行查询...';
+				resetResults('执行查询后，这里会显示当前 source-layer 的返回结果摘要。');
+			});
+		}
+
+		// building 在较小缩放级别下不稳定，因此查询前先恢复到 15+ 级三维视角。
+		function executeQueryWithViewGuard(options) {
+			const needsZoomRecovery = map.getZoom() < DEMO_CONFIG.queryMinZoom;
+			// const needsPitchRecovery = map.getPitch() < DEMO_CONFIG.focusPitch - 5;
+			if (!needsZoomRecovery) {
+				executeQuery(options);
+				return;
+			}
+
+			UI.statusText.textContent = '当前缩放不足以稳定查询 building，正在恢复到 14+ 级三维视角...';
+			map.once('moveend', function () {
+				map.once('idle', function () {
+					executeQuery(options);
+				});
+			});
+
+			map.easeTo({
+				zoom: Math.max(map.getZoom(), DEMO_CONFIG.queryMinZoom),
+				// pitch: DEMO_CONFIG.focusPitch,
+				// bearing: DEMO_CONFIG.focusBearing,
+				duration: 800
+			});
+		}
+
+		// 执行 querySourceFeatures，并把结果同步到高亮层、摘要区和结果列表。
+		function executeQuery(options) {
+			const features = map.querySourceFeatures(DEMO_CONFIG.sourceId, options.parameters);
+			const previewFeatures = features.slice(0, DEMO_CONFIG.previewHighlightLimit);
+			state.lastQueryFeatures = features.slice();
+			state.selectedFeatureIndex = -1;
+			map.getSource(DEMO_CONFIG.highlightSourceId).setData(toFeatureCollection(previewFeatures));
+			focusFeatures(previewFeatures);
+
+			UI.statusText.textContent = options.description + '，共返回 ' + features.length + ' 个要素；当前高亮前 ' + previewFeatures.length + ' 个';
+			UI.queryCode.textContent = 'map.querySourceFeatures(' + JSON.stringify(DEMO_CONFIG.sourceId) + ', ' +
+				JSON.stringify(options.parameters, null, 2) + '\n)';
+			UI.resultCount.textContent = String(features.length);
+			UI.resultDesc.textContent = options.description + '（列表展示前 ' + Math.min(features.length, DEMO_CONFIG.resultListLimit) + ' 个，点击可单独高亮定位）';
+			renderResultList(features);
+		}
+
+		// 列表只展示前 N 条；点击某一项后会只高亮该要素并聚焦到其范围。
+		function renderResultList(features) {
+			if (!features.length) {
+				resetResults('当前条件下没有命中要素。');
+				return;
+			}
+
+			const visibleFeatures = features.slice(0, DEMO_CONFIG.resultListLimit);
+			UI.resultList.innerHTML = visibleFeatures.map(function (feature, index) {
+				return [
+					'<div class="result-card" data-feature-index="' + index + '">',
+					'<h3>#' + (index + 1) + ' ' + escapeHtml(pickDisplayName(feature.properties)) + '</h3>',
+					'<p>几何类型：' + escapeHtml(feature.geometry.type) + '</p>',
+					'<p>关键字段：' + escapeHtml(summarizeProperties(feature.properties)) + '</p>',
+					'</div>'
+				].join('');
+			}).join('');
+
+			Array.prototype.slice.call(UI.resultList.querySelectorAll('.result-card')).forEach(function (card) {
+				card.addEventListener('click', function () {
+					const featureIndex = Number(card.getAttribute('data-feature-index'));
+					selectResultFeature(featureIndex);
+				});
+			});
+		}
+
+		// 从列表中选择单条结果，做“单要素高亮 + 相机聚焦”。
+		function selectResultFeature(index) {
+			const feature = state.lastQueryFeatures[index];
+			if (!feature) {
+				return;
+			}
+
+			state.selectedFeatureIndex = index;
+			map.getSource(DEMO_CONFIG.highlightSourceId).setData(toFeatureCollection([feature]));
+			focusFeatures([feature]);
+			UI.statusText.textContent = '已定位第 ' + (index + 1) + ' 个命中要素：' + pickDisplayName(feature.properties);
+			updateActiveResultCard();
+		}
+
+		function updateActiveResultCard() {
+			Array.prototype.slice.call(UI.resultList.querySelectorAll('.result-card')).forEach(function (card) {
+				const featureIndex = Number(card.getAttribute('data-feature-index'));
+				if (featureIndex === state.selectedFeatureIndex) {
+					card.classList.add('active');
+				} else {
+					card.classList.remove('active');
+				}
+			});
+		}
+
+		function resetResults(message) {
+			state.lastQueryFeatures = [];
+			state.selectedFeatureIndex = -1;
+			UI.resultCount.textContent = '0';
+			UI.resultDesc.textContent = '尚未执行查询';
+			UI.resultList.innerHTML = '<div class="empty">' + escapeHtml(message) + '</div>';
+		}
+
+		function summarizeProperties(properties) {
+			const keys = Object.keys(properties || {}).slice(0, 4);
+			if (!keys.length) {
+				return '无属性';
+			}
+			return keys.map(function (key) {
+				return key + '=' + properties[key];
+			}).join('，');
+		}
+
+		function pickDisplayName(properties) {
+			return properties.name || properties.NAME || properties.id || properties.fid || '未命名要素';
+		}
+
+		// 将内部 Feature 转换成普通 GeoJSON，并补齐 extrusion 高亮所需的高度字段。
+		function toFeatureCollection(features) {
+			return {
+				type: 'FeatureCollection',
+				features: features.map(function (feature) {
+					const clonedProperties = Object.assign({}, feature.properties);
+					const levelValue = Number(clonedProperties.levels || 0);
+					if (!isFinite(levelValue) || levelValue <= 0) {
+						clonedProperties.levels = 20;
+					} else {
+						clonedProperties.levels = levelValue;
+					}
+
+					const heightValue = Number(clonedProperties.height || 0);
+					if (!isFinite(heightValue) || heightValue <= 0) {
+						clonedProperties.height = Math.max(clonedProperties.levels * 4, 80);
+					} else {
+						clonedProperties.height = heightValue;
+					}
+
+					return {
+						type: 'Feature',
+						id: feature.id,
+						properties: clonedProperties,
+						geometry: JSON.parse(JSON.stringify(feature.geometry))
+					};
+				})
+			};
+		}
+
+		// 根据结果范围调整相机，保证高亮后能够立即看到目标。
+		function focusFeatures(features) {
+			if (!features.length) {
+				return;
+			}
+
+			const bounds = computeBounds(features);
+			if (!bounds) {
+				return;
+			}
+
+			if (bounds.minX === bounds.maxX && bounds.minY === bounds.maxY) {
+				map.easeTo({
+					center: [bounds.minX, bounds.minY],
+					zoom: Math.max(map.getZoom(), 16.5),
+					duration: 800
+				});
+				return;
+			}
+
+			map.fitBounds([
+				[bounds.minX, bounds.minY],
+				[bounds.maxX, bounds.maxY]
+			], {
+				padding: 80,
+				duration: 900,
+				maxZoom: 17
+			});
+
+			map.once('moveend', function () {
+				if (map.getZoom() < DEMO_CONFIG.queryMinZoom) {
+					map.easeTo({
+						center: [
+							(bounds.minX + bounds.maxX) / 2,
+							(bounds.minY + bounds.maxY) / 2
+						],
+						zoom: Math.max(map.getZoom(), DEMO_CONFIG.queryMinZoom),
+						duration: 600
+					});
+				}
+			});
+		}
+
+		// 递归遍历点、线、面等几何坐标，用于计算统一包围盒。
+		function computeBounds(features) {
+			let minX = Infinity;
+			let minY = Infinity;
+			let maxX = -Infinity;
+			let maxY = -Infinity;
+
+			features.forEach(function (feature) {
+				visitCoordinates(feature.geometry, function (coordinate) {
+					const x = coordinate[0];
+					const y = coordinate[1];
+					if (typeof x !== 'number' || typeof y !== 'number') {
+						return;
+					}
+					minX = Math.min(minX, x);
+					minY = Math.min(minY, y);
+					maxX = Math.max(maxX, x);
+					maxY = Math.max(maxY, y);
+				});
+			});
+
+			if (!isFinite(minX) || !isFinite(minY) || !isFinite(maxX) || !isFinite(maxY)) {
+				return null;
+			}
+
+			return { minX: minX, minY: minY, maxX: maxX, maxY: maxY };
+		}
+
+		function visitCoordinates(geometry, visitor) {
+			if (!geometry) {
+				return;
+			}
+
+			if (geometry.type === 'GeometryCollection') {
+				(geometry.geometries || []).forEach(function (item) {
+					visitCoordinates(item, visitor);
+				});
+				return;
+			}
+
+			walkCoordinateArray(geometry.coordinates, visitor);
+		}
+
+		function walkCoordinateArray(value, visitor) {
+			if (!Array.isArray(value)) {
+				return;
+			}
+
+			if (typeof value[0] === 'number') {
+				visitor(value);
+				return;
+			}
+
+			value.forEach(function (item) {
+				walkCoordinateArray(item, visitor);
+			});
+		}
+
+		function emptyFeatureCollection() {
+			return {
+				type: 'FeatureCollection',
+				features: []
+			};
+		}
+
+		function uniqueArray(items) {
+			return items.filter(function (item, index) {
+				return items.indexOf(item) === index;
+			}).sort();
+		}
+
+		function escapeHtml(value) {
+			return String(value)
+				.replace(/&/g, '&amp;')
+				.replace(/</g, '&lt;')
+				.replace(/>/g, '&gt;')
+				.replace(/"/g, '&quot;')
+				.replace(/'/g, '&#39;');
+		}
+	</script>
+</body>
+
+</html>

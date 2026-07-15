@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+  <title>动态水面焦散效果</title>
+  <!-- demo样式文件 -->
+  <link rel="stylesheet" href="https://minedata.cn/nce-static/support/demo/js-3d-ultra/zh/css/demo.css" />
+  <!-- 引入MineMap API插件 -->
+  <link rel="stylesheet" href="http://192.168.152.123/minemap-engine/v4.0.0/minemap.css" />
+  <script src="../../dist/minemap-dev.js"></script>
+  <script src="../js/lil-gui.umd.min.js"></script>
+  <style>
+    #map {
+      width: 100%;
+      height: 100%;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="map"></div>
+  <script>
+
+    /**
+     * 全局参数设置
+     */
+    minemap.domainUrl = 'https://minemap.minedata.cn';
+    minemap.dataDomainUrl = 'https://minemap.minedata.cn';
+    minemap.serverDomainUrl = 'https://ol-data.minedata.cn';
+    minemap.spriteUrl = 'https://minemap.minedata.cn/minemapapi/v4.0.0/sprite/sprite';
+    minemap.serviceUrl = 'https://service.minedata.cn/service';
+
+    minemap.key = "fe68957c8e374122a807c146bacc794d";
+    minemap.solution = 11003;
+
+    // 定义空底图样式
+    const style = {
+      glyphs: "minemap://fonts/{fontstack}/{range}",
+      sprite: "minemap://sprite/sprite",
+      sources: {},
+      layers: [],
+      version: 8
+    };
+
+    /**
+     * 初始化地图实例
+     */
+    window.map = new minemap.Map({
+      container: "map",
+      style,
+      position: [120.30102215030331, 28.57483019781855, 44.52508226222104],
+      pitch: 71.69167517525204 /*地图俯仰角度*/,
+      bearing: 19.75459385606422,
+      maxZoom: 24 /*地图最大缩放等级*/,
+      minZoom: 1 /*地图最小缩放等级*/,
+      projection: "MERCATOR",
+      logoControl: false,
+    });
+    map.repaint = true;
+
+    map.on("load", function () {
+      map.addSource("IMAGERY_SOURCE", {
+        type: "raster", //数据源类型：栅格数据源
+        tiles: ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+        tileSize: 512 //瓦片尺寸
+      });
+
+      map.addLayer({
+        "id": "IMAGERY",
+        "type": "raster",
+        "source": "IMAGERY_SOURCE",
+        "minzoom": 1,
+        "maxzoom": 23,
+        "paint": {
+          "raster-opacity": 1
+        }
+      });
+
+      // 创建动态水体。DynamicWater 会根据 positions 自动计算外接矩形，
+      // 使用 PlaneGeometry 绘制外接矩形，再通过掩膜纹理裁剪出实际多边形水域。
+      let water = new minemap.DynamicWater({
+        // 水体范围，多边形经纬度坐标数组；首尾不需要重复，内部会自动闭合。
+        positions: [
+          [120.301135, 28.575922],
+          [120.302122, 28.575987],
+          [120.302225, 28.576529],
+          [120.301755, 28.576792],
+          [120.301205, 28.576617]
+        ],
+
+        // 掩膜纹理尺寸，尺寸越大多边形裁剪边缘越精细。
+        maskSize: 512,
+
+        // 水面外接矩形的网格细分数，细分越高波浪顶点动画越细腻。
+        widthSegments: 256,
+        heightSegments: 256,
+
+        // 水面与水底高度，单位米。
+        waterHeight: 10,
+        bottomHeight: 0,
+
+        // 是否创建水底焦散面和侧墙。
+        withGround: true,
+        withWalls: true,
+
+        // 水底贴图与侧墙样式。
+        groundTexture: '../image/pool_tile.jpg',
+        wallColor: '#7ec8e3',
+        wallOpacity: 0.28,
+
+        // 水面材质参数，控制波浪、颜色、Fresnel 反射等效果。
+        water: {
+          color: '#4a90a4',           // 水面基础色。
+          opacity: 0.9,               // 水面透明度。
+          waveAmplitude: 0.39,        // 波浪振幅。
+          waveFrequency: 0.1,         // 波浪基础频率。
+          wavePersistence: 0.3,       // 分形噪声每层振幅衰减。
+          waveLacunarity: 1.6,        // 分形噪声每层频率放大。
+          waveIterations: 7,          // 波浪噪声迭代次数。
+          waveSpeed: 0.25,            // 波浪动画速度。
+          flowDirection: [1.0, 0.0],  // 波纹主流动方向。
+          troughColor: '#186691',     // 波谷颜色。
+          surfaceColor: '#90aee0',    // 水面中间色。
+          peakColor: '#b4cff3',       // 波峰颜色。
+          peakThreshold: 0.7,         // 波峰颜色阈值。
+          troughThreshold: -0.05,     // 波谷颜色阈值。
+          peakTransition: 0.05,       // 波峰颜色过渡范围。
+          troughTransition: 0.2,      // 波谷颜色过渡范围。
+          fresnelBias: 0.09,          // Fresnel 基础反射强度。
+          fresnelPower: 4.1,          // Fresnel 曲线指数。
+          fresnelScale: 0.25,         // Fresnel 视角反射增量。
+          reflectivity: 3.0,          // 反射强度系数。
+          depth: 50                   // 兼容水深参数，用于映射波浪振幅。
+        }
+      });
+      map.addSceneComponent(water);
+
+      const gui = new lil.GUI({ title: '水面参数(minemap.Water)' });
+      const params = {
+        flowX: 1.0,
+        flowY: 0.0,
+        uWavesAmplitude: 0.39,
+        uWavesFrequency: 0.1,
+        uWavesPersistence: 0.3,
+        uWavesLacunarity: 1.6,
+        uWavesIterations: 7,
+        uWavesSpeed: 0.25,
+
+        uOpacity: 0.9,
+        troughColor: '#186691',
+        surfaceColor: '#90aee0',
+        peakColor: '#b4cff3',
+        uPeakThreshold: 0.7,
+        uTroughThreshold: -0.05,
+        uPeakTransition: 0.05,
+        uTroughTransition: 0.2,
+
+        uFresnelBias: 0.09,
+        uFresnelScale: 0.25,
+        fresnelPower: 4.1,
+        reflectivity: 3.0,
+
+        uCausticsIntensity: 1.0,
+        uCausticsScale: 10.0,
+        uCausticsSpeed: 0.5,
+        uCausticsOffset: 0.75,
+        uCausticsThickness: 0.35
+      };
+
+      const actions = {
+        removeWater: () => {
+          if (!water) {
+            return;
+          }
+
+          // removeSceneComponent 会根据 id 移除并释放动态水体对象。
+          map.removeSceneComponent(water.id);
+          water = null;
+        }
+      };
+
+      const applyWater = () => {
+        if (!water) {
+          return;
+        }
+
+        water.setOptions({
+          water: {
+            color: '#4a90a4',
+            opacity: params.uOpacity,
+            waveAmplitude: params.uWavesAmplitude,
+            waveFrequency: params.uWavesFrequency,
+            wavePersistence: params.uWavesPersistence,
+            waveLacunarity: params.uWavesLacunarity,
+            waveIterations: params.uWavesIterations,
+            waveSpeed: params.uWavesSpeed,
+            flowDirection: [params.flowX, params.flowY],
+            troughColor: params.troughColor,
+            surfaceColor: params.surfaceColor,
+            peakColor: params.peakColor,
+            peakThreshold: params.uPeakThreshold,
+            troughThreshold: params.uTroughThreshold,
+            peakTransition: params.uPeakTransition,
+            troughTransition: params.uTroughTransition,
+            fresnelBias: params.uFresnelBias,
+            fresnelScale: params.uFresnelScale,
+            fresnelPower: params.fresnelPower,
+            reflectivity: params.reflectivity
+          }
+        });
+      };
+
+      const applyCaustics = () => {
+        if (!water) {
+          return;
+        }
+
+        water.setOptions({
+          caustics: {
+            intensity: params.uCausticsIntensity,
+            scale: params.uCausticsScale,
+            speed: params.uCausticsSpeed,
+            offset: params.uCausticsOffset,
+            thickness: params.uCausticsThickness
+          }
+        });
+      };
+
+      // 移除动态水体，移除后其他参数调节不会再作用到水体对象。
+      gui.add(actions, 'removeWater').name('移除');
+
+      const wavesFolder = gui.addFolder('波浪');
+      wavesFolder.add(params, 'uWavesAmplitude', 0, 5).name('振幅').onChange(applyWater);
+      wavesFolder.add(params, 'uWavesFrequency', 0.01, 1, 0.1).name('频率').onChange(applyWater);
+      wavesFolder.add(params, 'uWavesPersistence', 0, 1, 0.001).name('Persistence').onChange(applyWater);
+      wavesFolder.add(params, 'uWavesLacunarity', 0, 3, 0.001).name('Lacunarity').onChange(applyWater);
+      wavesFolder.add(params, 'uWavesIterations', 1, 8, 1).name('迭代次数').onChange(applyWater);
+      wavesFolder.add(params, 'uWavesSpeed', 0, 1, 0.001).name('速度').onChange(applyWater);
+      wavesFolder.add(params, 'flowX', -1, 1, 0.01).name('流向X').onChange(applyWater);
+      wavesFolder.add(params, 'flowY', -1, 1, 0.01).name('流向Y').onChange(applyWater);
+
+      const colorFolder = gui.addFolder('颜色');
+      colorFolder.add(params, 'uOpacity', 0, 1, 0.01).name('不透明度').onChange(applyWater);
+      colorFolder.addColor(params, 'troughColor').name('波谷颜色').onChange(applyWater);
+      colorFolder.addColor(params, 'surfaceColor').name('水面颜色').onChange(applyWater);
+      colorFolder.addColor(params, 'peakColor').name('波峰颜色').onChange(applyWater);
+      colorFolder.add(params, 'uPeakThreshold', -1, 1).name('波峰阈值').onChange(applyWater);
+      colorFolder.add(params, 'uPeakTransition', 0, 0.1).name('波峰过渡').onChange(applyWater);
+      colorFolder.add(params, 'uTroughThreshold', -0.1, 0.1).name('波谷阈值').onChange(applyWater);
+      colorFolder.add(params, 'uTroughTransition', 0, 0.1).name('波谷过渡').onChange(applyWater);
+
+      const fresnelFolder = gui.addFolder('Fresnel');
+      fresnelFolder.add(params, 'uFresnelBias', 0, 1, 0.01).name('Bias').onChange(applyWater);
+      fresnelFolder.add(params, 'uFresnelScale', 0, 1, 0.01).name('Scale').onChange(applyWater);
+      fresnelFolder.add(params, 'fresnelPower', 0, 10, 0.1).name('Power').onChange(applyWater);
+
+      const causticsFolder = gui.addFolder('焦散');
+      causticsFolder.add(params, 'uCausticsIntensity', 0, 2, 0.01).name('强度');
+      causticsFolder.add(params, 'uCausticsScale', 0, 20, 0.1).name('缩放');
+      causticsFolder.add(params, 'uCausticsSpeed', 0, 1, 0.01).name('速度');
+      causticsFolder.add(params, 'uCausticsOffset', 0, 2, 0.01).name('偏移');
+      causticsFolder.add(params, 'uCausticsThickness', 0, 1, 0.01).name('厚度');
+
+      causticsFolder.controllers.forEach((controller) => controller.onChange(applyCaustics));
+
+    });
+  </script>
+</body>
+
+</html>

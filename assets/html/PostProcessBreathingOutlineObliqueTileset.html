@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+		<title>倾斜摄影3DTiles呼吸描边全流程</title>
+		<script src="../js/lil-gui.umd.min.js"></script>
+		<link rel="stylesheet" href="../../dist/minemap.css" />
+		<script src="../../dist/minemap-dev.js"></script>
+		<style>
+			html,
+			body,
+			#map {
+				margin: 0;
+				padding: 0;
+				width: 100%;
+				height: 100%;
+			}
+
+			body {
+				font-family: "Microsoft YaHei", sans-serif;
+			}
+
+			.info-panel,
+			.property-panel,
+			.toolbar {
+				position: absolute;
+				z-index: 2;
+				background: rgba(10, 20, 30, 0.74);
+				color: #f8fafc;
+				backdrop-filter: blur(8px);
+				box-shadow: 0 12px 28px rgba(0, 0, 0, 0.22);
+			}
+
+			.info-panel {
+				top: 16px;
+				left: 16px;
+				width: 360px;
+				padding: 14px 16px;
+				border-radius: 12px;
+				line-height: 1.65;
+			}
+
+			.info-panel h1,
+			.property-panel h2 {
+				margin: 0 0 8px;
+				font-size: 18px;
+			}
+
+			.info-panel p,
+			.info-panel li,
+			.status-grid div,
+			.property-panel,
+			.property-panel td,
+			.property-panel th,
+			.toolbar button {
+				font-size: 13px;
+			}
+
+			.info-panel p,
+			.info-panel ul {
+				margin: 0 0 8px;
+			}
+
+			.info-panel ul {
+				padding-left: 18px;
+			}
+
+			.status-grid {
+				display: grid;
+				grid-template-columns: 104px 1fr;
+				gap: 6px 10px;
+				padding-top: 6px;
+				border-top: 1px solid rgba(255, 255, 255, 0.12);
+			}
+
+			.status-grid .key {
+				color: #bfdbfe;
+			}
+
+			.toolbar {
+				top: 16px;
+				right: 16px;
+				display: flex;
+				gap: 8px;
+				padding: 10px;
+				border-radius: 12px;
+			}
+
+			.toolbar button {
+				padding: 8px 12px;
+				border: 1px solid rgba(255, 255, 255, 0.18);
+				border-radius: 8px;
+				background: rgba(255, 255, 255, 0.08);
+				color: #f8fafc;
+				cursor: pointer;
+			}
+
+			.toolbar button.active {
+				background: #0ea5e9;
+				border-color: #38bdf8;
+			}
+
+			.property-panel {
+				right: 16px;
+				bottom: 16px;
+				width: 420px;
+				max-height: 52vh;
+				padding: 14px 16px;
+				border-radius: 12px;
+				overflow: auto;
+			}
+
+			.property-panel table {
+				width: 100%;
+				border-collapse: collapse;
+			}
+
+			.property-panel th,
+			.property-panel td {
+				padding: 6px 8px;
+				border: 1px solid rgba(255, 255, 255, 0.14);
+				text-align: left;
+				vertical-align: top;
+			}
+
+			.property-panel th {
+				width: 132px;
+				color: #bfdbfe;
+				font-weight: 600;
+			}
+
+			.property-empty {
+				margin: 0;
+				color: rgba(248, 250, 252, 0.8);
+				line-height: 1.7;
+			}
+		</style>
+	</head>
+	<body>
+		<div id="map"></div>
+		<div class="info-panel">
+			<h1>倾斜摄影 3DTiles 呼吸描边全流程</h1>
+			<p>数据来源：在线倾斜摄影数据 https://staticdata-b.minedata.cn:14434/oblique/tileset.json。</p>
+			<p>示例目标：把“倾斜摄影加载、飞行定位、点选高亮、全选描边、属性查看、调度与透明度调参”放在一个平铺 demo 里，便于直接阅读业务逻辑。</p>
+			<ul>
+				<li>点选模式：单击倾斜摄影构件，查看属性并做呼吸描边。</li>
+				<li>全选模式：对当前已加载的全部 primitive 做统一呼吸描边。</li>
+				<li>清空模式：取消选中集合，仅保留倾斜摄影加载结果。</li>
+			</ul>
+			<div class="status-grid" id="statusGrid"></div>
+		</div>
+		<div class="toolbar">
+			<button id="flyButton" type="button">飞行到倾斜</button>
+			<button id="singleButton" type="button" class="active">点选模式</button>
+			<button id="allButton" type="button">全选模式</button>
+			<button id="clearButton" type="button">清空选择</button>
+		</div>
+		<div class="property-panel">
+			<h2>选中要素属性</h2>
+			<div id="propertyContainer"></div>
+		</div>
+		<script>
+			minemap.domainUrl = "https://minedata.cn";
+			minemap.dataDomainUrl = "https://minedata.cn";
+			minemap.serverDomainUrl = "https://minedata.cn";
+			minemap.spriteUrl = "https://minedata.cn/minemapapi/sprite/latest/sprite";
+			minemap.serviceUrl = "https://minedata.cn/service/";
+
+			minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+			minemap.solution = 11001;
+			window.minemapCDN = "https://minedata.cn/minemapapi/minemap-CDN";
+
+			const OBLIQUE_TILESET_URL = "https://staticdata-b.minedata.cn:14434/oblique/tileset.json";
+			const DEFAULT_HIGHLIGHT_COLOR = [1.0, 0.86, 0.1, 1.0];
+			const DEFAULT_STYLE = {
+				glyphs: "minemap://fonts/{fontstack}/{range}",
+				sprite: "minemap://sprite/sprite",
+				sources: {},
+				layers: [],
+				version: 8
+			};
+
+			const demoState = {
+				enabled: true,
+				selectMode: "single",
+				color: "#d716da",
+				occludedColor: "#ffb703",
+				width: 3.5,
+				softness: 1.8,
+				glowStrength: 2,
+				coreOpacity: 1.0,
+				breathing: true,
+				breathSpeed: 0.4,
+				breathMinAlpha: 0.45,
+				breathMaxAlpha: 1.0,
+				tilesetOpacity: 1.0,
+				schedulingPolicy: "BALANCED",
+				freezeFrame: false,
+				showBoundingBox: false
+			};
+
+			const map = new minemap.Map({
+				container: "map",
+				style: DEFAULT_STYLE,
+				bearing: -87.18744098264303,
+				center: [108.94733550459136, 34.30940496948484],
+				pitch: 61.603551292866726,
+				zoom: 15.7,
+				maxZoom: 22,
+				minZoom: 1,
+				projection: "MERCATOR"
+			});
+
+			const statusGrid = document.getElementById("statusGrid");
+			const propertyContainer = document.getElementById("propertyContainer");
+			const flyButton = document.getElementById("flyButton");
+			const singleButton = document.getElementById("singleButton");
+			const allButton = document.getElementById("allButton");
+			const clearButton = document.getElementById("clearButton");
+
+			let tileset = null;
+			let outlineStage = null;
+			let singleSelectedFeature = null;
+			let singleSelectedOriginalColor = null;
+			let singleSelectedPrimitives = [];
+			let lastAllPrimitiveCount = -1;
+			let guiControllers = null;
+
+			map.on("load", onMapLoad);
+
+			function onMapLoad() {
+				addImageryLayer();
+				createObliqueTileset();
+				createOutlineStage();
+				bindMapEvents();
+				initializeToolbar();
+				initializeGUI();
+				updatePropertyPanel(null);
+				updateStatusPanel();
+			}
+
+			function addImageryLayer() {
+				map.addSource("IMAGERY_SOURCE", {
+					type: "raster",
+					tiles: ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"],
+					tileSize: 512
+				});
+
+				map.addLayer({
+					id: "IMAGERY",
+					type: "raster",
+					source: "IMAGERY_SOURCE",
+					minzoom: 0,
+					maxzoom: 23,
+					"depth-test": true
+				});
+			}
+
+			function createObliqueTileset() {
+				tileset = map.addSceneComponent({
+					id: "breathing-outline-oblique-tileset",
+					type: "3d-tiles",
+					show: true,
+					translation: new minemap.Math.Vector3(0, 0, 0),
+					url: OBLIQUE_TILESET_URL,
+					skipLevelOfDetail: false,
+					maximumScreenSpaceError: 8,
+					backCulling: false,
+					opacity: demoState.tilesetOpacity,
+					schedulingPolicy: minemap.SchedulingPolicyType[demoState.schedulingPolicy],
+					allowPick: true,
+					sourceLoaded: function (loadedTileset) {
+						tileset = loadedTileset;
+						window.tileset = loadedTileset;
+						applyDemoState();
+						updateStatusPanel();
+					},
+					geoBoundsOptions: {
+						index: 0,
+						combine: true
+					}
+				});
+			}
+
+			function createOutlineStage() {
+				outlineStage = minemap.PostProcessStageLibrary.createBreathingOutlineStage(map.painter, demoState);
+				map.postProcessStages.add(outlineStage);
+				window.outlineStage = outlineStage;
+				applyDemoState();
+			}
+
+			function bindMapEvents() {
+				map.on("click", onMapClick);
+				map.on("render", syncAllModeSelection);
+			}
+
+			function initializeToolbar() {
+				flyButton.addEventListener("click", flyToTileset);
+				singleButton.addEventListener("click", function () {
+					setSelectMode("single");
+				});
+				allButton.addEventListener("click", function () {
+					setSelectMode("all");
+				});
+				clearButton.addEventListener("click", function () {
+					setSelectMode("none");
+				});
+			}
+
+			function initializeGUI() {
+				const gui = new lil.GUI({ width: 340 });
+				const folder = gui.addFolder("Oblique Tileset Business Demo");
+				folder.open();
+
+				guiControllers = {
+					selectMode: folder
+						.add(demoState, "selectMode", {
+							"点选模式": "single",
+							"全选模式": "all",
+							"清空模式": "none"
+						})
+						.name("当前模式")
+						.onChange(function (value) {
+							setSelectMode(value, true);
+						})
+				};
+
+				folder.add(demoState, "enabled").name("开启描边").onChange(applyDemoState);
+				folder.add(demoState, "tilesetOpacity", 0.1, 1, 0.05).name("模型透明度").onChange(applyDemoState);
+				folder
+					.add(demoState, "schedulingPolicy", {
+						"效果优先": "EFFECTIVENESS_FIRST",
+						"均衡策略": "BALANCED",
+						"性能优先": "EFFICIENCY_FIRST"
+					})
+					.name("调度策略")
+					.onChange(applyDemoState);
+				folder.add(demoState, "freezeFrame").name("冻结调度帧").onChange(applyDemoState);
+				folder.add(demoState, "showBoundingBox").name("显示包围盒").onChange(applyDemoState);
+				folder.addColor(demoState, "color").name("可见颜色").onChange(applyDemoState);
+				folder.addColor(demoState, "occludedColor").name("遮挡颜色").onChange(applyDemoState);
+				folder.add(demoState, "width", 0.5, 12, 0.1).name("描边宽度").onChange(applyDemoState);
+				folder.add(demoState, "softness", 0.1, 4, 0.05).name("软边强度").onChange(applyDemoState);
+				folder.add(demoState, "glowStrength", 0, 2.5, 0.05).name("泛光强度").onChange(applyDemoState);
+				folder.add(demoState, "coreOpacity", 0, 2, 0.05).name("核心实边").onChange(applyDemoState);
+				folder.add(demoState, "breathing").name("开启呼吸").onChange(applyDemoState);
+				folder.add(demoState, "breathSpeed", 0.33, 0.5, 0.01).name("呼吸速度").onChange(applyDemoState);
+				folder.add(demoState, "breathMinAlpha", 0, 1, 0.01).name("最低透明度").onChange(applyDemoState);
+				folder.add(demoState, "breathMaxAlpha", 0, 1, 0.01).name("最高透明度").onChange(applyDemoState);
+				folder.add({ flyToTileset: flyToTileset }, "flyToTileset").name("飞行到倾斜");
+				folder
+					.add(
+						{
+							clearSelection: function () {
+								setSelectMode("none");
+							}
+						},
+						"clearSelection"
+					)
+					.name("切到清空模式");
+			}
+
+			function onMapClick(event) {
+				if (demoState.selectMode !== "single") {
+					return;
+				}
+				const feature = getPickedTilesetFeature(event.point);
+				if (!feature) {
+					clearCurrentSelection();
+					applyDemoState();
+					return;
+				}
+				applySingleSelection(feature);
+				applyDemoState();
+			}
+
+			function getPickedTilesetFeature(point) {
+				const picked = map.getFeatureByGPUPick(point);
+				if (!picked || !picked._content || !tileset) {
+					return null;
+				}
+				if (!tileset.isTileSetByTileFeature(picked)) {
+					return null;
+				}
+				return picked;
+			}
+
+			function applySingleSelection(feature) {
+				if (singleSelectedFeature !== feature) {
+					resetSingleFeatureHighlight();
+					singleSelectedOriginalColor = cloneColorValue(feature.color);
+					feature.color = DEFAULT_HIGHLIGHT_COLOR.slice();
+				}
+				singleSelectedFeature = feature;
+				singleSelectedPrimitives = getFeaturePrimitives(feature);
+				updatePropertyPanel(feature);
+			}
+
+			function clearCurrentSelection() {
+				resetSingleFeatureHighlight();
+				singleSelectedFeature = null;
+				singleSelectedPrimitives = [];
+				updatePropertyPanel(null);
+				updateStatusPanel();
+				map.repaint = true;
+			}
+
+			function resetSingleFeatureHighlight() {
+				if (!singleSelectedFeature) {
+					return;
+				}
+				try {
+					singleSelectedFeature.color =
+						singleSelectedOriginalColor === null || typeof singleSelectedOriginalColor === "undefined"
+							? [1.0, 1.0, 1.0, 0.0]
+							: cloneColorValue(singleSelectedOriginalColor);
+				} catch (error) {
+					// ignore stale feature reference
+				}
+				singleSelectedOriginalColor = null;
+			}
+
+			function cloneColorValue(colorValue) {
+				return Array.isArray(colorValue) ? colorValue.slice() : colorValue;
+			}
+
+			function getFeaturePrimitives(feature) {
+				return Array.isArray(feature.primitives) ? feature.primitives.filter(Boolean) : [];
+			}
+
+			function syncAllModeSelection() {
+				if (!outlineStage || !tileset || demoState.selectMode !== "all") {
+					return;
+				}
+				const primitiveCount = getTilesetPrimitives().length;
+				if (primitiveCount > 0 && primitiveCount !== lastAllPrimitiveCount) {
+					lastAllPrimitiveCount = primitiveCount;
+					applyDemoState();
+				}
+			}
+
+			function getTilesetPrimitives() {
+				if (!tileset) {
+					return [];
+				}
+				const opaque = Array.isArray(tileset._opaqueList) ? tileset._opaqueList : [];
+				const translucent = Array.isArray(tileset._translucentList) ? tileset._translucentList : [];
+				return opaque.concat(translucent).filter(Boolean);
+			}
+
+			function getSelectedPayload() {
+				if (!tileset || demoState.selectMode === "none") {
+					return { primitives: [] };
+				}
+
+				if (demoState.selectMode === "all") {
+					return { primitives: getTilesetPrimitives() };
+				}
+
+				if (singleSelectedPrimitives.length > 0) {
+					return { primitives: singleSelectedPrimitives };
+				}
+
+				return { primitives: [] };
+			}
+
+			function setSelectMode(mode, skipGuiSync) {
+				demoState.selectMode = mode;
+				if (mode !== "single") {
+					clearCurrentSelection();
+				}
+				if (!skipGuiSync && guiControllers && guiControllers.selectMode) {
+					guiControllers.selectMode.setValue(mode);
+					return;
+				}
+				applyDemoState();
+			}
+
+			function applyDemoState() {
+				if (!outlineStage) {
+					return;
+				}
+
+				if (tileset) {
+					tileset.opacity = demoState.tilesetOpacity;
+					if (tileset.tileset3d) {
+						tileset.schedulingPolicy = minemap.SchedulingPolicyType[demoState.schedulingPolicy];
+						tileset.debugFreezeFrame = demoState.freezeFrame;
+					}
+				}
+
+				map.showDebugBoundingBox = demoState.showBoundingBox;
+				outlineStage.enabled = demoState.enabled;
+				outlineStage.uniforms.color = demoState.color;
+				outlineStage.uniforms.occludedColor = demoState.occludedColor;
+				outlineStage.uniforms.width = demoState.width;
+				outlineStage.uniforms.softness = demoState.softness;
+				outlineStage.uniforms.glowStrength = demoState.glowStrength;
+				outlineStage.uniforms.coreOpacity = demoState.coreOpacity;
+				outlineStage.uniforms.breathing = demoState.breathing;
+				outlineStage.uniforms.breathSpeed = demoState.breathSpeed;
+				outlineStage.uniforms.breathMinAlpha = demoState.breathMinAlpha;
+				outlineStage.uniforms.breathMaxAlpha = demoState.breathMaxAlpha;
+
+				if (demoState.selectMode !== "all") {
+					lastAllPrimitiveCount = -1;
+				}
+
+				outlineStage.setSelected(getSelectedPayload());
+				updateToolbarState();
+				updateStatusPanel();
+				map.repaint = true;
+			}
+
+			function updateToolbarState() {
+				singleButton.classList.toggle("active", demoState.selectMode === "single");
+				allButton.classList.toggle("active", demoState.selectMode === "all");
+				clearButton.classList.toggle("active", demoState.selectMode === "none");
+			}
+
+			function updateStatusPanel() {
+				const primitives = getTilesetPrimitives();
+				const selectedCount = getSelectedPayload().primitives.length;
+				const rows = [
+					createStatusRow("数据地址", OBLIQUE_TILESET_URL),
+					createStatusRow("当前模式", formatSelectMode(demoState.selectMode)),
+					createStatusRow("已加载 Primitive", String(primitives.length)),
+					createStatusRow("已选中 Primitive", String(selectedCount)),
+					createStatusRow("调度策略", demoState.schedulingPolicy),
+					createStatusRow("模型透明度", demoState.tilesetOpacity.toFixed(2)),
+					createStatusRow("调试包围盒", demoState.showBoundingBox ? "开启" : "关闭"),
+					createStatusRow("冻结调度帧", demoState.freezeFrame ? "开启" : "关闭")
+				];
+				statusGrid.innerHTML = rows.join("");
+			}
+
+			function createStatusRow(key, value) {
+				return '<div class="key">' + escapeHtml(key) + '</div><div>' + escapeHtml(value) + '</div>';
+			}
+
+			function formatSelectMode(mode) {
+				if (mode === "single") return "点选模式";
+				if (mode === "all") return "全选模式";
+				return "清空模式";
+			}
+
+			function updatePropertyPanel(feature) {
+				if (!feature) {
+					propertyContainer.innerHTML =
+						'<p class="property-empty">当前没有点选要素。<br />切到“点选模式”后单击倾斜摄影构件，可在这里查看 batchId、属性字段和当前业务状态。</p>';
+					return;
+				}
+
+				const properties = getFeatureProperties(feature);
+				const entries = [];
+				entries.push(["batchId", getFeatureBatchId(feature)]);
+				entries.push(["primitive数量", String(getFeaturePrimitives(feature).length)]);
+				entries.push(["当前模式", formatSelectMode(demoState.selectMode)]);
+				Object.keys(properties).forEach(function (key) {
+					entries.push([key, formatPropertyValue(properties[key])]);
+				});
+
+				const rows = entries
+					.map(function (entry) {
+						return "<tr><th>" + escapeHtml(entry[0]) + "</th><td>" + escapeHtml(entry[1]) + "</td></tr>";
+					})
+					.join("");
+
+				propertyContainer.innerHTML = "<table><tbody>" + rows + "</tbody></table>";
+			}
+
+			function getFeatureProperties(feature) {
+				try {
+					const properties = feature.getProperties();
+					return properties && typeof properties === "object" ? properties : {};
+				} catch (error) {
+					return {};
+				}
+			}
+
+			function getFeatureBatchId(feature) {
+				return typeof feature._batchId === "undefined" ? "-" : String(feature._batchId);
+			}
+
+			function formatPropertyValue(value) {
+				if (value === null || typeof value === "undefined") {
+					return "-";
+				}
+				if (typeof value === "object") {
+					try {
+						return JSON.stringify(value);
+					} catch (error) {
+						return String(value);
+					}
+				}
+				return String(value);
+			}
+
+			function escapeHtml(value) {
+				return String(value)
+					.replace(/&/g, "&amp;")
+					.replace(/</g, "&lt;")
+					.replace(/>/g, "&gt;")
+					.replace(/"/g, "&quot;")
+					.replace(/'/g, "&#39;");
+			}
+
+			function flyToTileset() {
+				if (!tileset) {
+					return;
+				}
+				map.flyTo({
+					target: tileset,
+					bearing: 0,
+					pitch: 45,
+					duration: 1800,
+					range: 1200
+				});
+			}
+		</script>
+	</body>
+</html>

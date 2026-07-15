@@ -1,0 +1,1060 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+    <title>BIM模型转换附加模式</title>
+    <!-- demo样式文件 -->
+    <link rel="stylesheet" href="../style/demo.css">
+    <!-- 引入MineMap API插件 -->
+    <link rel="stylesheet" href="https://minemap.minedata.cn/minemapapi/v4.0.0/minemap.css">
+
+    <script src="http://192.168.152.123/minemap-engine/v4.0.0/minemap.js"></script>
+    <script src="../js/lil-gui.umd.min.js"></script>
+
+    <link rel="stylesheet" href="../lib/jquery/ztree/css/demo.css">
+    <link rel="stylesheet" href="../lib/jquery/ztree/css/metroStyle/metroStyle.css" />
+
+    <script type="text/javascript" src="../lib/jquery/jquery-3.6.0.js"></script>
+    <script type="text/javascript" src="../lib/jquery/ztree/js/jquery.ztree.all.min.js"></script>
+
+    <style>
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+
+        .zTreeDemoBackground {
+            position: absolute;
+            left: 10px;
+            top: 120px;
+            z-index: 99999;
+            width: 300px !important;
+            height: calc(100% - 160px) !important;
+        }
+
+        .ztree {
+            width: 100% !important;
+            height: 100% !important;
+        }
+
+        /* 工具按钮容器 */
+        .toolContainer {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 999;
+            background-color: rgba(255, 255, 255, 0.95);
+            padding: 10px;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+        }
+
+        .toolContainer .tool-row {
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            flex-wrap: wrap;
+        }
+
+        .toolContainer button {
+            padding: 5px 10px;
+            cursor: pointer;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            font-size: 12px;
+        }
+
+        .toolContainer button:hover {
+            background-color: #45a049;
+        }
+
+        .toolContainer input {
+            padding: 5px;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            font-size: 12px;
+        }
+
+        .toolContainer label {
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        /* 可拖动弹窗 */
+        #propertyPanel {
+            position: absolute;
+            top: 160px;
+            right: 10px;
+            width: 400px;
+            height: 50%;
+            background-color: rgba(255, 255, 255, 0.95);
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+            display: none;
+            z-index: 1001;
+            cursor: move;
+            overflow-y: auto;
+        }
+
+        #propertyPanel .panel-header {
+            position: sticky;
+            top: 0;
+            padding: 10px;
+            background-color: #f0f0f0;
+            border-bottom: 1px solid #ddd;
+            border-radius: 5px 5px 0 0;
+            font-weight: bold;
+            z-index: 1;
+        }
+
+        #propertyPanel .panel-close {
+            float: right;
+            cursor: pointer;
+            font-size: 18px;
+        }
+
+        #propertyPanel .panel-content {
+            padding: 10px;
+            max-height: calc(100% - 40px);
+            overflow-y: none;
+        }
+
+        .prop-item {
+            margin-bottom: 8px;
+            display: flex;
+            font-size: 13px;
+        }
+
+        .prop-label {
+            font-weight: bold;
+            width: 120px;
+            flex-shrink: 0;
+            margin-right: 10px;
+            color: #333;
+        }
+
+        .prop-value {
+            word-break: break-all;
+            color: #666;
+        }
+
+        /* ModelInfo 面板样式 */
+        #modelInfoPanel {
+            position: absolute;
+            top: 60px;
+            right: 10px;
+            width: 400px;
+            height: 35%;
+            background-color: rgba(255, 255, 255, 0.9);
+            padding: 10px;
+            border-radius: 5px;
+            box-shadow: 0 0 5px rgba(0, 0, 0, 0.3);
+            display: none;
+            overflow: auto;
+            z-index: 1000;
+        }
+
+        .div-table {
+            display: table;
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+        }
+
+        .div-row {
+            display: table-row;
+        }
+
+        .div-cell,
+        .div-head {
+            display: table-cell;
+            border: 1px solid #ddd;
+            padding: 4px;
+            cursor: pointer;
+            word-break: break-all;
+        }
+
+        .div-head {
+            font-weight: bold;
+            background-color: #eee;
+            position: sticky;
+            top: 0;
+            z-index: 1;
+        }
+
+        .div-row:not(.header-row):hover {
+            background-color: #f0f0f0;
+        }
+
+        .div-row.selected {
+            background-color: #e0e0ff;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- 工具按钮容器 -->
+    <div class="toolContainer">
+        <div class="tool-row">
+            <button onclick="setTileFeaturesStyle(0)">开启颜色样式</button>
+            <button onclick="setTileFeaturesStyle(1)">开启显隐样式</button>
+            <button onclick="setTileFeaturesStyle(2)">开启颜色+显隐</button>
+            <button onclick="removeTileFeaturesStyle()">关闭样式</button>
+        </div>
+        <div class="tool-row">
+            <label>guid/name:</label>
+            <input type="text" id="guidInput" placeholder="输入guid或name" style="width: 200px;">
+            <input type="color" id="colorInput" value="#ff0000">
+            <button onclick="applyColorToGuid()">设置颜色</button>
+            <button onclick="toggleGuidVisibility()">切换显隐</button>
+        </div>
+        <div class="tool-row">
+            <button onclick="clearAllStyles()">清除所有样式</button>
+            <button onclick="showSelectedInfo()">显示选中信息</button>
+        </div>
+    </div>
+
+    <div class="zTreeDemoBackground">
+        <ul id="tree" class="ztree"></ul>
+    </div>
+
+    <div id="map"></div>
+    <div id="modelInfoPanel"></div>
+    <div id="propertyPanel">
+        <div class="panel-header">
+            属性信息
+            <span class="panel-close" onclick="closePropertyPanel()">&times;</span>
+        </div>
+        <div class="panel-content" id="propertyContent"></div>
+    </div>
+
+    <script>
+        var sceneTreeData = null;
+        var tileset = null;
+        var modelTree = {};
+        var currentModelProps = [];
+        var lastPrimitive = null;
+
+        // 处理树节点点击 - 高亮模型
+        function onClick(event, treeId, treeNode) {
+            // 恢复上一个高亮的模型
+            if (lastPrimitive != null && lastPrimitive["oldColor"] != null) {
+                lastPrimitive.color = lastPrimitive["oldColor"];
+                lastPrimitive = null;
+            }
+
+            // 将节点的guid或name放到文本框中
+            const nodeId = treeNode.guid || treeNode.name || treeNode.id;
+            if (nodeId) {
+                const inputElement = document.getElementById('guidInput');
+                if (inputElement) {
+                    inputElement.value = nodeId;
+                }
+            }
+
+            const primitive = modelTree[treeNode.id];
+            if (primitive && primitive instanceof minemap.Primitive) {
+                // 保存原始颜色
+                if (primitive._material && primitive._material.baseColor) {
+                    primitive["oldColor"] = primitive._material.baseColor.clone();
+                } else {
+                    primitive["oldColor"] = primitive.color.clone();
+                }
+                // 设置高亮颜色（红色半透明，泛光效果）
+                primitive.color = [1.0, 0.0, 0.0, 0.7];
+                lastPrimitive = primitive;
+
+                // 显示属性信息和属性表
+                // showModelInfoPanel();
+                showProperties(primitive);
+            } else {
+                // 如果不是Primitive，显示节点属性
+                // showModelInfoPanel();
+                showProperties(treeNode);
+            }
+        }
+
+        // 处理树节点勾选 - 控制可见性
+        function onCheck(event, treeId, treeNode) {
+            console.log('节点勾选:', treeNode.name, treeNode.checked);
+
+            const primitive = modelTree[treeNode.id];
+            if (primitive) {
+                primitive.show = treeNode.checked;
+                primitive.visible = treeNode.checked;
+                primitive.visibility = treeNode.checked ? "visible" : "none";
+            }
+        }
+
+        // 判断值是否为空
+        function isEmptyValue(value) {
+            if (value === null || value === undefined) return true;
+            if (typeof value === 'string' && (value === '' || value === 'null' || value === 'undefined')) return true;
+            if (Array.isArray(value) && value.length === 0) return true;
+            if (typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length === 0) return true;
+            return false;
+        }
+
+        // 显示属性信息（有值的放在前面，空值放在后面）
+        function showProperties(data) {
+            if (!data) return;
+
+            let html = '';
+            let properties;
+
+            // 获取属性对象
+            if (data.properties) {
+                properties = data.properties;
+            } else {
+                properties = data;
+            }
+
+            // 分离有值和空值的属性
+            const validProps = [];
+            const emptyProps = [];
+
+            for (let key in properties) {
+                // 过滤掉不需要显示的属性
+                if (key === 'children' || key === 'isParent' || key === 'id' || key === 'pid' ||
+                    key === 'open' || key === 'checked' || key === 'name' || key === 'properties') {
+                    continue;
+                }
+
+                const value = properties[key];
+                if (isEmptyValue(value)) {
+                    emptyProps.push({ key, value });
+                } else {
+                    validProps.push({ key, value });
+                }
+            }
+
+            // 先显示有值的属性
+            validProps.forEach(item => {
+                html += `<div class="prop-item"><div class="prop-label">${item.key}</div><div class="prop-value">${item.value}</div></div>`;
+            });
+
+            // 再显示空值的属性
+            if (emptyProps.length > 0) {
+                html += '<div style="margin-top: 10px; padding-top: 10px; border-top: 1px dashed #ddd;">';
+                html += '<div style="color: #999; font-size: 12px; margin-bottom: 5px;">空值属性:</div>';
+                emptyProps.forEach(item => {
+                    html += `<div class="prop-item"><div class="prop-label">${item.key}</div><div class="prop-value" style="color: #999;">${item.value}</div></div>`;
+                });
+                html += '</div>';
+            }
+
+            if (html === '') {
+                html = '<div>暂无属性信息</div>';
+            }
+
+            $("#propertyContent").html(html);
+            $("#propertyPanel").show();
+        }
+
+        // 关闭属性面板
+        function closePropertyPanel() {
+            $("#propertyPanel").hide();
+        }
+
+        // 实现面板拖动
+        function makeDraggable(element) {
+            let isDragging = false;
+            let startX, startY, initialX, initialY;
+
+            const header = element.querySelector('.panel-header');
+
+            header.addEventListener('mousedown', function (e) {
+                isDragging = true;
+                startX = e.clientX;
+                startY = e.clientY;
+                initialX = element.offsetLeft;
+                initialY = element.offsetTop;
+                e.preventDefault();
+            });
+
+            document.addEventListener('mousemove', function (e) {
+                if (!isDragging) return;
+                const dx = e.clientX - startX;
+                const dy = e.clientY - startY;
+                element.style.left = (initialX + dx) + 'px';
+                element.style.top = (initialY + dy) + 'px';
+                element.style.right = 'auto';
+                element.style.bottom = 'auto';
+            });
+
+            document.addEventListener('mouseup', function () {
+                isDragging = false;
+            });
+        }
+
+        var setting = {
+            view: {
+                selectedMulti: false,
+                showLine: true
+            },
+            check: {
+                enable: true,
+            },
+            data: {
+                simpleData: {
+                    enable: true,
+                    idKey: "id",
+                    pIdKey: "pid",
+                }
+            },
+            callback: {
+                onCheck: onCheck,
+                onClick: onClick
+            }
+        };
+
+        // 转换场景树数据为 zTree 格式（基于guid遍历）
+        function convertSceneTreeToZTree(sceneTree, parentGuid) {
+            console.log('开始转换场景树，原始数据:', sceneTree);
+            let nodes = [];
+            let guidSet = new Set(); // 用于检测guid重复
+
+            function traverse(node, pGuid, depth = 0) {
+                // 防止递归过深或循环引用
+                if (!node || depth > 100) {
+                    console.warn('递归终止：节点为空或深度超过限制');
+                    return;
+                }
+
+                // 检查guid是否存在
+                if (!node.guid) {
+                    console.warn('节点缺少guid:', node);
+                    return;
+                }
+
+                // 检查guid是否重复
+                if (guidSet.has(node.guid)) {
+                    console.warn('发现重复guid:', node.guid, '名称:', node.name);
+                } else {
+                    guidSet.add(node.guid);
+                }
+
+                // 使用name作为显示名称，确保不为空
+                const displayName = node.name || node.guid || '未命名';
+
+                // zTree需要id和pid，这里使用guid作为id
+                const zTreeNode = {
+                    id: node.guid,      // 使用guid作为节点id
+                    pid: pGuid || 0,    // 父节点guid，根节点pid为0
+                    name: displayName,  // 显示名称
+                    open: depth < 2,    // 只展开前两层
+                    checked: true,      // 默认勾选
+                    nocheck: !!node.isJoint,
+                    properties: node,   // 保存原始节点数据
+                    guid: node.guid     // 保存guid用于后续关联
+                };
+                nodes.push(zTreeNode);
+
+                // 将节点关联到 modelTree，便于后续操作（使用guid作为key）
+                modelTree[node.guid] = node;
+
+                // 处理子节点（只使用children字段）
+                const children = node.children;
+                if (children && Array.isArray(children) && children.length > 0) {
+                    console.log(`节点 "${displayName}" (${node.guid}) 有 ${children.length} 个子节点，深度: ${depth}`);
+                    children.forEach((child, index) => {
+                        // 子节点的父节点就是当前节点的guid
+                        traverse(child, node.guid, depth + 1);
+                    });
+                }
+            }
+
+            if (Array.isArray(sceneTree)) {
+                sceneTree.forEach(node => traverse(node, parentGuid));
+            } else {
+                traverse(sceneTree, parentGuid);
+            }
+
+            console.log('转换完成，总节点数:', nodes.length, '唯一guid数:', guidSet.size);
+            return nodes;
+        }
+
+        // 加载属性数据（仅加载，不显示）
+        function loadModelProps(propsUrl) {
+            if (propsUrl) {
+                $.getJSON(propsUrl, function (data) {
+                    currentModelProps = data;
+                    console.log('属性数据加载完成');
+                }).fail(function () {
+                    currentModelProps = [];
+                    console.log('属性数据加载失败');
+                });
+            } else {
+                currentModelProps = [];
+            }
+        }
+
+        // 渲染 ModelInfo 表格
+        function renderModelInfoTable(data) {
+            if (!data || data.length === 0) {
+                $("#modelInfoPanel").hide();
+                return;
+            }
+
+            // 获取所有可能的 key
+            let keySet = new Set();
+            data.forEach(item => Object.keys(item).forEach(k => keySet.add(k)));
+            // guid 放第一列
+            let keys = Array.from(keySet).filter(k => k !== 'guid');
+            if (keySet.has('guid')) keys.unshift('guid');
+
+            let html = '<h3 style="position:sticky;top:0;background:white;z-index:2;margin-top:0;">ModelInfo 列表</h3><div class="div-table"><div class="div-row header-row">';
+            keys.forEach(key => {
+                html += `<div class="div-head">${key}</div>`;
+            });
+            html += '</div>';
+
+            data.forEach(item => {
+                const guid = item.guid || '';
+                html += `<div class="div-row" data-guid="${guid}">`;
+                keys.forEach(key => {
+                    html += `<div class="div-cell">${item[key] !== undefined ? item[key] : ''}</div>`;
+                });
+                html += '</div>';
+            });
+            html += '</div>';
+
+            $("#modelInfoPanel").html(html).show();
+
+            // 绑定点击事件
+            $("#modelInfoPanel .div-row[data-guid]").click(function () {
+                const guid = $(this).attr("data-guid");
+                interactByGuid(guid);
+            });
+        }
+
+        // 显示 ModelInfo 属性表
+        function showModelInfoPanel() {
+            if (currentModelProps && currentModelProps.length > 0) {
+                renderModelInfoTable(currentModelProps);
+            }
+        }
+
+        // 通过 GUID 交互
+        function interactByGuid(guid) {
+            // 在树中查找
+            const nodeData = dataJson.find(n => n.name === guid);
+            if (nodeData) {
+                const treeObj = $.fn.zTree.getZTreeObj("tree");
+                const treeNode = treeObj.getNodeByParam("id", nodeData.id);
+                if (treeNode) {
+                    treeObj.selectNode(treeNode);
+                    // 触发树的点击逻辑，实现高亮和属性显示
+                    onClick(null, "tree", treeNode);
+                }
+            } else {
+                console.warn("Guid not found in model tree:", guid);
+            }
+        }
+
+        // 全局参数设置
+        minemap.domainUrl = 'https://minemap.minedata.cn';
+        minemap.dataDomainUrl = 'https://minemap.minedata.cn';
+        minemap.serverDomainUrl = 'https://ol-data.minedata.cn';
+        minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+        minemap.serviceUrl = 'https://service.minedata.cn/service';
+
+        minemap.key = '0c6ac62182404e5ebc7a789981f6db72';
+        minemap.solution = 11001;
+
+        // 定义空底图样式
+        var style = {
+            "glyphs": "minemap://fonts/{fontstack}/{range}",
+            "sprite": "minemap://sprite/sprite",
+            "sources": {},
+            "layers": [],
+            "version": 8
+        };
+        window.minemapCDN = 'https://minemap.minedata.cn/minemapapi/minemap-CDN';
+
+        var center = [116.46323356550803, 39.919378786463];
+
+        // 初始化地图实例
+        var map = new minemap.Map({
+            container: 'map',
+            style: style,
+            center,
+            bearing: 0,
+            zoom: 16,
+            pitch: 60,
+            maxZoom: 22,
+            minZoom: 1,
+            projection: 'MERCATOR',
+            MSAASamples: 4,
+        });
+
+        map.repaint = true;
+        map.enableLight();
+
+        // 3DTiles、场景树和属性数据的 URL
+        const tilesetUrl = "http://192.168.152.123:11187/demo-data/bim23dtiles/3dtile-props/tileset.json";
+        const sceneTreeUrl = "http://192.168.152.123:11187/demo-data/bim23dtiles/3dtile-props-gltf/Schependomlaan_scene_tree.json";
+        const propsUrl = "http://192.168.152.123:11187/demo-data/bim23dtiles/3dtile-props-gltf/Schependomlaan_props.json";
+
+        // 可配置的guid样式规则
+        const guidStyles = {
+            // 颜色样式 - 格式: guid -> 颜色值
+            colors: {
+                // "example-guid-1": "rgba(255,0,0,0.8)",  // 红色半透明
+                // "example-guid-2": "yellow",              // 黄色
+                // "example-guid-3": "brown",               // 棕色
+            },
+            // 隐藏规则 - 需要隐藏的guid列表
+            hidden: [
+                // "example-guid-4",
+                // "example-guid-5"
+            ]
+        };
+
+        var dataJson = [];
+        var lngLat;
+
+        map.on('load', function () {
+            // 添加栅格图
+            map.addSource("IMAGERY_SOURCE", {
+                "type": "raster",
+                "tiles": ["http://192.168.152.227:18105/raster/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"],
+                "tileSize": 512,
+                "maxzoom": 15
+            });
+
+            map.addLayer({
+                "id": "IMAGERY",
+                "type": "raster",
+                "source": "IMAGERY_SOURCE",
+                "minzoom": 1,
+                "maxzoom": 23,
+            });
+            lngLat = map.getCenter();
+
+            console.log('开始加载场景树，URL:', sceneTreeUrl);
+            // 加载场景树
+            $.getJSON(sceneTreeUrl, function (treeData) {
+                console.log('场景树加载成功:', treeData);
+                sceneTreeData = treeData;
+
+                // 获取实际的场景树数据（支持 roots 属性或直接数组）
+                let sceneTreeArray = null;
+                if (treeData && treeData.roots && Array.isArray(treeData.roots)) {
+                    sceneTreeArray = treeData.roots;
+                    console.log('从 roots 属性获取场景树数据，节点数:', sceneTreeArray.length);
+                } else if (Array.isArray(treeData)) {
+                    sceneTreeArray = treeData;
+                    console.log('直接获取场景树数组，节点数:', sceneTreeArray.length);
+                }
+
+                // 检查数据格式
+                if (!sceneTreeArray || sceneTreeArray.length === 0) {
+                    console.warn('场景树数据为空，使用测试数据');
+                    loadTestTreeData();
+                    return;
+                }
+
+                dataJson = convertSceneTreeToZTree(sceneTreeArray, 0);
+                console.log('zTree 数据:', dataJson);
+
+                if (dataJson.length === 0) {
+                    console.warn('转换后zTree数据为空，使用测试数据');
+                    loadTestTreeData();
+                    return;
+                }
+
+                const treeObj = $.fn.zTree.init($("#tree"), setting, dataJson);
+                console.log('zTree 初始化完成:', treeObj);
+                console.log('目录树节点数量:', dataJson.length);
+            }).fail(function (jqXHR, textStatus, errorThrown) {
+                console.error('加载场景树失败:', textStatus, errorThrown);
+                console.error('HTTP状态码:', jqXHR.status);
+                console.error('响应文本:', jqXHR.responseText);
+                // 加载失败时，添加测试节点
+                loadTestTreeData();
+            });
+
+            // 加载测试数据函数
+            function loadTestTreeData() {
+                dataJson = [
+                    { id: 1, pid: 0, name: '建筑模型', open: true, checked: true },
+                    { id: 2, pid: 1, name: '楼层1', open: true, checked: true },
+                    { id: 3, pid: 2, name: '房间101', open: true, checked: true },
+                    { id: 4, pid: 2, name: '房间102', open: true, checked: true },
+                    { id: 5, pid: 1, name: '楼层2', open: true, checked: true },
+                    { id: 6, pid: 5, name: '房间201', open: true, checked: true },
+                    { id: 7, pid: 5, name: '房间202', open: true, checked: true }
+                ];
+                // 将测试节点关联到 modelTree
+                dataJson.forEach(node => {
+                    modelTree[node.id] = { name: node.name, properties: { name: node.name } };
+                });
+                $.fn.zTree.init($("#tree"), setting, dataJson);
+                console.log('已加载测试目录树数据');
+            }
+
+            // 加载属性数据
+            loadModelProps(propsUrl);
+
+            // 加载 3DTiles
+            add3DTiles();
+
+            // 初始化可拖动面板
+            makeDraggable(document.getElementById('propertyPanel'));
+        });
+
+        // 添加 3DTiles
+        function add3DTiles() {
+            tileset = map.addSceneComponent({
+                id: "bim-tileset",
+                type: "3d-tiles",
+                show: true,
+                url: tilesetUrl,
+                skipLevelOfDetail: false,
+                maximumScreenSpaceError: 8,
+                allowPick: true,
+                lightingModel: minemap.LightingModelType.PBR,
+                sourceLoaded: (loadedTileset) => {
+                    console.log('3DTiles 加载完成');
+                    tileset = loadedTileset;
+
+                    // 应用guid样式规则
+                    // applyGuidStyles();
+
+                    map.flyTo({
+                        target: tileset,
+                        bearing: 0,
+                        pitch: 45,
+                        duration: 2000,
+                        range: 200
+                    });
+                }
+            });
+
+            tileset.setTileFeatureStyle(colorStyle);
+        }
+
+        // 应用guid样式规则
+        function applyGuidStyles() {
+            if (!tileset) return;
+
+            tileset.setTileFeatureStyle(function (feature) {
+                const properties = feature.getProperties();
+                const guid = properties.id || properties.guid;
+                const name = properties.name;
+
+                // 颜色样式
+                if (guid && guidStyles.colors[guid]) {
+                    feature.color = guidStyles.colors[guid];
+                }
+                if (name && guidStyles.colors[name]) {
+                    feature.color = guidStyles.colors[name];
+                }
+
+                // 显隐样式
+                if (guid && guidStyles.hidden.includes(guid)) {
+                    feature.show = false;
+                }
+                if (name && guidStyles.hidden.includes(name)) {
+                    feature.show = false;
+                }
+            });
+
+            console.log('guid样式规则已应用');
+        }
+
+        // 设置单个guid的颜色
+        function setGuidColor(guidOrName, color) {
+            guidStyles.colors[guidOrName] = color;
+            applyGuidStyles();
+        }
+
+        // 设置单个guid的显隐
+        function setGuidVisibility(guidOrName, visible) {
+            const index = guidStyles.hidden.indexOf(guidOrName);
+            if (visible && index > -1) {
+                guidStyles.hidden.splice(index, 1);
+            } else if (!visible && index === -1) {
+                guidStyles.hidden.push(guidOrName);
+            }
+            applyGuidStyles();
+        }
+
+        // 清除所有样式
+        function clearAllStyles() {
+            if (tileset) {
+                tileset.setTileFeatureStyle(null);
+            }
+            guidStyles.colors = {};
+            guidStyles.hidden = [];
+            console.log('所有样式已清除');
+        }
+
+        // 参考3DTilesStyled示例的样式函数
+        function colorStyle(feature) {
+            const properties = feature.getProperties();
+            const guid = properties.id || properties.guid;
+            const name = properties.name;
+
+            // // 应用配置的颜色样式
+            // if (guid && guidStyles.colors[guid]) {
+            //     feature.color = guidStyles.colors[guid];
+            // }
+            // if (name && guidStyles.colors[name]) {
+            //     feature.color = guidStyles.colors[name];
+            // }
+
+            // 默认颜色示例
+            if (guid === "34407vICcwH8q8qAEnwJDjJdSU") {
+                feature.color = "rgba(255,0,0,0.8)";
+            }
+            if (name === "opgaand werk") {
+                feature.color = "rgba(0,255,0,0.8)";
+            }
+
+            if (selectId !== undefined && guid === selectId) {
+                feature.color = "yellow";
+            }
+        }
+
+        function visibleStyle(feature) {
+            const properties = feature.getProperties();
+            const guid = properties.id || properties.guid;
+            const name = properties.name;
+
+            // 应用配置的显隐样式
+            if (guid && guidStyles.hidden.includes(guid)) {
+                feature.show = false;
+            }
+            if (name && guidStyles.hidden.includes(name)) {
+                feature.show = false;
+            }
+        }
+
+        function mergedStyle(feature) {
+            const properties = feature.getProperties();
+            const guid = properties.id || properties.guid;
+            const name = properties.name;
+
+            // 颜色样式
+            if (guid && guidStyles.colors[guid]) {
+                feature.color = guidStyles.colors[guid];
+            }
+            if (name && guidStyles.colors[name]) {
+                feature.color = guidStyles.colors[name];
+            }
+
+            // 显隐样式
+            if (guid && guidStyles.hidden.includes(guid)) {
+                feature.show = false;
+            }
+            if (name && guidStyles.hidden.includes(name)) {
+                feature.show = false;
+            }
+        }
+
+        // 设置样式模式
+        function setTileFeaturesStyle(id) {
+            if (!tileset) {
+                alert('3DTiles尚未加载');
+                return;
+            }
+
+            if (id === "18j3O$xcX2Ih_wQkZiN2od") {
+                tileset.setTileFeatureStyle(colorStyle);
+                console.log('已开启颜色样式');
+            } else if (id === "2SZgOSofP2PBFS$KAhUxu3") {
+                tileset.setTileFeatureStyle(visibleStyle);
+                console.log('已开启显隐样式');
+            } else if (id === "22CPiCHcj4Bxue2KiwGzsR") {
+                tileset.setTileFeatureStyle(mergedStyle);
+                console.log('已开启颜色+显隐样式');
+            }
+        }
+
+        // 移除样式
+        function removeTileFeaturesStyle() {
+            if (tileset) {
+                tileset.setTileFeatureStyle(null);
+                console.log('已关闭样式');
+            }
+        }
+
+        // 手动输入guid设置颜色
+        function applyColorToGuid() {
+            const guidOrName = document.getElementById('guidInput').value.trim();
+            const color = document.getElementById('colorInput').value;
+
+            if (!guidOrName) {
+                alert('请输入guid或name');
+                return;
+            }
+
+            setGuidColor(guidOrName, color);
+            console.log(`已设置 ${guidOrName} 的颜色为 ${color}`);
+        }
+
+        // 手动输入guid切换显隐
+        function toggleGuidVisibility() {
+            const guidOrName = document.getElementById('guidInput').value.trim();
+
+            if (!guidOrName) {
+                alert('请输入guid或name');
+                return;
+            }
+
+            const isHidden = guidStyles.hidden.includes(guidOrName);
+            setGuidVisibility(guidOrName, isHidden);
+            console.log(`${guidOrName} 已${isHidden ? '显示' : '隐藏'}`);
+        }
+
+        // 显示选中信息
+        function showSelectedInfo() {
+            const guidOrName = document.getElementById('guidInput').value.trim();
+            if (guidOrName) {
+                const isColored = guidOrName in guidStyles.colors;
+                const isHidden = guidStyles.hidden.includes(guidOrName);
+                alert(`guid/name: ${guidOrName}\n已设置颜色: ${isColored}\n已隐藏: ${isHidden}`);
+            } else {
+                alert('当前配置:\n颜色规则数: ' + Object.keys(guidStyles.colors).length + '\n隐藏规则数: ' + guidStyles.hidden.length);
+            }
+        }
+
+        // 当前选中的id（用于样式高亮）
+        let selectId = undefined;
+
+        // 拾取样式函数（参考3DTilesStyled）
+        function pickStyle(feature) {
+            const properties = feature.getProperties();
+            const guid = properties.id || properties.guid;
+
+            if (guid === selectId) {
+                feature.color = "rgba(255,0,0,0.7)"; // 红色半透明高亮
+            }
+        }
+        let prePrimitive;
+        let preColor;
+        map.on("click", function (e) {
+            console.log('地图点击事件触发');
+            const feature = map.getFeatureByGPUPick(e.point);
+            console.log('拾取结果:', feature);
+
+            // 获取当前样式函数
+            let currentFn = tileset && tileset.tileFeatureStyleUpdateFunction;
+            if (!currentFn) {
+                currentFn = pickStyle;
+            }
+
+            // 更新选中状态
+            if (feature) {
+
+                if (prePrimitive) {
+                    prePrimitive.color = [1, 1, 1, 1];
+                }
+
+                prePrimitive = feature;
+                preColor = feature.color;
+
+                feature.color = [1.0, 1.0, 0.0, 1.0];//选中部分，设置高亮颜色
+
+                // 检查是否有_content.json（3DTiles特性）
+                if (feature._content && feature._content.json) {
+                    console.log('3DTiles要素，包含json数据');
+                    selectId = feature.getProperty("id") || feature.getProperty("guid");
+                } else if (typeof feature.getProperties === 'function') {
+                    const props = feature.getProperties();
+                    selectId = props.id || props.guid;
+                    console.log('获取的属性:', props);
+                } else {
+                    selectId = undefined;
+                }
+
+                console.log('选中的ID:', selectId);
+
+                // 将选中的id放到文本框中
+                if (selectId) {
+                    const inputElement = document.getElementById('guidInput');
+                    if (inputElement) {
+                        inputElement.value = selectId;
+                    }
+                }
+
+                // 获取属性信息
+                let props = {};
+                try {
+                    if (typeof feature.getProperties === 'function') {
+                        props = feature.getProperties();
+                    } else if (feature.properties) {
+                        props = feature.properties;
+                    }
+                    console.log('获取的属性:', props);
+                } catch (err) {
+                    console.error('获取属性失败:', err);
+                    props = { '信息': '获取属性时出错' };
+                }
+
+                // 显示属性信息和属性表
+                // showModelInfoPanel();
+                showProperties(props);
+
+                // 更新样式（高亮选中要素）
+                if (tileset) {
+                    tileset.setTileFeatureStyle();
+                    tileset.setTileFeatureStyle(currentFn);
+                }
+
+                // 在目录树中定位对应节点
+                if (selectId) {
+                    locateTreeNode(selectId);
+                }
+            } else {
+                console.log('未拾取到任何模型');
+
+                if (prePrimitive) {
+                    prePrimitive.color = [1.0, 1.0, 1.0, 0.0];
+                }
+
+                selectId = undefined;
+                $("#propertyPanel").hide();
+
+                // 清除高亮
+                if (tileset) {
+                    tileset.setTileFeatureStyle();
+                    tileset.setTileFeatureStyle(currentFn);
+                }
+            }
+        });
+
+        // 在目录树中定位节点
+        function locateTreeNode(guidOrName) {
+            const treeObj = $.fn.zTree.getZTreeObj("tree");
+            if (!treeObj) return;
+
+            // 尝试通过guid查找
+            const nodeByGuid = treeObj.getNodeByParam("guid", guidOrName);
+            if (nodeByGuid) {
+                treeObj.selectNode(nodeByGuid);
+                treeObj.expandNode(nodeByGuid, true, false, true);
+                onClick(null, "tree", nodeByGuid);
+                return;
+            }
+
+            // 尝试通过name查找
+            const nodeByName = treeObj.getNodeByParam("name", guidOrName);
+            if (nodeByName) {
+                treeObj.selectNode(nodeByName);
+                treeObj.expandNode(nodeByName, true, false, true);
+                onClick(null, "tree", nodeByName);
+            }
+        }
+
+    </script>
+</body>
+
+</html>

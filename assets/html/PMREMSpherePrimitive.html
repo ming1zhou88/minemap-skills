@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+		<title>PMREM PBR Primitive Matrix</title>
+		<link rel="stylesheet" href="../style/demo.css" />
+		<link rel="stylesheet" href="../../dist/minemap.css" />
+		<script src="../../dist/minemap-dev.js"></script>
+		<script src="../js/lil-gui.umd.min.js"></script>
+		<style>
+			html,
+			body,
+			#map {
+				margin: 0;
+				padding: 0;
+				width: 100%;
+				height: 100%;
+				font-size: 12px;
+			}
+
+			#note {
+				position: absolute;
+				left: 16px;
+				top: 16px;
+				z-index: 20;
+				max-width: 560px;
+				background: rgba(0, 0, 0, 0.58);
+				color: #edf4ff;
+				font-family: Consolas, monospace;
+				font-size: 12px;
+				line-height: 1.6;
+				padding: 10px 12px;
+				border-radius: 6px;
+				white-space: pre-wrap;
+			}
+		</style>
+	</head>
+	<body>
+		<div id="map"></div>
+		<div id="note">Primitive + PhysicalMaterial PBR 矩阵
+横向：roughness 由低到高
+纵向：metallic 由低到高
+环境光：PMREM CubeUV atlas</div>
+		<script>
+			minemap.domainUrl = "https://minedata.cn";
+			minemap.dataDomainUrl = "https://minedata.cn";
+			minemap.serverDomainUrl = "https://minedata.cn";
+			minemap.serviceUrl = "https://mineservice.minedata.cn/service/";
+			minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+			minemap.solution = 11001;
+
+			var style = {
+				glyphs: "minemap://fonts/{fontstack}/{range}",
+				sprite: "minemap://sprite/sprite",
+				sources: {},
+				layers: [],
+				version: 8
+			};
+
+			var map = new minemap.Map({
+				container: "map",
+				style: style,
+				bearing: -180,
+				pitch: 0,
+				position: [116.26540711833192, 40.05743893240877, 1501.8158995210129],
+				projection: "MERCATOR",
+				logDepth: true
+			});
+			map.repaint = true;
+			map.enableLight();
+
+			var spheres = [];
+			var envTexture = null;
+
+			var params = {
+				minRoughness: 0.03,
+				maxRoughness: 1.0,
+				envMapIntensity: 1.0,
+				baseColor: "#ffffff",
+				envEnabled: true
+			};
+
+			function loadEnvironment() {
+				envTexture = minemap.TextureCubeLoader.load({
+					map: map,
+					path: "../image/cube/Park2/",
+					urls: ["posx.jpg", "negx.jpg", "posy.jpg", "negy.jpg", "posz.jpg", "negz.jpg"],
+					anisotropy: 1,
+					minFilter: minemap.WebGLConstants.LINEAR,
+					magFilter: minemap.WebGLConstants.LINEAR,
+					wrapS: minemap.WebGLConstants.CLAMP_TO_EDGE,
+					wrapT: minemap.WebGLConstants.CLAMP_TO_EDGE,
+					pixelFormat: minemap.WebGLConstants.RGBA,
+					pixelDatatype: minemap.WebGLConstants.HALF_FLOAT,
+					loaded: function () {
+						map.environment = envTexture;
+					}
+				});
+			}
+
+			function addRasterLayer() {
+				map.addSource("IMAGERY_SOURCE", {
+					type: "raster",
+					tiles: ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"],
+					tileSize: 256
+				});
+				map.addLayer({
+					id: "IMAGERY",
+					type: "raster",
+					source: "IMAGERY_SOURCE",
+					minzoom: 1,
+					maxzoom: 23
+				});
+			}
+
+			function buildSphereMatrix() {
+				clearSpheres();
+
+				var baseLng = 116.26531978613971;
+				var baseLat = 40.05753009943292;
+				var radius = 42;
+				var columns = 8;
+				var rows = 6;
+				var lngSpacing = 0.00105;
+				var latSpacing = 0.00078;
+
+				for (var row = 0; row < rows; row++) {
+					var metallic = rows === 1 ? 1 : row / (rows - 1);
+					var lat = baseLat + (row - (rows - 1) / 2) * latSpacing;
+
+					for (var col = 0; col < columns; col++) {
+						var roughnessT = columns === 1 ? 0 : col / (columns - 1);
+						var roughness =
+							params.minRoughness + roughnessT * (params.maxRoughness - params.minRoughness);
+						var lng = baseLng + (col - (columns - 1) / 2) * lngSpacing;
+						var matrix = minemap.Transforms.cartographicToFixedFrame(
+							new minemap.Math.Vector3([lng, lat, 100])
+						);
+						var rotX = new minemap.Math.Matrix4().rotateX(Math.PI);
+						matrix.multiplyRight(rotX);
+
+						var geometry = new minemap.Geometries.SphereGeometry({
+							radius: radius,
+							widthSegments: 96,
+							heightSegments: 96
+						});
+
+						var material = new minemap.PhysicalMaterial({
+							baseColor: params.baseColor,
+							metallic: metallic,
+							roughness: roughness,
+							envMapIntensity: params.envMapIntensity
+						});
+
+						var sphere = new minemap.Primitive({
+							modelMatrix: matrix,
+							geometry: geometry,
+							material: material,
+							castShadow: false,
+							receiveShadow: false
+						});
+						map.addPrimitive(sphere);
+						spheres.push({
+							primitive: sphere,
+							material: material,
+							metallic: metallic,
+							roughnessT: roughnessT
+						});
+					}
+				}
+			}
+
+			function clearSpheres() {
+				for (var i = 0; i < spheres.length; i++) {
+					map.removePrimitive(spheres[i].primitive);
+				}
+				spheres = [];
+			}
+
+			function applyParams() {
+				for (var i = 0; i < spheres.length; i++) {
+					var item = spheres[i];
+					item.material.metallic = item.metallic;
+					item.material.roughness =
+						params.minRoughness + item.roughnessT * (params.maxRoughness - params.minRoughness);
+					item.material.envMapIntensity = params.envMapIntensity;
+					item.material.baseColor = minemap.Color.parse(params.baseColor).toVector4();
+				}
+				map.environment = params.envEnabled ? envTexture : null;
+				map.repaint = true;
+			}
+
+			function initGui() {
+				var gui = new lil.GUI({ width: 320, title: "PBR 参数矩阵" });
+				gui.add(params, "minRoughness", 0.0, 1.0, 0.01).onChange(function () {
+					applyParams();
+				});
+				gui.add(params, "maxRoughness", 0.0, 1.0, 0.01).onChange(function () {
+					applyParams();
+				});
+				gui.add(params, "envMapIntensity", 0, 5, 0.1).onChange(function () {
+					applyParams();
+				});
+				gui.addColor(params, "baseColor").onChange(function () {
+					applyParams();
+				});
+				gui.add(params, "envEnabled").name("envMap").onChange(function () {
+					applyParams();
+				});
+				gui.add({ rebuild: buildSphereMatrix }, "rebuild").name("rebuild matrix");
+			}
+
+			map.on("load", function () {
+				addRasterLayer();
+				loadEnvironment();
+				buildSphereMatrix();
+				initGui();
+			});
+		</script>
+	</body>
+</html>

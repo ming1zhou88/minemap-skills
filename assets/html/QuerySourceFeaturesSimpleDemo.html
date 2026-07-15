@@ -1,0 +1,835 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+	<title>querySourceFeatures 查询示例</title>
+	<link rel="stylesheet" href="../style/demo.css" />
+	<link rel="stylesheet" href="../../dist/minemap.css" />
+	<script src="../../dist/minemap-dev.js"></script>
+	<style>
+		:root {
+			color-scheme: light;
+			--panel-bg: rgba(255, 255, 255, 0.96);
+			--panel-border: rgba(15, 23, 42, 0.08);
+			--text-main: #0f172a;
+			--text-secondary: #475569;
+			--primary: #2563eb;
+			--primary-soft: rgba(37, 99, 235, 0.12);
+			--success: #16a34a;
+			--warning: #ea580c;
+			--danger: #dc2626;
+		}
+
+		body {
+			margin: 0;
+			overflow: hidden;
+			font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+		}
+
+		#map {
+			width: 100%;
+			height: 100%;
+			background: #f8fafc;
+		}
+
+		.dashboard {
+			position: absolute;
+			top: 16px;
+			left: 16px;
+			width: 380px;
+			max-height: calc(100% - 32px);
+			overflow: auto;
+			padding: 16px;
+			border-radius: 16px;
+			background: var(--panel-bg);
+			backdrop-filter: blur(12px);
+			box-shadow: 0 16px 40px rgba(15, 23, 42, 0.16);
+			border: 1px solid var(--panel-border);
+			z-index: 10;
+		}
+
+		.dashboard h1 {
+			margin: 0 0 8px;
+			font-size: 20px;
+			color: var(--text-main);
+		}
+
+		.dashboard p,
+		.dashboard li,
+		.dashboard code,
+		.dashboard pre,
+		.dashboard button,
+		.dashboard span,
+		.dashboard strong {
+			font-size: 13px;
+		}
+
+		.intro {
+			margin: 0 0 14px;
+			line-height: 1.65;
+			color: var(--text-secondary);
+		}
+
+		.section {
+			margin-top: 14px;
+			padding: 14px;
+			border-radius: 12px;
+			background: #fff;
+			border: 1px solid rgba(148, 163, 184, 0.2);
+		}
+
+		.section-title {
+			margin: 0 0 10px;
+			font-size: 14px;
+			font-weight: 700;
+			color: var(--text-main);
+		}
+
+		.legend-list,
+		.metric-list {
+			margin: 0;
+			padding-left: 18px;
+			color: var(--text-secondary);
+			line-height: 1.7;
+		}
+
+		.query-grid {
+			display: grid;
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+			gap: 10px;
+		}
+
+		.query-btn,
+		.clear-btn {
+			border: none;
+			border-radius: 10px;
+			padding: 10px 12px;
+			cursor: pointer;
+			font-weight: 600;
+			transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+		}
+
+		.query-btn {
+			background: var(--primary-soft);
+			color: var(--primary);
+		}
+
+		.query-btn:hover,
+		.clear-btn:hover {
+			transform: translateY(-1px);
+			box-shadow: 0 8px 18px rgba(15, 23, 42, 0.12);
+		}
+
+		.clear-btn {
+			margin-top: 10px;
+			width: 100%;
+			background: rgba(220, 38, 38, 0.1);
+			color: var(--danger);
+		}
+
+		.status-bar {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 12px;
+			margin-top: 10px;
+			padding: 10px 12px;
+			border-radius: 10px;
+			background: #f8fafc;
+			color: var(--text-secondary);
+		}
+
+		.status-dot {
+			width: 10px;
+			height: 10px;
+			border-radius: 50%;
+			background: var(--success);
+			flex: 0 0 auto;
+		}
+
+		.query-code {
+			margin: 10px 0 0;
+			padding: 12px;
+			border-radius: 10px;
+			background: #0f172a;
+			color: #e2e8f0;
+			line-height: 1.6;
+			white-space: pre-wrap;
+			word-break: break-word;
+		}
+
+		.result-summary {
+			display: flex;
+			justify-content: space-between;
+			align-items: baseline;
+			gap: 12px;
+			margin-bottom: 10px;
+		}
+
+		.result-summary strong {
+			font-size: 24px;
+			color: var(--text-main);
+		}
+
+		.result-summary span {
+			color: var(--text-secondary);
+		}
+
+		.result-list {
+			display: flex;
+			flex-direction: column;
+			gap: 10px;
+		}
+
+		.result-card {
+			padding: 12px;
+			border-radius: 10px;
+			border: 1px solid rgba(148, 163, 184, 0.2);
+			background: #fff;
+		}
+
+		.result-card h3 {
+			margin: 0 0 6px;
+			font-size: 14px;
+			color: var(--text-main);
+		}
+
+		.result-card p {
+			margin: 4px 0;
+			color: var(--text-secondary);
+			line-height: 1.5;
+		}
+
+		.badge {
+			display: inline-flex;
+			align-items: center;
+			padding: 2px 8px;
+			border-radius: 999px;
+			font-size: 12px;
+			font-weight: 700;
+		}
+
+		.badge-point {
+			background: rgba(37, 99, 235, 0.12);
+			color: #1d4ed8;
+		}
+
+		.badge-line {
+			background: rgba(234, 88, 12, 0.12);
+			color: #c2410c;
+		}
+
+		.badge-polygon {
+			background: rgba(22, 163, 74, 0.12);
+			color: #15803d;
+		}
+
+		.empty-state {
+			padding: 16px;
+			border-radius: 10px;
+			background: #f8fafc;
+			color: var(--text-secondary);
+			text-align: center;
+		}
+	</style>
+</head>
+
+<body>
+	<div id="map"></div>
+	<!-- 左侧面板：说明图层含义、触发查询并展示结果摘要 -->
+	<div class="dashboard">
+		<h1>querySourceFeatures 查询示例</h1>
+		<p class="intro">
+			本示例使用一个 GeoJSON 数据源创建点、线、面三类图层，并通过
+			<code>map.querySourceFeatures()</code> 做筛选查询。查询按钮故意传入样式图层 id，便于直接验证兼容逻辑。
+		</p>
+
+		<div class="section">
+			<h2 class="section-title">图层与数值含义</h2>
+			<ul class="legend-list">
+				<li><strong>点图层：</strong>校园设施点，字段包含 <code>kind</code>、<code>studentCount</code>、<code>score</code></li>
+				<li><strong>线图层：</strong>接驳线路，字段包含 <code>ridership</code>、<code>avgSpeed</code></li>
+				<li><strong>面图层：</strong>服务片区，字段包含 <code>safetyScore</code>、<code>coverageRate</code></li>
+			</ul>
+		</div>
+
+		<div class="section">
+			<h2 class="section-title">快捷查询</h2>
+			<div class="query-grid">
+				<button class="query-btn" data-query-key="schools">查学校点</button>
+				<button class="query-btn" data-query-key="routes">查高载客线路</button>
+				<button class="query-btn" data-query-key="zones">查高评分片区</button>
+				<button class="query-btn" data-query-key="all">查全部要素</button>
+			</div>
+			<button class="clear-btn" id="clear-highlight-btn">清空高亮</button>
+			<div class="status-bar">
+				<div style="display:flex;align-items:center;gap:8px;">
+					<span class="status-dot"></span>
+					<span id="status-text">地图加载完成后可直接查询</span>
+				</div>
+				<span id="highlight-count">高亮 0 个要素</span>
+			</div>
+			<pre class="query-code" id="query-code">等待执行查询...</pre>
+		</div>
+
+		<div class="section">
+			<div class="result-summary">
+				<div>
+					<div style="color:#475569;">本次结果</div>
+					<strong id="result-count">0</strong>
+				</div>
+				<span id="result-description">尚未执行查询</span>
+			</div>
+			<div class="result-list" id="result-list">
+				<div class="empty-state">点击上方查询按钮后，这里会展示结果摘要和关键数值。</div>
+			</div>
+		</div>
+	</div>
+
+	<script>
+		// Demo 基础配置：控制地图初始视角以及主数据源/高亮数据源 id。
+		const DEMO_CONFIG = {
+			mapCenter: [116.3935, 39.915],
+			mapZoom: 13.7,
+			sourceId: 'campus-analytics-source',
+			highlightSourceId: 'campus-highlight-source'
+		};
+
+		// 示例数据：使用单个 GeoJSON source 承载点、线、面三类要素。
+		const SOURCE_DATA = {
+			type: 'FeatureCollection',
+			features: [
+				{
+					type: 'Feature',
+					properties: {
+						name: '北区实验学校',
+						kind: 'school',
+						studentCount: 1280,
+						score: 92,
+						manager: '王老师'
+					},
+					geometry: {
+						type: 'Point',
+						coordinates: [116.3848, 39.9215]
+					}
+				},
+				{
+					type: 'Feature',
+					properties: {
+						name: '南区实验学校',
+						kind: 'school',
+						studentCount: 940,
+						score: 85,
+						manager: '李老师'
+					},
+					geometry: {
+						type: 'Point',
+						coordinates: [116.4038, 39.908]
+					}
+				},
+				{
+					type: 'Feature',
+					properties: {
+						name: '社区医疗站',
+						kind: 'clinic',
+						studentCount: 0,
+						score: 88,
+						manager: '赵医生'
+					},
+					geometry: {
+						type: 'Point',
+						coordinates: [116.3972, 39.9172]
+					}
+				},
+				{
+					type: 'Feature',
+					properties: {
+						name: '西侧接驳线',
+						kind: 'route',
+						ridership: 145,
+						avgSpeed: 32,
+						routeLevel: 'A'
+					},
+					geometry: {
+						type: 'LineString',
+						coordinates: [
+							[116.3808, 39.9068],
+							[116.3875, 39.9123],
+							[116.3922, 39.9186],
+							[116.3985, 39.9235]
+						]
+					}
+				},
+				{
+					type: 'Feature',
+					properties: {
+						name: '东侧循环线',
+						kind: 'route',
+						ridership: 82,
+						avgSpeed: 25,
+						routeLevel: 'B'
+					},
+					geometry: {
+						type: 'LineString',
+						coordinates: [
+							[116.3998, 39.9045],
+							[116.4062, 39.9091],
+							[116.4098, 39.9148],
+							[116.412, 39.9204]
+						]
+					}
+				},
+				{
+					type: 'Feature',
+					properties: {
+						name: '北片区',
+						kind: 'zone',
+						safetyScore: 93,
+						coverageRate: 0.91,
+						population: 6800
+					},
+					geometry: {
+						type: 'Polygon',
+						coordinates: [[
+							[116.3862, 39.9178],
+							[116.3955, 39.9178],
+							[116.3955, 39.9253],
+							[116.3862, 39.9253],
+							[116.3862, 39.9178]
+						]]
+					}
+				},
+				{
+					type: 'Feature',
+					properties: {
+						name: '南片区',
+						kind: 'zone',
+						safetyScore: 84,
+						coverageRate: 0.76,
+						population: 5400
+					},
+					geometry: {
+						type: 'Polygon',
+						coordinates: [[
+							[116.3992, 39.9048],
+							[116.4108, 39.9048],
+							[116.4108, 39.9132],
+							[116.3992, 39.9132],
+							[116.3992, 39.9048]
+						]]
+					}
+				}
+			]
+		};
+
+		// 预置查询：故意把样式图层 id 传给 sourceLayer，用于验证兼容逻辑。
+		const QUERY_PRESETS = {
+			schools: {
+				description: '按学校点查询：兼容传入点样式图层 id',
+				sourceLayer: 'campus-point-layer',
+				filter: ['==', 'kind', 'school']
+			},
+			routes: {
+				description: '按高载客线路查询：兼容传入线样式图层 id',
+				sourceLayer: 'campus-route-layer',
+				filter: ['all', ['==', 'kind', 'route'], ['>=', 'ridership', 120]]
+			},
+			zones: {
+				description: '按高评分片区查询：兼容传入面样式图层 id',
+				sourceLayer: 'campus-zone-layer',
+				filter: ['all', ['==', 'kind', 'zone'], ['>=', 'safetyScore', 90]]
+			},
+			all: {
+				description: '查询当前 source 中已加载的全部要素',
+				filter: ['all']
+			}
+		};
+
+		// 页面节点缓存，避免后续重复查询 DOM。
+		const UI = {
+			statusText: document.getElementById('status-text'),
+			highlightCount: document.getElementById('highlight-count'),
+			queryCode: document.getElementById('query-code'),
+			resultCount: document.getElementById('result-count'),
+			resultDescription: document.getElementById('result-description'),
+			resultList: document.getElementById('result-list'),
+			clearHighlightBtn: document.getElementById('clear-highlight-btn'),
+			queryButtons: Array.from(document.querySelectorAll('[data-query-key]'))
+		};
+
+		minemap.domainUrl = 'https://minedata.cn';
+		minemap.dataDomainUrl = 'https://minedata.cn';
+		minemap.serverDomainUrl = 'https://minedata.cn';
+		minemap.spriteUrl = 'https://minedata.cn/minemapapi/sprite/latest/sprite';
+		minemap.serviceUrl = 'https://minedata.cn/service/';
+		minemap.key = '0c6ac62182404e5ebc7a789981f6db72';
+		minemap.solution = 11001;
+
+		// 该 demo 只验证 querySourceFeatures 行为，因此底图保持最简样式。
+		const baseStyle = {
+			version: 8,
+			sprite: 'minemap://sprite/sprite',
+			glyphs: 'minemap://fonts/{fontstack}/{range}',
+			sources: {},
+			layers: [
+				{
+					id: 'background',
+					type: 'background',
+					paint: {
+						'background-color': '#f8fafc'
+					}
+				}
+			]
+		};
+
+		const map = new minemap.Map({
+			container: 'map',
+			style: baseStyle,
+			center: DEMO_CONFIG.mapCenter,
+			zoom: DEMO_CONFIG.mapZoom,
+			pitch: 0,
+			maxZoom: 20,
+			minZoom: 3,
+			projection: 'MERCATOR'
+		});
+
+		map.on('load', function () {
+			addMainSourceAndLayers();
+			addHighlightSourceAndLayers();
+			bindUI();
+			bindFeaturePopup();
+			UI.statusText.textContent = '示例数据已加载，可使用上方按钮执行 querySourceFeatures 查询';
+		});
+
+		// 主数据源：承载真实业务图层，供 querySourceFeatures 查询。
+		function addMainSourceAndLayers() {
+			map.addSource(DEMO_CONFIG.sourceId, {
+				type: 'geojson',
+				data: SOURCE_DATA,
+				generateId: true
+			});
+
+			map.addLayer({
+				id: 'campus-zone-layer',
+				type: 'fill',
+				source: DEMO_CONFIG.sourceId,
+				filter: ['==', 'kind', 'zone'],
+				paint: {
+					'fill-color': [
+						'interpolate',
+						['linear'],
+						['get', 'safetyScore'],
+						80, '#fde68a',
+						90, '#86efac',
+						95, '#4ade80'
+					],
+					'fill-opacity': 0.32,
+					'fill-outline-color': '#15803d'
+				}
+			});
+
+			map.addLayer({
+				id: 'campus-route-layer',
+				type: 'line',
+				source: DEMO_CONFIG.sourceId,
+				filter: ['==', 'kind', 'route'],
+				paint: {
+					'line-color': [
+						'interpolate',
+						['linear'],
+						['get', 'ridership'],
+						80, '#fb923c',
+						120, '#f97316',
+						150, '#c2410c'
+					],
+					'line-width': [
+						'interpolate',
+						['linear'],
+						['zoom'],
+						11, 3,
+						15, 7
+					]
+				}
+			});
+
+			map.addLayer({
+				id: 'campus-point-layer',
+				type: 'circle',
+				source: DEMO_CONFIG.sourceId,
+				filter: ['in', 'kind', 'school', 'clinic'],
+				paint: {
+					'circle-color': [
+						'match',
+						['get', 'kind'],
+						'school', '#2563eb',
+						'clinic', '#7c3aed',
+						'#475569'
+					],
+					'circle-radius': [
+						'interpolate',
+						['linear'],
+						['coalesce', ['get', 'studentCount'], ['get', 'score']],
+						0, 6,
+						800, 10,
+						1300, 14
+					],
+					'circle-stroke-width': 2,
+					'circle-stroke-color': '#ffffff'
+				}
+			});
+
+			map.addLayer({
+				id: 'campus-label-layer',
+				type: 'symbol',
+				source: DEMO_CONFIG.sourceId,
+				filter: ['in', 'kind', 'school', 'clinic'],
+				layout: {
+					'text-field': '{name}',
+					'text-size': 12,
+					'text-offset': [0, 1.3]
+				},
+				paint: {
+					'text-color': '#0f172a',
+					'text-halo-color': '#ffffff',
+					'text-halo-width': 1.2
+				}
+			});
+		}
+
+		// 高亮数据源：把查询结果回写成独立 GeoJSON，用醒目样式二次渲染。
+		function addHighlightSourceAndLayers() {
+			map.addSource(DEMO_CONFIG.highlightSourceId, {
+				type: 'geojson',
+				data: emptyFeatureCollection()
+			});
+
+			map.addLayer({
+				id: 'campus-highlight-zone-layer',
+				type: 'fill',
+				source: DEMO_CONFIG.highlightSourceId,
+				filter: ['==', '$type', 'Polygon'],
+				paint: {
+					'fill-color': '#facc15',
+					'fill-opacity': 0.18,
+					'fill-outline-color': '#ca8a04'
+				}
+			});
+
+			map.addLayer({
+				id: 'campus-highlight-route-layer',
+				type: 'line',
+				source: DEMO_CONFIG.highlightSourceId,
+				filter: ['==', '$type', 'LineString'],
+				paint: {
+					'line-color': '#ef4444',
+					'line-width': 10,
+					'line-opacity': 0.9
+				}
+			});
+
+			map.addLayer({
+				id: 'campus-highlight-point-layer',
+				type: 'circle',
+				source: DEMO_CONFIG.highlightSourceId,
+				filter: ['==', '$type', 'Point'],
+				paint: {
+					'circle-color': '#facc15',
+					'circle-radius': 18,
+					'circle-opacity': 0.35,
+					'circle-stroke-width': 3,
+					'circle-stroke-color': '#ca8a04'
+				}
+			});
+		}
+
+		// 绑定按钮行为：触发预置查询或清空高亮。
+		function bindUI() {
+			UI.queryButtons.forEach(function (button) {
+				button.addEventListener('click', function () {
+					runPresetQuery(button.dataset.queryKey);
+				});
+			});
+
+			UI.clearHighlightBtn.addEventListener('click', function () {
+				updateHighlight([]);
+				UI.statusText.textContent = '已清空高亮，可重新执行查询';
+				UI.resultDescription.textContent = '高亮结果已清空';
+				UI.queryCode.textContent = '等待执行查询...';
+				resetResultList();
+			});
+		}
+
+		// 给原始图层补充点击弹窗，方便对照 querySourceFeatures 返回的属性内容。
+		function bindFeaturePopup() {
+			['campus-zone-layer', 'campus-route-layer', 'campus-point-layer'].forEach(function (layerId) {
+				map.on('click', layerId, function (event) {
+					const feature = event.features && event.features[0];
+					if (!feature) {
+						return;
+					}
+
+					const coordinates = event.lngLat;
+					const html = [
+						'<div style="min-width:180px;line-height:1.6;">',
+						'<strong>' + feature.properties.name + '</strong>',
+						'<div>类型：' + (feature.properties.kind || feature.geometry.type) + '</div>',
+						formatPopupMetric(feature.properties),
+						'</div>'
+					].join('');
+
+					new minemap.Popup({ offset: [0, -8] })
+						.setLngLat([coordinates.lng, coordinates.lat])
+						.setHTML(html)
+						.addTo(map);
+				});
+			});
+		}
+
+		// 根据按钮 key 执行对应查询，并同步更新高亮、摘要和结果列表。
+		function runPresetQuery(queryKey) {
+			const preset = QUERY_PRESETS[queryKey];
+			if (!preset) {
+				return;
+			}
+
+			const parameters = buildQueryParameters(preset);
+			const features = map.querySourceFeatures(DEMO_CONFIG.sourceId, parameters);
+
+			UI.statusText.textContent = '查询完成：' + preset.description;
+			UI.queryCode.textContent = 'map.querySourceFeatures(' + JSON.stringify(DEMO_CONFIG.sourceId) + ', ' +
+				JSON.stringify(parameters, null, 2) + '\n)';
+
+			updateHighlight(features);
+			renderResultSummary(features, preset.description);
+			renderResultList(features);
+		}
+
+		// 仅在预置项存在时拼装 querySourceFeatures 参数，保持调用语义清晰。
+		function buildQueryParameters(preset) {
+			const parameters = {};
+			if (preset.sourceLayer) {
+				parameters.sourceLayer = preset.sourceLayer;
+			}
+			if (preset.filter) {
+				parameters.filter = preset.filter;
+			}
+			return parameters;
+		}
+
+		// 查询结果统一写入高亮 source，避免直接修改原始业务图层样式。
+		function updateHighlight(features) {
+			const highlightSource = map.getSource(DEMO_CONFIG.highlightSourceId);
+			highlightSource.setData(toFeatureCollection(features));
+			UI.highlightCount.textContent = '高亮 ' + features.length + ' 个要素';
+		}
+
+		function renderResultSummary(features, description) {
+			UI.resultCount.textContent = String(features.length);
+			UI.resultDescription.textContent = description;
+		}
+
+		// 结果列表只做摘要展示，重点突出属性含义与业务数值。
+		function renderResultList(features) {
+			if (!features.length) {
+				resetResultList('没有命中要素，请尝试其它查询条件。');
+				return;
+			}
+
+			const fragments = features.map(function (feature) {
+				const badgeClass = getBadgeClass(feature.geometry.type);
+				return [
+					'<div class="result-card">',
+					'<h3>' + feature.properties.name + ' <span class="badge ' + badgeClass + '">' + feature.geometry.type + '</span></h3>',
+					'<p>' + describeFeature(feature) + '</p>',
+					'<p>' + summarizeMetrics(feature.properties) + '</p>',
+					'</div>'
+				].join('');
+			});
+
+			UI.resultList.innerHTML = fragments.join('');
+		}
+
+		function resetResultList(message) {
+			UI.resultCount.textContent = '0';
+			UI.resultList.innerHTML = '<div class="empty-state">' + (message || '点击上方查询按钮后，这里会展示结果摘要和关键数值。') + '</div>';
+		}
+
+		function describeFeature(feature) {
+			if (feature.geometry.type === 'Point') {
+				return '点位类型：' + feature.properties.kind + '，负责人：' + feature.properties.manager;
+			}
+			if (feature.geometry.type === 'LineString') {
+				return '线路等级：' + feature.properties.routeLevel + '，适合对比运力与速度。';
+			}
+			return '片区类型：' + feature.properties.kind + '，可用于对比覆盖率与安全评分。';
+		}
+
+		function summarizeMetrics(properties) {
+			if (properties.kind === 'school') {
+				return '学生数：' + properties.studentCount + '，综合评分：' + properties.score;
+			}
+			if (properties.kind === 'clinic') {
+				return '综合评分：' + properties.score + '，说明：医疗服务节点';
+			}
+			if (properties.kind === 'route') {
+				return '载客量：' + properties.ridership + '，平均车速：' + properties.avgSpeed + ' km/h';
+			}
+			return '安全评分：' + properties.safetyScore + '，覆盖率：' + Math.round(properties.coverageRate * 100) + '%，人口：' + properties.population;
+		}
+
+		function formatPopupMetric(properties) {
+			if (properties.kind === 'school') {
+				return '<div>学生数：' + properties.studentCount + '</div><div>综合评分：' + properties.score + '</div>';
+			}
+			if (properties.kind === 'clinic') {
+				return '<div>综合评分：' + properties.score + '</div>';
+			}
+			if (properties.kind === 'route') {
+				return '<div>载客量：' + properties.ridership + '</div><div>平均车速：' + properties.avgSpeed + ' km/h</div>';
+			}
+			return '<div>安全评分：' + properties.safetyScore + '</div><div>覆盖率：' + Math.round(properties.coverageRate * 100) + '%</div>';
+		}
+
+		// querySourceFeatures 返回的是内部 Feature，需要转成普通 GeoJSON 再回写到高亮 source。
+		function toFeatureCollection(features) {
+			return {
+				type: 'FeatureCollection',
+				features: features.map(toPlainFeature)
+			};
+		}
+
+		function toPlainFeature(feature) {
+			return {
+				type: 'Feature',
+				id: feature.id,
+				properties: Object.assign({}, feature.properties),
+				geometry: cloneJSON(feature.geometry)
+			};
+		}
+
+		function emptyFeatureCollection() {
+			return {
+				type: 'FeatureCollection',
+				features: []
+			};
+		}
+
+		function cloneJSON(value) {
+			return JSON.parse(JSON.stringify(value));
+		}
+
+		function getBadgeClass(geometryType) {
+			if (geometryType === 'Point') {
+				return 'badge-point';
+			}
+			if (geometryType === 'LineString') {
+				return 'badge-line';
+			}
+			return 'badge-polygon';
+		}
+	</script>
+</body>
+
+</html>

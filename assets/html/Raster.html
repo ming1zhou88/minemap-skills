@@ -30,7 +30,7 @@
 		 */
 		minemap.domainUrl = 'https://minemap.minedata.cn';
 		minemap.dataDomainUrl = 'https://minemap.minedata.cn';
-		minemap.serverDomainUrl = 'https://sd-data.minedata.cn';
+		minemap.serverDomainUrl = 'https://ol-data.minedata.cn';
 		minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
 		minemap.serviceUrl = 'https://service.minedata.cn/service';
 
@@ -69,6 +69,7 @@
 			folder.add(rasterType, "type", [
 				"xyz",
 				"tms",
+				"wms",
 				"wmts",
 				"mineData wmts",
 				// "baidu",
@@ -96,6 +97,14 @@
 				"tiles": ["https://rt2.map.gtimg.com/tile?z={z}&x={x}&y={y}&styleid=1&scene=0"], //瓦片服务地址
 				"tileSize": 256,//瓦片尺寸
 				"scheme": "tms"
+				//"bounds": [113.70609172522181, 36.48878805534389, 114.61461308129726, 37.11474510334105],//要显示区域的外包框，按west，south，east，north填写
+			});
+			/*添加 wms 类型栅格图*/
+			map.addSource("wms", {
+				"type": "raster",//数据源类型：栅格数据源
+				"tiles": ["https://iserver.supermap.io/iserver/services/map-china400/wms111/China?service=WMS&request=GetMap&layers=China&styles=&format=image%2Fpng&transparent=true&version=1.1.1&width=1024&height=1024&srs=EPSG%3A3857&bbox={bbox}&tileMatrixSet=worldcrs84:4326"], //瓦片服务地址
+				"tileSize": 256,//瓦片尺寸
+				"scheme": "wms"
 				//"bounds": [113.70609172522181, 36.48878805534389, 114.61461308129726, 37.11474510334105],//要显示区域的外包框，按west，south，east，north填写
 			});
 			/*添加 baidu 类型栅格图*/

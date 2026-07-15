@@ -126,7 +126,7 @@
          */
         minemap.domainUrl = 'https://minemap.minedata.cn';
         minemap.dataDomainUrl = 'https://minemap.minedata.cn';
-        minemap.serverDomainUrl = 'https://sd-data.minedata.cn';
+        minemap.serverDomainUrl = 'https://ol-data.minedata.cn';
         minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
         minemap.serviceUrl = 'https://service.minedata.cn/service';
 
@@ -245,7 +245,7 @@
             // 计算球体1的世界坐标中心点
             const localCenter1 = new minemap.Math.Vector3(-30, 0, 25);
             const worldCenter1 = minemap.Math.Matrix4.multiplyByPoint(modelMatrix, localCenter1, new minemap.Math.Vector3());
-            
+
             sphere1 = new minemap.BoundingSphere(
                 [worldCenter1.x, worldCenter1.y, worldCenter1.z],
                 25
@@ -254,7 +254,7 @@
             // 计算球体2的世界坐标中心点
             const localCenter2 = new minemap.Math.Vector3(30, 0, 25);
             const worldCenter2 = minemap.Math.Matrix4.multiplyByPoint(modelMatrix, localCenter2, new minemap.Math.Vector3());
-            
+
             sphere2 = new minemap.BoundingSphere(
                 [worldCenter2.x, worldCenter2.y, worldCenter2.z],
                 20
@@ -289,7 +289,7 @@
                 // 计算球体1的世界坐标中心点
                 const localCenter1 = new minemap.Math.Vector3(params.sphere1_x, params.sphere1_y, params.sphere1_z);
                 const worldCenter1 = minemap.Math.Matrix4.multiplyByPoint(modelMatrix, localCenter1, new minemap.Math.Vector3());
-                
+
                 sphere1 = new minemap.BoundingSphere(
                     [worldCenter1.x, worldCenter1.y, worldCenter1.z],
                     params.sphere1_radius
@@ -306,7 +306,7 @@
                 // 计算球体2的世界坐标中心点
                 const localCenter2 = new minemap.Math.Vector3(params.sphere2_x, params.sphere2_y, params.sphere2_z);
                 const worldCenter2 = minemap.Math.Matrix4.multiplyByPoint(modelMatrix, localCenter2, new minemap.Math.Vector3());
-                
+
                 sphere2 = new minemap.BoundingSphere(
                     [worldCenter2.x, worldCenter2.y, worldCenter2.z],
                     params.sphere2_radius

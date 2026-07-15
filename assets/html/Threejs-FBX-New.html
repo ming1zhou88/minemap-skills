@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MineMap + Three.js FBX Demo</title>
+    <link rel="stylesheet" href="https://minemap.minedata.cn/minemapapi/v2.1.1/minemap.css" />
+    <script src="../../dist/minemap-dev.js"></script>
+    <style>
+        html,
+        body {
+            margin: 0;
+            height: 100%;
+            overflow: hidden;
+            background: #0b111a;
+            font-family: system-ui, sans-serif;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+
+        .panel {
+            position: fixed;
+            left: 12px;
+            top: 12px;
+            z-index: 20;
+            max-width: 520px;
+            padding: 12px 14px;
+            border-radius: 10px;
+            border: 1px solid rgba(120, 170, 235, 0.35);
+            background: rgba(11, 17, 26, 0.9);
+            color: #e8eef8;
+            font-size: 12px;
+            line-height: 1.45;
+        }
+
+        h1 {
+            margin: 0 0 8px;
+            font-size: 14px;
+            color: #a5d8ff;
+        }
+
+        .row {
+            margin: 8px 0;
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            border: 1px solid rgba(140, 180, 230, 0.5);
+            background: rgba(34, 72, 130, 0.56);
+            color: #e8eef8;
+            border-radius: 6px;
+            padding: 6px 10px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        button.active {
+            border-color: #7dd3fc;
+            background: rgba(26, 92, 145, 0.8);
+        }
+
+        #url {
+            font-size: 10px;
+            opacity: 0.7;
+            word-break: break-all;
+        }
+
+        #status {
+            margin-top: 8px;
+            font-size: 11px;
+            opacity: 0.92;
+            word-break: break-all;
+        }
+
+        .hint {
+            margin-top: 10px;
+            font-size: 10px;
+            opacity: 0.58;
+        }
+
+        .top-right-loader {
+            position: fixed;
+            right: 12px;
+            top: 12px;
+            z-index: 20;
+            width: min(520px, calc(100vw - 24px));
+            padding: 10px;
+            border-radius: 10px;
+            border: 1px solid rgba(120, 170, 235, 0.35);
+            background: rgba(11, 17, 26, 0.9);
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        #fbx-url-input {
+            flex: 1;
+            min-width: 220px;
+            border: 1px solid rgba(140, 180, 230, 0.5);
+            border-radius: 6px;
+            background: rgba(34, 72, 130, 0.25);
+            color: #e8eef8;
+            padding: 6px 8px;
+            font-size: 12px;
+            outline: none;
+        }
+
+        #fbx-url-input::placeholder {
+            color: rgba(232, 238, 248, 0.56);
+        }
+    </style>
+</head>
+
+<body>
+    <div id="map"></div>
+    <div class="panel">
+        <h1>MineMap 底图 + Three.js 加载 FBX</h1>
+        <div id="status">地图初始化中…</div>
+        <!-- <div class="hint">
+            FBX 优先路径：<code>../海珠湾fbx三维模型数据/Haizhuwan_fbx.FBX</code><br />
+            兼容回退：会自动尝试 <code>../minemap-demo-server/data/海珠湾fbx三维模型数据/Haizhuwan_fbx.FBX</code> 等路径。
+        </div> -->
+    </div>
+    <div class="top-right-loader">
+        <input id="fbx-url-input" type="text" placeholder="输入 FBX URL，例如：http://xxx/model.fbx"
+            value="http://192.168.152.123:11187/demo-data/Haizhuwan/Pipeline-Station.fbx" />
+        <button id="append-fbx-btn">追加模型</button>
+    </div>
+
+    <script async src="https://unpkg.com/es-module-shims@1.10.0/dist/es-module-shims.js"></script>
+    <script type="importmap">
+        {
+            "imports": {
+              "three": "https://unpkg.com/three@0.165.0/build/three.module.js",
+              "three/examples/": "https://unpkg.com/three@0.165.0/examples/",
+              "three/addons/": "https://unpkg.com/three@0.165.0/examples/jsm/"
+            }
+          }
+  </script>
+    <script type="module">
+        import * as THREE from "three";
+        import { FBXLoader } from "three/addons/loaders/FBXLoader.js";
+        import { ThreeLayer } from '../js/minemap-three-plugin/index.js'
+
+        window.THREE = THREE;
+
+        minemap.domainUrl = "https://minemap.minedata.cn";
+        minemap.dataDomainUrl = "https://minemap.minedata.cn";
+        minemap.serverDomainUrl = "https://ol-data.minedata.cn";
+        minemap.spriteUrl = "http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite";
+        minemap.serviceUrl = "https://service.minedata.cn/service";
+        minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+        minemap.solution = 11001;
+
+        const statusEl = document.getElementById("status");
+        const fbxUrlInputEl = document.getElementById("fbx-url-input");
+        const appendFbxBtnEl = document.getElementById("append-fbx-btn");
+
+        function setStatus(message) {
+            console.log(message);
+            statusEl.textContent = message;
+        }
+
+        const style = {
+            glyphs: "minemap://fonts/{fontstack}/{range}",
+            sprite: "minemap://sprite/sprite",
+            sources: {},
+            layers: [],
+            version: 8,
+        };
+
+        const map = new minemap.Map({
+            container: "map",
+            style,
+            projection: "MERCATOR",
+            center: [113.296879, 23.061433],
+            zoom: 15,
+            bearing: 0,
+            pitch: 62,
+        });
+        map.repaint = true;
+        window.map = map;
+        map.on("load", () => {
+            map.addSource("SATELLITE", {
+                type: "raster",
+                tiles: ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"],
+                tileSize: 512,
+            });
+            map.addLayer({
+                id: "SATELLITE-LAYER",
+                type: "raster",
+                source: "SATELLITE",
+                minzoom: 1,
+                maxzoom: 23,
+                "depth-test": true,
+                paint: { "raster-opacity": 1 },
+            });
+
+            const threeLayer = new ThreeLayer({
+                id: "three-fbx-layer",
+                refCenter: [113.296879, 23.061433],
+            });
+            map.addLayer(threeLayer);
+
+            const dirLight = new THREE.DirectionalLight(0xffffff, 4);
+            dirLight.position.set(120, 200, 260);
+            threeLayer.addObject(dirLight);
+            const hemiLight = new THREE.HemisphereLight(0xcfe8ff, 0x1f3442, 0.9);
+            threeLayer.addObject(hemiLight);
+
+            // 更真实的水色：青蓝底色 + 低粗糙高金属 + 半透明
+            const waterGeometry = new THREE.PlaneGeometry(2200, 1800, 1, 1);
+            const waterMaterial = new THREE.MeshPhysicalMaterial({
+                color: 0x2f8fb0,
+                roughness: 0.18,
+                metalness: 0.22,
+                transmission: 0.12,
+                transparent: true,
+                opacity: 0.72,
+                clearcoat: 0.7,
+                clearcoatRoughness: 0.25,
+                side: THREE.DoubleSide,
+            });
+            const waterMesh = new THREE.Mesh(waterGeometry, waterMaterial);
+            waterMesh.rotation.x = -Math.PI / 2;
+            waterMesh.position.set(0, 0, -2);
+            // threeLayer.addObject(waterMesh);
+
+            const loader = new FBXLoader();
+            // 关键：纹理跨域
+            loader.setCrossOrigin('anonymous');
+            const candidates = [
+                "http://192.168.152.123:11187/demo-data/Haizhuwan/Haizhuwan_fbx.FBX"
+            ];
+
+            const appendFbxAtCurrentCenter = (modelPath) => {
+                const center = map.getCenter();
+                setStatus("正在加载 FBX：" + modelPath);
+                loader.load(
+                    modelPath,
+                    (fbx) => {
+                        fbx.position.set(0, 0, 10);
+                        fbx.traverse((child) => {
+                            if (child.isMesh && child.material) {
+                                child.castShadow = true;
+                                child.receiveShadow = true;
+                                child.material.side = THREE.DoubleSide;
+                            }
+                        });
+                        threeLayer.addObject(fbx);
+                        setStatus("FBX 追加完成：" + modelPath);
+                    },
+                    (xhr) => {
+                        if (!xhr?.total) return;
+                        const p = ((xhr.loaded / xhr.total) * 100).toFixed(1);
+                        setStatus("FBX 加载中（" + modelPath + "）：" + p + "%");
+                    },
+                    (err) => {
+                        console.warn("FBX load failed:", modelPath, err);
+                        setStatus("FBX 加载失败：" + modelPath);
+                    },
+                );
+            };
+
+            const tryLoadAt = (idx) => {
+                if (idx >= candidates.length) {
+                    setStatus("FBX 加载失败：候选路径都不可用，请确认模型文件位置。");
+                    console.error("FBX checked paths:", candidates);
+                    return;
+                }
+                const modelPath = candidates[idx];
+                loader.load(
+                    modelPath,
+                    (fbx) => {
+                        fbx.position.set(0, 0, 10);
+                        fbx.traverse((child) => {
+                            if (child.isMesh && child.material) {
+                                child.castShadow = true;
+                                child.receiveShadow = true;
+                                child.material.side = THREE.DoubleSide;
+                            }
+                        });
+                        threeLayer.addObject(fbx);
+                        setStatus("FBX 加载完成：" + modelPath);
+                    },
+                    (err) => {
+                        console.warn("FBX path failed:", modelPath, err);
+                        tryLoadAt(idx + 1);
+                    },
+                );
+            };
+            tryLoadAt(0);
+
+            // fbxUrlInputEl.value = candidates[0];
+            appendFbxBtnEl.addEventListener("click", () => {
+                const inputUrl = fbxUrlInputEl.value.trim();
+                if (!inputUrl) {
+                    setStatus("请输入 FBX URL。");
+                    return;
+                }
+                appendFbxAtCurrentCenter(inputUrl);
+            });
+            fbxUrlInputEl.addEventListener("keydown", (evt) => {
+                if (evt.key === "Enter") {
+                    appendFbxBtnEl.click();
+                }
+            });
+        });
+    </script>
+</body>
+
+</html>

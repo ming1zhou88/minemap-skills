@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+		<title>3D Tiles材质亮度调节</title>
+		<link rel="stylesheet" href="../../dist/minemap.css" />
+		<link rel="stylesheet" href="../style/demo.css" />
+		<script src="../../dist/minemap-dev.js"></script>
+		<script src="../js/lil-gui.umd.min.js"></script>
+		<style>
+			html,
+			body,
+			#map {
+				margin: 0;
+				padding: 0;
+				width: 100%;
+				height: 100%;
+			}
+		</style>
+	</head>
+
+	<body>
+		<div id="map"></div>
+		<script>
+			minemap.domainUrl = "https://minedata.cn";
+			minemap.dataDomainUrl = "https://minedata.cn";
+			minemap.serverDomainUrl = "https://minedata.cn";
+			minemap.spriteUrl = "https://minedata.cn/minemapapi/sprite/latest/sprite";
+			minemap.serviceUrl = "https://minedata.cn/service/";
+			minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+			minemap.solution = 11001;
+			window.minemapCDN = "https://minedata.cn/minemapapi/minemap-CDN";
+
+			const style = {
+				glyphs: "minemap://fonts/{fontstack}/{range}",
+				sprite: "minemap://sprite/sprite",
+				sources: {},
+				layers: [],
+				version: 8
+			};
+
+			const map = new minemap.Map({
+				container: "map",
+				style,
+				center: [108.99813013928936, 34.19732521819094],
+				bearing: -35,
+				pitch: 62,
+				zoom: 16.2,
+				maxZoom: 22,
+				minZoom: 1
+			});
+
+			map.repaint = true;
+
+			const state = {
+				materialColorIntensity: 1.0,
+				materialMinBrightness: 0.0,
+				flyToTileset: () => flyToTileset(),
+				reset: () => {
+					state.materialColorIntensity = 1.0;
+					state.materialMinBrightness = 0.0;
+					applyMaterialBrightness();
+					intensityController.updateDisplay();
+					minBrightnessController.updateDisplay();
+				}
+			};
+
+			let tileset = null;
+			let intensityController = null;
+			let minBrightnessController = null;
+
+			function addImageryLayer() {
+				map.addSource("IMAGERY_SOURCE", {
+					type: "raster",
+					tiles: ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"],
+					tileSize: 512
+				});
+
+				map.addLayer({
+					id: "IMAGERY",
+					type: "raster",
+					source: "IMAGERY_SOURCE",
+					minzoom: 1,
+					maxzoom: 23,
+					"depth-test": true
+				});
+			}
+
+			function addTileset() {
+				tileset = map.addSceneComponent({
+					id: "shanxi_traffic_tileset",
+					type: "3d-tiles",
+					show: true,
+					url: "http://192.168.152.123:11187/demo-data/beiqu/shanxi/tileset.json",
+					maximumScreenSpaceError: 8,
+					materialColorIntensity: state.materialColorIntensity,
+					materialMinBrightness: state.materialMinBrightness,
+					sourceLoaded: (readyTileset) => {
+						tileset = readyTileset;
+						applyMaterialBrightness();
+						flyToTileset();
+					}
+				});
+			}
+
+			function applyMaterialBrightness() {
+				if (!tileset) {
+					return;
+				}
+				tileset.materialColorIntensity = state.materialColorIntensity;
+				tileset.materialMinBrightness = state.materialMinBrightness;
+			}
+
+			function flyToTileset() {
+				if (!tileset) {
+					return;
+				}
+				map.flyTo({
+					target: tileset,
+					bearing: -35,
+					pitch: 62,
+					duration: 1200,
+					range: 900
+				});
+			}
+
+			function initializeGUI() {
+				const gui = new lil.GUI({ title: "材质亮度调节", width: 320 });
+				intensityController = gui
+					.add(state, "materialColorIntensity", 0.0, 4.0, 0.01)
+					.name("颜色增强系数")
+					.onChange(applyMaterialBrightness);
+				minBrightnessController = gui
+					.add(state, "materialMinBrightness", 0.0, 1.0, 0.01)
+					.name("最低可见亮度")
+					.onChange(applyMaterialBrightness);
+				gui.add(state, "flyToTileset").name("飞到模型");
+				gui.add(state, "reset").name("重置");
+			}
+
+			map.on("load", function () {
+				addImageryLayer();
+				initializeGUI();
+				addTileset();
+			});
+		</script>
+	</body>
+</html>

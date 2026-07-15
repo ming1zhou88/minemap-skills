@@ -1,0 +1,758 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8" />
+	<title>SceneModel RotationOrder FlipYZ</title>
+	<link rel="stylesheet" href="../style/demo.css" />
+	<link rel="stylesheet" href="../../dist/minemap.css" />
+	<script src="../../dist/minemap-dev.js"></script>
+	<script src="../js/lil-gui.umd.min.js"></script>
+	<style>
+		#map {
+			width: 100%;
+			height: 100%;
+		}
+
+		#mini-view {
+			position: absolute;
+			right: 16px;
+			bottom: 16px;
+			width: 540px;
+			height: 260px;
+			display: grid;
+			grid-template-columns: repeat(3, 1fr);
+			gap: 8px;
+			border: 1px solid rgba(255, 255, 255, 0.35);
+			background: rgba(6, 15, 24, 0.92);
+			box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+			padding: 8px;
+			z-index: 10;
+		}
+
+		.mini-cell {
+			position: relative;
+			border: 1px solid rgba(125, 170, 220, 0.25);
+			border-radius: 6px;
+			overflow: hidden;
+			background: rgba(0, 0, 0, 0.2);
+		}
+
+		.mini-title {
+			position: absolute;
+			left: 6px;
+			top: 4px;
+			z-index: 2;
+			font-family: "Consolas", monospace;
+			font-size: 11px;
+			color: #ffffff;
+			background: rgba(0, 0, 0, 0.5);
+			padding: 2px 4px;
+			border-radius: 3px;
+		}
+
+		.mini-canvas {
+			width: 100%;
+			height: 100%;
+			display: block;
+		}
+
+		#mini-legend {
+			position: absolute;
+			left: 16px;
+			top: 16px;
+			z-index: 12;
+			font-family: "Consolas", monospace;
+			font-size: 11px;
+			line-height: 1.4;
+			color: #d7e6f7;
+			background: rgba(0, 0, 0, 0.35);
+			padding: 6px 8px;
+			border-radius: 4px;
+		}
+
+		#mini-readout {
+			position: absolute;
+			right: 16px;
+			top: 16px;
+			z-index: 12;
+			font-family: "Consolas", monospace;
+			font-size: 11px;
+			line-height: 1.4;
+			color: #e8f2ff;
+			background: rgba(0, 0, 0, 0.35);
+			padding: 6px 8px;
+			border-radius: 4px;
+			max-width: 190px;
+			white-space: pre-wrap;
+		}
+	</style>
+</head>
+<body>
+<div id="map"></div>
+<div id="mini-view">
+	<div class="mini-cell" id="mini-cell-enu">
+		<div class="mini-title">ENU Space</div>
+		<canvas class="mini-canvas" id="mini-canvas-enu"></canvas>
+	</div>
+	<div class="mini-cell" id="mini-cell-euler">
+		<div class="mini-title">Euler Space (order-driven)</div>
+		<canvas class="mini-canvas" id="mini-canvas-euler"></canvas>
+	</div>
+	<div class="mini-cell" id="mini-cell-hpr">
+		<div class="mini-title">HPR Space (fixed semantic)</div>
+		<canvas class="mini-canvas" id="mini-canvas-hpr"></canvas>
+	</div>
+</div>
+<div id="mini-legend">X: red | Y: green | Z: blue</div>
+<div id="mini-readout"></div>
+<div id="status" style="position:absolute;left:16px;bottom:16px;z-index:20;background:rgba(0,0,0,0.5);color:#fff;font-family:Consolas,monospace;font-size:12px;padding:6px 8px;border-radius:4px;">loading...</div>
+<script type="module">
+	import * as THREE from "../lib/three/three.module.js";
+
+	minemap.domainUrl = "https://minedata.cn";
+	minemap.dataDomainUrl = "https://minedata.cn";
+	minemap.serverDomainUrl = "https://minedata.cn";
+	minemap.serviceUrl = "https://mineservice.minedata.cn/service/";
+	minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+	minemap.solution = 11001;
+
+	var emptyStyle = {
+		glyphs: "minemap://fonts/{fontstack}/{range}",
+		sprite: "minemap://sprite/sprite",
+		sources: {},
+		layers: [],
+		version: 8
+	};
+
+	var map = new minemap.Map({
+		container: "map",
+		style: emptyStyle,
+		position: [116.24717159548905, 40.06797747528279, 165.840742231634],
+		pitch: 79.30277416875467,
+		bearing: -30,
+		maxZoom: 22,
+		minZoom: 1,
+		projection: "MERCATOR",
+		logDepth: true
+	});
+	map.enableLight();
+	map.repaint = true;
+
+	var sceneState = {
+		singleModel: null,
+		instanceModel: null
+	};
+
+	var rotationOrders = ["XYZ", "XZY", "YXZ", "YZX", "ZXY", "ZYX"];
+	var settings = {
+		rotationOrder: "ZYX",
+		flipYZ: false,
+		instanceDataMode: "hpr",
+		singleX: 90,
+		singleY: 0,
+		singleZ: 0,
+		instanceX: 0,
+		instanceY: 0,
+		instanceZ: 90,
+		instanceScale: 100,
+		selectedModel: "single",
+		selectedInstanceIndex: 0,
+		showAxisMode: "all"
+	};
+	var statusEl = document.getElementById("status");
+
+	function setStatus(text) {
+		if (statusEl) {
+			statusEl.textContent = text;
+		}
+	}
+
+	function getSingleModelPosition() {
+		return [116.24433782743151, 40.07330251849555, 0];
+	}
+
+	function getInstanceBasePosition() {
+		return [116.2473378274315, 40.07330251849555, 0];
+	}
+
+	function focusToModels() {
+		if (!map || !map.easeTo) {
+			return;
+		}
+
+		map.easeTo({
+			center: [116.24433782743151, 40.07330251849555],
+			zoom: 17.2,
+			pitch: 68.0,
+			bearing: -30,
+			duration: 600
+		});
+	}
+
+	function deg2rad(deg) {
+		return deg * Math.PI / 180;
+	}
+
+	function applyEulerRotationByOrder(matrix, x, y, z, order) {
+		for (var i = 0; i < order.length; i++) {
+			var axis = order[i];
+			if (axis === "X") {
+				matrix.rotateX(deg2rad(x));
+			} else if (axis === "Y") {
+				matrix.rotateY(deg2rad(y));
+			} else {
+				matrix.rotateZ(deg2rad(z));
+			}
+		}
+	}
+
+	function createQuaternionFromEulerDegrees(x, y, z, order, flipYZ) {
+		var matrix = new minemap.Math.Matrix4();
+		if (flipYZ) {
+			matrix.rotateX(deg2rad(90));
+		}
+		applyEulerRotationByOrder(matrix, x, y, z, order);
+		return new minemap.Math.Quaternion().fromRotationMatrix4(matrix);
+	}
+
+	function createQuaternionFromHPRDegrees(heading, pitch, roll, flipYZ) {
+		var hpr = minemap.Math.HeadingPitchRoll.fromDegrees(heading, pitch, roll);
+		if (!flipYZ) {
+			return new minemap.Math.Quaternion().fromHeadingPitchRoll(hpr);
+		}
+
+		var matrix = new minemap.Math.Matrix4();
+		matrix.rotateX(deg2rad(90));
+		var hprQuaternion = new minemap.Math.Quaternion().fromHeadingPitchRoll(hpr);
+		var hprMatrix = new minemap.Math.Matrix4().fromQuaternion(hprQuaternion);
+		matrix.multiplyRight(hprMatrix);
+		return new minemap.Math.Quaternion().fromRotationMatrix4(matrix);
+	}
+
+	function toHeadingPitchRollDegrees(quaternion) {
+		var hpr = minemap.Math.HeadingPitchRoll.fromQuaternion(quaternion);
+		return {
+			heading: hpr.heading * 180 / Math.PI,
+			pitch: hpr.pitch * 180 / Math.PI,
+			roll: hpr.roll * 180 / Math.PI
+		};
+	}
+
+	function buildInstanceRotations() {
+		var count = 4;
+		var result = [];
+		for (var i = 0; i < count; i++) {
+			if (settings.instanceDataMode === "euler") {
+				result.push(new minemap.Math.Vector3(settings.instanceX, settings.instanceY, settings.instanceZ));
+			} else {
+				result.push(minemap.Math.HeadingPitchRoll.fromDegrees(settings.instanceX, settings.instanceY, settings.instanceZ));
+			}
+		}
+		return result;
+	}
+
+	function removeModelIfExists(id) {
+		var model = map.getSceneComponent(id);
+		if (model) {
+			map.removeSceneComponent(id);
+		}
+	}
+
+	function buildInstancePositions() {
+		var base = getInstanceBasePosition();
+		var baseLng = base[0];
+		var baseLat = base[1];
+		return [
+			new minemap.Math.Vector3(baseLng - 0.001, baseLat - 0.001, 0),
+			new minemap.Math.Vector3(baseLng, baseLat - 0.001, 0),
+			new minemap.Math.Vector3(baseLng - 0.001, baseLat, 0),
+			new minemap.Math.Vector3(baseLng, baseLat, 0)
+		];
+	}
+
+	function createRuntimeInstanceRotationValue() {
+		if (settings.instanceDataMode === "euler") {
+			return new minemap.Math.Vector3(
+				settings.instanceX,
+				settings.instanceY,
+				settings.instanceZ
+			);
+		}
+
+		return minemap.Math.HeadingPitchRoll.fromDegrees(
+			settings.instanceX,
+			settings.instanceY,
+			settings.instanceZ
+		);
+	}
+
+	function applySelectionHighlight() {
+		if (sceneState.singleModel) {
+			if (settings.selectedModel === "single") {
+				sceneState.singleModel.showBoundingBox();
+			} else {
+				sceneState.singleModel.hideBoundingBox();
+			}
+		}
+
+		if (!sceneState.instanceModel || !sceneState.instanceModel.modelInstanceCollection) {
+			return;
+		}
+
+		var instances = sceneState.instanceModel.modelInstanceCollection.instances;
+		instances.forEach(function (instance) {
+			instance.color = new minemap.Color(0, 0, 0, 0);
+		});
+
+		if (settings.selectedModel === "instance") {
+			var selected = sceneState.instanceModel.modelInstanceCollection.getInstance(
+				settings.selectedInstanceIndex
+			);
+			if (selected) {
+				selected.color = new minemap.Color(1, 0.85, 0.1, 1);
+			}
+		}
+	}
+
+	function updateInstanceTransformOnly() {
+		if (!sceneState.instanceModel || !sceneState.instanceModel.modelInstanceCollection) {
+			return;
+		}
+
+		var runtimeRotation = createRuntimeInstanceRotationValue();
+		var runtimeScale = new minemap.Math.Vector3(
+			settings.instanceScale,
+			settings.instanceScale,
+			settings.instanceScale
+		);
+
+		var instances = sceneState.instanceModel.modelInstanceCollection.instances;
+		instances.forEach(function (instance) {
+			instance.rotation = runtimeRotation.clone ? runtimeRotation.clone() : runtimeRotation;
+			instance.scale = runtimeScale;
+		});
+
+		applySelectionHighlight();
+		map.repaint = true;
+		updateMiniViewer();
+	}
+
+	function rebuildSceneModels(shouldFocus) {
+		if (!map.loaded()) {
+			return;
+		}
+		shouldFocus = !!shouldFocus;
+		setStatus("rebuilding models...");
+
+		removeModelIfExists("rotation-single-model");
+		removeModelIfExists("rotation-instance-model");
+
+		sceneState.singleModel = map.addSceneComponent({
+			id: "rotation-single-model",
+			type: "3d-model",
+			data: "../data/2.0/potato/xihongshi.glb",
+			modelFolder: "../data/2.0/potato/",
+			position: getSingleModelPosition(),
+			scale: [100, 100, 100],
+			minimumPixelSize: 96,
+			rotation: [settings.singleX, settings.singleY, settings.singleZ],
+			rotationOrder: settings.rotationOrder,
+			flipYZ: settings.flipYZ,
+			loaded: function () {
+				setStatus("single model loaded");
+				applySelectionHighlight();
+				if (shouldFocus) {
+					focusToModels();
+				}
+			}
+		});
+
+		var positions = buildInstancePositions();
+		var scales = [
+			new minemap.Math.Vector3(settings.instanceScale, settings.instanceScale, settings.instanceScale),
+			new minemap.Math.Vector3(settings.instanceScale, settings.instanceScale, settings.instanceScale),
+			new minemap.Math.Vector3(settings.instanceScale, settings.instanceScale, settings.instanceScale),
+			new minemap.Math.Vector3(settings.instanceScale, settings.instanceScale, settings.instanceScale)
+		];
+
+		sceneState.instanceModel = map.addSceneComponent({
+			id: "rotation-instance-model",
+			type: "3d-model",
+			data: "../data/2.0/potato/xihongshi.glb",
+			modelFolder: "../data/2.0/potato/",
+			positions: positions,
+			rotations: buildInstanceRotations(),
+			scales: scales,
+			instanceNames: ["instance-0", "instance-1", "instance-2", "instance-3"],
+			shows: [true, true, true, true],
+			minimumPixelSize: 96,
+			rotationOrder: settings.rotationOrder,
+			flipYZ: settings.flipYZ,
+			loaded: function () {
+				setStatus("instance model loaded");
+				applySelectionHighlight();
+				if (shouldFocus) {
+					focusToModels();
+				}
+			}
+		});
+
+		map.repaint = true;
+		updateMiniViewer();
+	}
+
+	function updateSingleTransformOnly() {
+		if (!sceneState.singleModel) {
+			return;
+		}
+
+		sceneState.singleModel.rotation = [settings.singleX, settings.singleY, settings.singleZ];
+		map.repaint = true;
+		updateMiniViewer();
+	}
+
+	var mini = {
+		views: {},
+		readout: document.getElementById("mini-readout")
+	};
+
+	function createMiniView(canvasId) {
+		var canvas = document.getElementById(canvasId);
+		var renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, alpha: true });
+		renderer.setPixelRatio(window.devicePixelRatio || 1);
+
+		var scene = new THREE.Scene();
+		var camera = new THREE.PerspectiveCamera(40, 1, 0.1, 100);
+		camera.position.set(2.2, 2.2, 2.2);
+		camera.lookAt(0, 0, 0);
+
+		var ambient = new THREE.AmbientLight(0xffffff, 0.9);
+		scene.add(ambient);
+		var dir = new THREE.DirectionalLight(0xffffff, 0.45);
+		dir.position.set(5, 6, 4);
+		scene.add(dir);
+
+		var origin = new THREE.Mesh(
+			new THREE.SphereGeometry(0.04, 16, 16),
+			new THREE.MeshBasicMaterial({ color: 0xf2f4f8 })
+		);
+		scene.add(origin);
+
+		function createLabelSprite(text, backgroundColor) {
+			var labelCanvas = document.createElement("canvas");
+			labelCanvas.width = 256;
+			labelCanvas.height = 128;
+			var context = labelCanvas.getContext("2d");
+			context.clearRect(0, 0, labelCanvas.width, labelCanvas.height);
+			context.fillStyle = backgroundColor;
+			context.beginPath();
+			context.roundRect(16, 20, 224, 88, 18);
+			context.fill();
+			context.fillStyle = "#ffffff";
+			context.font = "bold 54px Consolas, monospace";
+			context.textAlign = "center";
+			context.textBaseline = "middle";
+			context.fillText(text, 128, 64);
+
+			var texture = new THREE.CanvasTexture(labelCanvas);
+			texture.needsUpdate = true;
+			var material = new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: false });
+			var sprite = new THREE.Sprite(material);
+			sprite.scale.set(0.32, 0.16, 1);
+			return sprite;
+		}
+
+		function createAxisRig() {
+			var rig = new THREE.Group();
+			var axisLength = 1.02;
+
+			var xArrow = new THREE.ArrowHelper(new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 0, 0), axisLength, 0xff4d4d, 0.16, 0.08);
+			var yArrow = new THREE.ArrowHelper(new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0, 0), axisLength, 0x4dd16f, 0.16, 0.08);
+			var zArrow = new THREE.ArrowHelper(new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, 0, 0), axisLength, 0x4da3ff, 0.16, 0.08);
+
+			xArrow.cone.material.depthTest = false;
+			yArrow.cone.material.depthTest = false;
+			zArrow.cone.material.depthTest = false;
+			xArrow.line.material.depthTest = false;
+			yArrow.line.material.depthTest = false;
+			zArrow.line.material.depthTest = false;
+
+			var xLabel = createLabelSprite("x", "rgba(255,77,77,0.92)");
+			xLabel.position.set(axisLength + 0.14, 0, 0);
+			var yLabel = createLabelSprite("y", "rgba(77,209,111,0.92)");
+			yLabel.position.set(0, axisLength + 0.14, 0);
+			var zLabel = createLabelSprite("z", "rgba(77,163,255,0.92)");
+			zLabel.position.set(0, 0, axisLength + 0.14);
+
+			rig.add(xArrow);
+			rig.add(yArrow);
+			rig.add(zArrow);
+			rig.add(xLabel);
+			rig.add(yLabel);
+			rig.add(zLabel);
+
+			return rig;
+		}
+
+		var rig = createAxisRig();
+		scene.add(rig);
+
+		return {
+			canvas: canvas,
+			renderer: renderer,
+			scene: scene,
+			camera: camera,
+			rig: rig
+		};
+	}
+
+	function resizeMiniView(view) {
+		var w = view.canvas.clientWidth;
+		var h = view.canvas.clientHeight;
+		if (!w || !h) {
+			return;
+		}
+		view.renderer.setSize(w, h, false);
+		view.camera.aspect = w / h;
+		view.camera.updateProjectionMatrix();
+	}
+
+	function initMiniViewer() {
+		mini.views.enu = createMiniView("mini-canvas-enu");
+		mini.views.euler = createMiniView("mini-canvas-euler");
+		mini.views.hpr = createMiniView("mini-canvas-hpr");
+
+		resizeMiniView(mini.views.enu);
+		resizeMiniView(mini.views.euler);
+		resizeMiniView(mini.views.hpr);
+
+		window.addEventListener("resize", function () {
+			resizeMiniView(mini.views.enu);
+			resizeMiniView(mini.views.euler);
+			resizeMiniView(mini.views.hpr);
+		});
+
+		animateMini();
+	}
+
+	function getSelectedQuaternionAndText() {
+		var eulerQ;
+		var hprQ;
+		if (settings.selectedModel === "single") {
+			eulerQ = createQuaternionFromEulerDegrees(
+				settings.singleX,
+				settings.singleY,
+				settings.singleZ,
+				settings.rotationOrder,
+				settings.flipYZ
+			);
+			hprQ = createQuaternionFromHPRDegrees(settings.singleZ, settings.singleY, settings.singleX, settings.flipYZ);
+		} else {
+			eulerQ = createQuaternionFromEulerDegrees(
+				settings.instanceX,
+				settings.instanceY,
+				settings.instanceZ,
+				settings.rotationOrder,
+				settings.flipYZ
+			);
+			hprQ = createQuaternionFromHPRDegrees(
+				settings.instanceX,
+				settings.instanceY,
+				settings.instanceZ,
+				settings.flipYZ
+			);
+		}
+
+		var selected = settings.instanceDataMode === "euler" && settings.selectedModel !== "single" ? eulerQ : hprQ;
+		if (settings.selectedModel === "single") {
+			selected = eulerQ;
+		}
+
+		var selectedHprDeg = toHeadingPitchRollDegrees(selected);
+		var targetText =
+			settings.selectedModel === "single"
+				? "single"
+				: "instance-" + settings.selectedInstanceIndex;
+		var text = "target: " + targetText + "\n" +
+			"mode: " + settings.instanceDataMode + "\n" +
+			"order: " + settings.rotationOrder + "\n" +
+			"flipYZ: " + settings.flipYZ + "\n" +
+			"H: " + selectedHprDeg.heading.toFixed(2) + "\n" +
+			"P: " + selectedHprDeg.pitch.toFixed(2) + "\n" +
+			"R: " + selectedHprDeg.roll.toFixed(2);
+
+		return {
+			eulerQ: eulerQ,
+			hprQ: hprQ,
+			selectedQ: selected,
+			text: text
+		};
+	}
+
+	function copyQuaternionToThree(minemapQuaternion, threeObject) {
+		threeObject.quaternion.set(
+			minemapQuaternion[0],
+			minemapQuaternion[1],
+			minemapQuaternion[2],
+			minemapQuaternion[3]
+		);
+	}
+
+	function updateMiniViewer() {
+		if (!mini.views.enu || !mini.views.euler || !mini.views.hpr) {
+			return;
+		}
+
+		var data = getSelectedQuaternionAndText();
+		mini.views.enu.rig.quaternion.identity();
+		copyQuaternionToThree(data.eulerQ, mini.views.euler.rig);
+		copyQuaternionToThree(data.hprQ, mini.views.hpr.rig);
+
+		var selectionModeText =
+			settings.selectedModel === "single"
+				? "Single model"
+				: "Instance #" + settings.selectedInstanceIndex;
+		var hprExplain = "HPR = heading / pitch / roll in local ENU. It is a fixed semantic rotation, not a user-selectable Euler order.";
+		var eulerExplain = "Euler = order-driven rotation. In this demo you can switch the order among 6 permutations.";
+		var text =
+			selectionModeText + "\n" +
+			"rotationOrder: " + settings.rotationOrder + "\n" +
+			"flipYZ: " + settings.flipYZ + "\n" +
+			"instance data: " + settings.instanceDataMode + "\n" +
+			"HPR vs Euler: not identical\n" +
+			hprExplain + "\n" +
+			eulerExplain + "\n" +
+			"Tip: x/y/z labels are on arrows, no grid overlay.";
+		mini.readout.textContent = text;
+
+		if (settings.showAxisMode === "selected") {
+			mini.views.enu.rig.visible = settings.selectedModel === "single";
+			mini.views.euler.rig.visible = true;
+			mini.views.hpr.rig.visible = true;
+		} else {
+			mini.views.enu.rig.visible = true;
+			mini.views.euler.rig.visible = true;
+			mini.views.hpr.rig.visible = true;
+		}
+	}
+
+	function animateMini() {
+		requestAnimationFrame(animateMini);
+		if (mini.views.enu) {
+			mini.views.enu.renderer.render(mini.views.enu.scene, mini.views.enu.camera);
+		}
+		if (mini.views.euler) {
+			mini.views.euler.renderer.render(mini.views.euler.scene, mini.views.euler.camera);
+		}
+		if (mini.views.hpr) {
+			mini.views.hpr.renderer.render(mini.views.hpr.scene, mini.views.hpr.camera);
+		}
+	}
+
+	function initGUI() {
+		var gui = new lil.GUI({ title: "SceneModel Rotation Controls" });
+
+		var globalFolder = gui.addFolder("Global Config");
+		globalFolder
+			.add(settings, "rotationOrder", rotationOrders)
+			.name("rotationOrder")
+			.onChange(function () {
+				rebuildSceneModels(false);
+			});
+		globalFolder.add(settings, "flipYZ").name("flipYZ").onChange(function () {
+			rebuildSceneModels(false);
+		});
+		globalFolder.add({ focus: focusToModels }, "focus").name("focus models");
+		globalFolder.add(
+			{
+				reload: function () {
+					rebuildSceneModels(true);
+				}
+			},
+			"reload"
+		).name("reload models");
+		globalFolder.open();
+
+		var singleFolder = gui.addFolder("Single (Non-Instance)");
+		singleFolder.add(settings, "singleX", -180, 180, 1).name("rotX").onChange(updateSingleTransformOnly);
+		singleFolder.add(settings, "singleY", -180, 180, 1).name("rotY").onChange(updateSingleTransformOnly);
+		singleFolder.add(settings, "singleZ", -180, 180, 1).name("rotZ").onChange(updateSingleTransformOnly);
+		singleFolder.open();
+
+		var instanceFolder = gui.addFolder("Instance");
+		instanceFolder
+			.add(settings, "instanceDataMode", ["hpr", "euler"])
+			.name("dataMode")
+			.onChange(function () {
+				rebuildSceneModels(false);
+			});
+		instanceFolder.add(settings, "instanceX", -180, 180, 1).name("a").onChange(updateInstanceTransformOnly);
+		instanceFolder.add(settings, "instanceY", -180, 180, 1).name("b").onChange(updateInstanceTransformOnly);
+		instanceFolder.add(settings, "instanceZ", -180, 180, 1).name("c").onChange(updateInstanceTransformOnly);
+		instanceFolder.add(settings, "instanceScale", 20, 160, 1).name("scale").onChange(updateInstanceTransformOnly);
+		instanceFolder.open();
+
+		var axisFolder = gui.addFolder("Axis Visualizer");
+		axisFolder.add(settings, "selectedModel", ["single", "instance"])
+			.name("target")
+			.onChange(updateMiniViewer);
+		axisFolder
+			.add(settings, "selectedInstanceIndex", [0, 1, 2, 3])
+			.name("instanceIndex")
+			.onChange(function () {
+				settings.selectedModel = "instance";
+				applySelectionHighlight();
+				updateMiniViewer();
+			});
+		axisFolder.add(settings, "showAxisMode", ["all", "selected"])
+			.name("axisMode")
+			.onChange(updateMiniViewer);
+		axisFolder.open();
+	}
+
+	map.on("load", function () {
+		map.addSource("IMAGERY_SOURCE", {
+			type: "raster",
+			tiles: ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"],
+			tileSize: 512
+		});
+
+		map.addLayer({
+			id: "IMAGERY",
+			type: "raster",
+			source: "IMAGERY_SOURCE",
+			minzoom: 1,
+			maxzoom: 23
+		});
+
+		rebuildSceneModels(true);
+
+		setTimeout(function () {
+			if (!sceneState.singleModel || !sceneState.instanceModel) {
+				rebuildSceneModels(true);
+			}
+		}, 500);
+
+		map.on("click", function (e) {
+			var picked = map.getFeatureByGPUPick(e.point);
+			if (picked && picked instanceof minemap.ModelInstance) {
+				settings.selectedModel = "instance";
+				settings.selectedInstanceIndex = picked.instanceId;
+				setStatus("picked instance-" + settings.selectedInstanceIndex);
+			} else {
+				settings.selectedModel = "single";
+				setStatus("picked single model");
+			}
+
+			applySelectionHighlight();
+			updateMiniViewer();
+			map.repaint = true;
+		});
+	});
+
+	initGUI();
+	initMiniViewer();
+	updateMiniViewer();
+</script>
+</body>
+</html>

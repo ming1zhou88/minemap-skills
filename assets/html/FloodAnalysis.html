@@ -98,7 +98,7 @@
 			text-shadow: 0 0 5px rgba(102, 204, 255, 0.6);
 			position: relative;
 		}
-		
+
 		.time-labels span {
 			position: relative;
 			padding: 2px 4px;
@@ -110,14 +110,14 @@
 			color: #ffffff;
 			font-weight: 600;
 		}
-		
+
 		.time-labels span:hover {
 			background: rgba(0, 180, 255, 0.5);
 			border-color: #00ccff;
 			box-shadow: 0 0 12px rgba(0, 200, 255, 0.8);
 			transform: translateY(-2px);
 		}
-		
+
 		.time-labels span::before {
 			content: '';
 			position: absolute;
@@ -130,24 +130,24 @@
 			border-radius: 1px;
 			box-shadow: 0 0 5px rgba(0, 200, 255, 0.6);
 		}
-		
+
 		/* 科技感动画效果 */
 		@keyframes pulse {
 			0% { box-shadow: 0 0 15px rgba(0, 102, 204, 0.5), inset 0 0 10px rgba(0, 255, 255, 0.2); }
 			50% { box-shadow: 0 0 25px rgba(0, 255, 255, 0.8), inset 0 0 15px rgba(0, 255, 255, 0.3); }
 			100% { box-shadow: 0 0 15px rgba(0, 102, 204, 0.5), inset 0 0 10px rgba(0, 255, 255, 0.2); }
 		}
-		
+
 		@keyframes glow {
 			0% { border-color: #00ffff; }
 			50% { border-color: #66ccff; }
 			100% { border-color: #00ffff; }
 		}
-		
+
 		#ratioContainer {
 			animation: pulse 3s ease-in-out infinite;
 		}
-		
+
 		#ratioContainer::before {
 			content: '';
 			position: absolute;
@@ -161,7 +161,7 @@
 			animation: glow 2s linear infinite;
 			background-size: 400% 400%;
 		}
-		
+
 		.time-slider-container::after {
 			content: '';
 			position: absolute;
@@ -174,7 +174,7 @@
 			pointer-events: none;
 			opacity: 0.3;
 		}
-		
+
 		.auto-play-button {
 			position: absolute;
 			top: -45px;
@@ -192,19 +192,19 @@
 			text-shadow: 0 0 5px rgba(0, 200, 255, 0.8);
 			user-select: none;
 		}
-		
+
 		.auto-play-button:hover {
 			background: linear-gradient(135deg, rgba(0, 150, 200, 0.9), rgba(0, 200, 255, 0.9));
 			box-shadow: 0 0 20px rgba(0, 200, 255, 0.8);
 			transform: translateY(-1px);
 		}
-		
+
 		.auto-play-button.playing {
 			background: linear-gradient(135deg, rgba(255, 100, 0, 0.8), rgba(255, 150, 0, 0.8));
 			border-color: #ff6600;
 			box-shadow: 0 0 15px rgba(255, 150, 0, 0.6);
 		}
-		
+
 		.auto-play-button.playing:hover {
 			background: linear-gradient(135deg, rgba(255, 150, 0, 0.9), rgba(255, 200, 0, 0.9));
 			box-shadow: 0 0 25px rgba(255, 150, 0, 0.8);
@@ -241,7 +241,7 @@
 	window.minemap = minemap;
 	minemap.domainUrl = 'https://minemap.minedata.cn';
 	minemap.dataDomainUrl = 'https://minemap.minedata.cn';
-	minemap.serverDomainUrl = 'https://sd-data.minedata.cn';
+	minemap.serverDomainUrl = 'https://ol-data.minedata.cn';
 	minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
 	minemap.serviceUrl = 'https://service.minedata.cn/service';
 
@@ -637,7 +637,7 @@
 		// 创建时间标签
 		const timeLabels = document.createElement('div');
 		timeLabels.className = 'time-labels';
-		
+
 		// 生成更多刻度标记
 		let labelHTML = '';
 		const tickCount = Math.min(times.length, 8); // 最多显示8个刻度
@@ -678,13 +678,13 @@
 				isPlaying = true;
 				autoPlayButton.textContent = '⏸ 暂停';
 				autoPlayButton.classList.add('playing');
-				
+
 				playInterval = setInterval(() => {
 					currentIndex++;
 					if (currentIndex >= times.length) {
 						currentIndex = 0; // 循环播放
 					}
-					
+
 					slider.value = currentIndex;
 					floodAnalysis.height = Number(heightArray[currentIndex]);
 					timeDisplay.textContent = '当前时间: ' + times[currentIndex];

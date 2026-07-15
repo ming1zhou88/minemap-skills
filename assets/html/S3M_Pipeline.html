@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+	<title>S3M</title>
+	<link rel="stylesheet" href="../style/demo.css" />
+	<!-- 引入MineMap API插件 -->
+	<link rel="stylesheet" href="http://192.168.152.123/minemap-engine/v4.0.0/minemap.css" />
+	<script src="../../dist/minemap-dev.js"></script>
+	<script src="../js/lil-gui.umd.min.js"></script>
+	<style>
+		#map {
+			width: 100%;
+			height: 100%;
+		}
+	</style>
+</head>
+
+<body>
+<div id="map"></div>
+<script>
+	/**
+	 * 全局参数设置
+	 */
+	minemap.domainUrl = "https://minedata.cn";
+	minemap.dataDomainUrl = "https://minedata.cn";
+	minemap.serverDomainUrl = "https://minedata.cn";
+	minemap.spriteUrl = 'http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite';
+	minemap.serviceUrl = "https://minedata.cn/service/";
+	minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+	minemap.solution = 11001;
+	window.minemapCDN = "http://192.168.152.123/minemap-engine/minemap-CDN"; // 用于请求解析crn纹理的wasm文件
+
+	// 定义空底图样式
+	var style = {
+		"glyphs": "minemap://fonts/{fontstack}/{range}",
+		"sprite": "minemap://sprite/sprite",
+		"sources": {},
+		"layers": [],
+		"version": 8
+	};
+	var map = new minemap.Map({
+		container: 'map',
+		style,
+		center: [116.46, 39.92],
+		zoom: 0.3,
+		pitch: 0,
+		maxZoom: 22,
+		minZoom: 1,
+		projection: 'MERCATOR',
+		// showDebugBoundingBox: true
+	});
+	map.repaint = true;
+	map.on('load', function () {
+		map.addSource("IMAGERY_SOURCE", {
+			"type": "raster",//数据源类型：栅格数据源
+			"tiles": ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+			"tileSize": 512,//瓦片尺寸
+		});
+
+		map.addLayer({
+			"id": "IMAGERY",
+			"type": "raster", //图层类型为"raster"
+			"source": "IMAGERY_SOURCE",
+			"minzoom": 3,
+			"maxzoom": 23,
+		});
+
+		const tileset = map.addSceneComponent({
+			id: "serve",
+			type: "s3m", // 类型指定为s3m
+			url: 'https://www.supermapol.com/realspace/services/3D-0725RVM-2/rest/realspace/datas/PI_UV/config' // s3m数据地址
+		})
+		const tileset2 = map.addSceneComponent({
+			id: "serve2",
+			type: "s3m", // 类型指定为s3m
+			url: 'https://www.supermapol.com/realspace/services/3D-0725RVM-2/rest/realspace/datas/Other_UV/config' // s3m数据地址
+		})
+		tileset2.readyPromise.then(function() {
+			map.transform.activeCamera.setView({
+				// destination : minemap.Math.Vector3.fromDegrees(116.00339308118907, 40.003078528953267, 1000)
+				destination : new minemap.Math.Vector3(-2145118.1419003047, 4396997.55436596, 4078481.1356340786),
+				orientation : {
+					heading : 6.185697947781632,
+					pitch : -0.5868562683679626,
+					roll : 6.28279807331585
+				}
+			})
+		})
+
+		//gui
+		const gui = new lil.GUI({ title: "控制" }); //外部UI
+		const props = {
+			移除S3M: remove,
+			光照小时: 12,
+			光照分钟: 0,
+			使用当前时间: useCurrentSunTime
+		};
+		gui.add(props, "移除S3M");
+
+		const hourController = gui
+			.add(props, "光照小时", 0, 23, 1)
+			.name("太阳小时");
+		const minuteController = gui
+			.add(props, "光照分钟", 0, 59, 1)
+			.name("太阳分钟");
+		gui.add(props, "使用当前时间").name("太阳当前时间");
+
+		hourController.onChange(updateSunLightTimestamp);
+		minuteController.onChange(updateSunLightTimestamp);
+
+		function remove() {
+			map.removeSceneComponent('serve');
+		}
+
+		function updateSunLightTimestamp() {
+			const date = new Date();
+			date.setHours(props.光照小时, props.光照分钟, 0, 0);
+			map.setSunLightTimestamp(date.getTime());
+		}
+
+		function useCurrentSunTime() {
+			const now = new Date();
+			props.光照小时 = now.getHours();
+			props.光照分钟 = now.getMinutes();
+			hourController.updateDisplay();
+			minuteController.updateDisplay();
+			updateSunLightTimestamp();
+		}
+
+		updateSunLightTimestamp();
+	})
+
+</script>
+</body>

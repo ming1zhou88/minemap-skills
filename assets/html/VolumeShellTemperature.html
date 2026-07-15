@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+	<meta charset="UTF-8"/>
+	<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no"/>
+	<title>VolumeShell 温度体渲染</title>
+	<link rel="stylesheet" href="../../dist/minemap.css"/>
+	<script src="../../dist/minemap-dev.js"></script>
+	<style>
+		html,
+		body,
+		#map {
+			margin: 0;
+			padding: 0;
+			width: 100%;
+			height: 100%;
+		}
+
+		.panel {
+			position: absolute;
+			top: 16px;
+			left: 16px;
+			z-index: 10;
+			width: 280px;
+			padding: 14px;
+			border-radius: 10px;
+			background: rgba(14, 20, 32, 0.82);
+			backdrop-filter: blur(6px);
+			color: #e7edf8;
+			font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+			font-size: 13px;
+		}
+
+		.panel h3 {
+			margin: 0 0 10px;
+			font-size: 15px;
+			font-weight: 600;
+		}
+
+		.row {
+			display: grid;
+			grid-template-columns: 86px 1fr;
+			gap: 8px;
+			align-items: center;
+			margin-bottom: 10px;
+		}
+
+		.row label {
+			color: #c1ccdf;
+		}
+
+		.row input,
+		.row select {
+			width: 100%;
+		}
+
+		.value {
+			font-variant-numeric: tabular-nums;
+			color: #9bd5ff;
+			font-weight: 600;
+		}
+	</style>
+</head>
+
+<body>
+<div id="map"></div>
+<div class="panel">
+	<h3>温度壳体体渲染</h3>
+	<div class="row">
+		<label for="dataType">数据类型</label>
+		<select id="dataType">
+			<option value="temperature" selected>取色模式</option>
+			<option value="temperature_rgba">Float映射</option>
+		</select>
+	</div>
+	<div class="row">
+		<label for="timeIndex">时间选择</label>
+		<select id="timeIndex">
+			<option value="0">2025-12-01 00:00</option>
+			<option value="1">2025-12-01 06:00</option>
+			<option value="2">2025-12-01 12:00</option>
+			<option value="3">2025-12-01 18:00</option>
+			<option value="4">2025-12-02 00:00</option>
+		</select>
+	</div>
+	<div class="row">
+		<label for="scale">高度缩放</label>
+		<input id="scale" type="range" min="0.1" max="50" step="0.1" value="8"/>
+	</div>
+	<div class="row">
+		<label>scale</label>
+		<div id="scaleValue" class="value">2.0x</div>
+	</div>
+	<div class="row">
+		<label for="alpha">全局透明度</label>
+		<input id="alpha" type="range" min="0" max="1" step="0.01" value="0.45"/>
+	</div>
+	<div class="row">
+		<label>alpha</label>
+		<div id="alphaValue" class="value">0.45</div>
+	</div>
+	<div class="row">
+		<label for="mode">采样模式</label>
+		<select id="mode">
+			<option value="0">取色模式</option>
+			<option value="1">数值映射</option>
+		</select>
+	</div>
+	<div class="row">
+		<label for="interpolation">插值</label>
+		<select id="interpolation">
+			<option value="1">linear</option>
+			<option value="0">nearest</option>
+		</select>
+	</div>
+	<div class="row">
+		<label for="debugMode">调试模式</label>
+		<select id="debugMode">
+			<option value="0">正常渲染</option>
+			<option value="1">外层求交</option>
+			<option value="2">浮点重建</option>
+		</select>
+	</div>
+	<div class="row">
+		<label for="flipVertical">采样垂直翻转</label>
+		<select id="flipVertical">
+			<option value="1" selected>翻转</option>
+			<option value="0">不翻转</option>
+		</select>
+	</div>
+	<div class="row">
+		<label for="flipY">纹理Y轴翻转</label>
+		<select id="flipY">
+			<option value="0">不翻转</option>
+			<option value="1">翻转</option>
+		</select>
+	</div>
+</div>
+
+<script>
+	minemap.domainUrl = "https://minedata.cn";
+	minemap.dataDomainUrl = "https://minedata.cn";
+	minemap.serverDomainUrl = "https://minedata.cn";
+	minemap.spriteUrl = "https://minedata.cn/minemapapi/v4.0.0/sprite/sprite";
+	minemap.serviceUrl = "https://minedata.cn/service/";
+	minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+	minemap.solution = 11001;
+
+	const style = {
+		glyphs: "minemap://fonts/{fontstack}/{range}",
+		sprite: "minemap://sprite/sprite",
+		sources: {},
+		layers: [],
+		version: 8
+	};
+
+	const map = new minemap.Map({
+		container: "map",
+		style,
+		center: [110.0, 25.0],
+		zoom: 2.35,
+		pitch: 48,
+		bearing: -10,
+		projection: "MERCATOR"
+	});
+
+	map.repaint = true;
+
+	// 时间文件夹列表
+	const timeFolders = [
+		"glo12_rg_6h-i_20251201-00h_3D-thetao_hcst_R20251210",
+		"glo12_rg_6h-i_20251201-06h_3D-thetao_hcst_R20251210",
+		"glo12_rg_6h-i_20251201-12h_3D-thetao_hcst_R20251210",
+		"glo12_rg_6h-i_20251201-18h_3D-thetao_hcst_R20251210",
+		"glo12_rg_6h-i_20251202-00h_3D-thetao_hcst_R20251210"
+	];
+
+	// 自定义URL生成器 - 完全通用，由调用方控制路径格式
+	function urlBuilder(timeIndex, dataType, depthIndex) {
+		const folder = timeFolders[timeIndex];
+		const id = String(depthIndex).padStart(3, "0");
+		return `../image/GLOBAL_ANALYSISFORECAST/${folder}/images/${dataType}/depth_${id}_${dataType}.webp`;
+	}
+
+	// 初始URL列表（只用于首次初始化）
+	function createInitialUrls() {
+		const urls = [];
+		for (let i = 0; i < 50; i++) {
+			urls.push(urlBuilder(0, "temperature", i));
+		}
+		return urls;
+	}
+
+	map.on("load", () => {
+		map.addSource("3D_SOURCE", {
+			type: "raster", //DEM的数据类型为"raster"
+			tiles: [
+				"https://ol-data-inner.minedata.cn:14435/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg?key=anonymous_user_key"
+			], //瓦片服务地址
+			tileSize: 512 //瓦片大小
+		});
+		map.addLayer({
+			type: "raster", //DEM的图层类型为"raster"
+			id: "3d-layer",
+			source: "3D_SOURCE",
+			minzoom: 1,
+			maxzoom: 20,
+			layout: {}
+		});
+		console.log("[Demo] Map loaded. Creating VolumeShellSceneComponent...");
+
+		const shell = new minemap.VolumeShellSceneComponent({
+			id: "temperature-shell",
+			layerUrls: createInitialUrls(),
+			urlBuilder: urlBuilder,
+			timeFolders: timeFolders,
+			timeIndex: 0,
+			dataType: "temperature",
+			minHeight: 1000,
+			maxHeight: 100000,
+			heightScale: 2,
+			alpha: 0.45,
+			mode: 0,
+			dataMin: -10,
+			dataMax: 40,
+			interpolationMode: 1,
+			maxTextureBytes: 96 * 1024 * 1024
+		});
+
+		console.log("[Demo] VolumeShellSceneComponent created. Adding to map...");
+
+		map.addSceneComponent(shell);
+		console.log("[Demo] VolumeShellSceneComponent added. Waiting for initialization...");
+
+		const scaleInput = document.getElementById("scale");
+		const alphaInput = document.getElementById("alpha");
+		const modeInput = document.getElementById("mode");
+		const interpolationInput = document.getElementById("interpolation");
+		const debugModeInput = document.getElementById("debugMode");
+		const flipVerticalInput = document.getElementById("flipVertical");
+		const scaleValue = document.getElementById("scaleValue");
+		const alphaValue = document.getElementById("alphaValue");
+
+		// 数据类型切换
+		const dataTypeInput = document.getElementById("dataType");
+		dataTypeInput.addEventListener("change", (e) => {
+			shell.setDataType(e.target.value);
+		});
+
+		// 时间切换
+		const timeIndexInput = document.getElementById("timeIndex");
+		timeIndexInput.addEventListener("change", (e) => {
+			shell.setTimeIndex(Number(e.target.value));
+		});
+
+		scaleInput.addEventListener("input", (e) => {
+			const value = Number(e.target.value);
+			shell.setHeightScale(value);
+			scaleValue.textContent = `${value.toFixed(1)}x`;
+		});
+
+		alphaInput.addEventListener("input", (e) => {
+			const value = Number(e.target.value);
+			shell.setOpacity(value);
+			alphaValue.textContent = value.toFixed(2);
+		});
+
+		modeInput.addEventListener("change", (e) => {
+			shell.setMode(Number(e.target.value));
+		});
+
+		interpolationInput.addEventListener("change", (e) => {
+			shell.setInterpolation(Number(e.target.value));
+		});
+
+		debugModeInput.addEventListener("change", (e) => {
+			shell.setDebugMode(Number(e.target.value) === 1);
+		});
+
+		flipVerticalInput.addEventListener("change", (e) => {
+			shell.setFlipVertical(Number(e.target.value) === 1);
+		});
+
+// flipY 需要重新加载纹理才能生效
+		const flipYInput = document.getElementById("flipY");
+		flipYInput.addEventListener("change", (e) => {
+			shell.flipY = Number(e.target.value) === 1;
+			// 重新加载纹理
+			shell._initTextures().catch((err) => {
+				console.error("Failed to reload textures:", err);
+			});
+		});
+	});
+</script>
+</body>
+
+</html>

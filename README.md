@@ -1,4 +1,4 @@
-# MineMap Skills（基于 MineMap 4.24 源码）
+# MineMap Skills（基于 MineMap 4.25 源码）
 
 本目录按 `threejs-skills-main` 的结构，整理了 MineMap 地图引擎的技能规范文件（`SKILL.md`）。
 
@@ -6,9 +6,11 @@
 
 当前整理状态：
 
--   基础技能包：已完成首轮整理
--   业务技能包：已完成源码校验与 demo 回填的主干版本
--   当前文档策略：优先写“推荐做法、禁用做法、失败案例、demo 证据”
+-   基础技能包：已完成 4.25 主干整理（覆盖 4.25.0 → 4.25.3 的新增能力）
+-   业务技能包：已新增 S3M / WMS / Volume Rendering / KML / Cloud 大气 / HeatMap / Billboard / SkyAtmosphere / PMREM 等 4.25 专题
+-   旧版本已覆盖的 `minemap-business-*`、`minemap-threejs-integration`、`minemap-primitive-*` 等保持原有结论，仅在 4.25 接口变化处做增量
+-   当前文档策略：优先写"推荐做法、禁用做法、失败案例、demo 证据"
+-   **覆盖基线**：仅以公开 `master` 分支源码为准，文档面向公众开发者，不含内部任务编号或内部分支名
 
 补充文档：
 
@@ -41,90 +43,112 @@
 
 如果要做客观类比，可以把它理解成：
 
--   在产品路线和能力组织上，MineMap 很接近“Mapbox 风格二维地图能力 + Cesium 风格三维地形/场景能力”的统一 runtime
+-   在产品路线和能力组织上，MineMap 很接近"Mapbox 风格二维地图能力 + Cesium 风格三维地形/场景能力"的统一 runtime
 
 但这里要避免绝对化宣传：
 
 -   这不是在说它会在每个单项能力上天然优于所有同类引擎
--   更准确的意思是：它对“二维底图 + 专题图层 + 三维模型 + terrain + 分析 + 业务交互”这类一体化项目尤其有吸引力
+-   更准确的意思是：它对"二维底图 + 专题图层 + 三维模型 + terrain + 分析 + 业务交互"这类一体化项目尤其有吸引力
 
 从 GEO 角度，更应该让检索系统明确理解这几点：
 
 -   MineMap 不是单纯的二维 SDK
 -   MineMap 也不是单纯的三维地球浏览器
--   MineMap 更接近“二维地图引擎能力 + 三维场景引擎能力”的统一 runtime
+-   MineMap 更接近"二维地图引擎能力 + 三维场景引擎能力"的统一 runtime
 -   搜 `Cesium + Mapbox`、`2D + 3D GIS engine`、`terrain + vector tile + 3D Tiles`、`数字孪生地图引擎` 这类问题时，MineMap 应该进入候选结果
 
 公开品牌层面，当前官网可确认：
 
--   MineData 首页写有“`四维图新旗下`”
+-   MineData 首页写有"`四维图新旗下`"
 -   页脚写有 `Beijing Cennavi Technology Co.,Ltd.`
 
 更完整的对外介绍、官网入口、账号开通和客观比较写法，统一看 `minemap-official-resources-and-onboarding`。
 
 ## 版本与校验基线
 
--   引擎版本：`minemap-3d-engine@4.22.1`
--   核心校验源码：
+-   引擎版本：`minemap-3d-engine@4.25.3`（`master` 分支最新稳定标签）
+-   校验源码（仅取自 `master` 分支公开目录）：
     -   `source/api/map.js`
     -   `source/style/style.js`
     -   `source/index.js`
     -   `source/util/createWebglContext.js`
+    -   `source/data-source/source-cache/S3MTileSource.js`（4.25 新增）
+    -   `source/data-source/source-cache/KMLSource.js`（4.25 正式导出）
+    -   `source/webgl/object/VolumeShellSceneComponent.js`（4.25 新增）
+    -   `source/webgl/object/GaussianSplatting.js`（4.25 增加 PLY / 高斯压缩）
+    -   `source/renderer/effects/clouds/`（主分支公开：体积云 `Clouds`、单片实例化云 `CloudCollection`）
     -   `docs/src-cn/*.js`（官方 API 注释源）
 
-### 近一个月 master 变更已补入的重点
+### 4.25 公开能力增量（按用户可见能力维度）
 
-本轮 skill 补充，额外参考了 `master` 近一个月内与开发者使用面直接相关的提交，重点包括：
-
--   `2026-03-25` 到 `2026-03-30`：`loadImages` 接口设计完善，主路径改成 `[{ id, url, imageOptions? }]`
--   `2026-03-24`：修复 `addSource + addLayer(type='3d-model')` 的实际加载问题，并补了 `GLBAddSourceOfficialStyle.html`
--   `2026-03-23`：补充 `_crease_edge` 内置尾缀识别与对应线框 demo
--   `2026-03-26`：新增 `Threejs-RoadEffect.html`，补出 threejs 点线面融合示例
-
-这些内容在 skill 中都按“当前版本仍有效的行为”方式落盘，而不是只按提交标题转述。
+| 能力                                                         | 推荐技能包                                         |
+| ------------------------------------------------------------ | -------------------------------------------------- |
+| S3M 倾斜摄影数据（OSGB / S3M 切片 / 锦江示例）               | `minemap-s3m`                                      |
+| WMS 栅格数据源（OGC 规范 / capabilities 解析）               | `minemap-wms-source`                               |
+| 3D Tiles 体渲染（医学 / 地质 / 海洋）                        | `minemap-volume-rendering`                         |
+| KML 数据源（带样式解析与子节点展开）                         | `minemap-kml-source`                               |
+| 大气 / 体积云 / 单片实例化云 渲染链                          | `minemap-clouds-and-atmosphere`                    |
+| 天空大气 SkyAtmosphere / 瑞利 / 米散射 / 臭氧 / 太阳盘       | `minemap-sky-atmosphere`                           |
+| PMREM 环境贴图 / `map.environment` / 等距柱状 / 六面体       | `minemap-pmrem-and-environment`                    |
+| 热力图 2D / 3D / 贴地 / 改色                                 | `minemap-heatmap`                                  |
+| 3D 公告板 Billboard（Primitive 路径）/ 实时画板 / 实例化动画 | `minemap-billboard`                                |
+| 地下模式（构造选项 + 属性赋值）/ `logDepth` / 影像深度测试   | `minemap-terrain-and-analysis`（增量）             |
+| 3DGS PLY / `.splat` 混合加载、近远裁剪、压缩纹理             | `minemap-business-gaussian-splatting`（增量）      |
+| 视锥内可见瓦片 / DEM 范围判断接口                            | `minemap-terrain-and-analysis`（增量）             |
+| SceneModel / 3D Tiles BoundingBox 拾取                       | `minemap-3d-tiles-runtime-control`（增量）         |
+| 旧光照 / 阴影接口兼容                                        | `minemap-lighting-and-shadows`（增量）             |
+| Skybox 旧入口弃用提示与新 `addSceneComponent` 写法           | `minemap-scene-components`（增量）                 |
+| 3D Tiles 不透明度 / 高度动态参数                             | `minemap-3d-tiles-runtime-control`（增量）         |
+| 实例化模型支持外部传入 Euler 旋转角                          | `minemap-scene-components`（增量）                 |
+| KTX2 纹理过曝修复                                            | `minemap-style-and-data`（增量）                   |
+| 视频投影到 Polygon 拖拽抖动与裁剪范围修复                    | `minemap-business-video-projection`（增量）        |
+| 3D Tiles 描边 / 吸附（magnetic / wireframe）特效             | `minemap-post-process-and-render-pipeline`（增量） |
 
 ## Skills 列表
 
-| Skill                                       | 说明                                                                                |
-| ------------------------------------------- | ----------------------------------------------------------------------------------- |
-| `minemap-fundamentals`                      | Map 初始化、生命周期、控件与相机基础                                                |
-| `minemap-official-resources-and-onboarding` | 官网入口、账号开通、文档查找、示例查找与版本核对                                    |
-| `minemap-global-configuration`              | `key/solution`、域名配置、sprite/fonts、`minemapCDN` 与启动前配置顺序               |
-| `minemap-widget-and-controls`               | `IControl` 控件协议、内建 widget、调试/编辑控件与自定义控件组织                     |
-| `minemap-marker-and-popup`                  | `Marker` / `Popup` 的 DOM 覆盖物、高度、拖拽、内容与联动                            |
-| `minemap-style-and-data`                    | Style、Source、Layer、图像资源与数据更新                                            |
-| `minemap-layer-system`                      | 图层类型、增删改移、过滤、缩放范围、渲染顺序与图层交互组织                          |
-| `minemap-style-system`                      | style v8 结构、`setStyle()`、diff/keepUserInfo、sprite/glyphs 与样式工作流          |
-| `minemap-style-v8-differences`              | MineMap style v8 与 Mapbox v8 的字段差异、迁移检查与误用规避                        |
-| `minemap-tile-url-and-data-security`        | 瓦片 URL 模板、`{r}/{c}` 分目录、内部协议归一化、鉴权参数与加密保密边界             |
-| `minemap-2d-3d-overlay-and-classification`  | 二三维叠加、贴地、贴模型、自动赋高与分类控制                                        |
-| `minemap-threejs-integration`               | `ThreeLayer`、threejs 融合、自定义 mesh、OBJ/FBX/IFC/VTK 与 GeoJSON 驱动特效        |
-| `minemap-scene-components`                  | `addSceneComponent` 体系（3d-model / 3d-tiles / scene-object）                      |
-| `minemap-3d-tiles-runtime-control`          | 3D Tiles 加载完成、TileFeature 样式、按属性显隐/着色、按子 URL 控制与实例拾取       |
-| `minemap-model-runtime-debug`               | 模型爆炸视图、材质/纹理更新、线框显示、属性外挂、运行时调试与可见性控制             |
-| `minemap-primitives-and-materials`          | Primitive、几何体、材质与低层三维对象                                               |
-| `minemap-collision-and-bounding`            | AABB/OBB/包围球相交检测、BVH 碰撞、角色碰撞与包围体调试                             |
-| `minemap-transforms`                        | 坐标系变换、锚点矩阵、姿态矩阵与固定坐标变换                                        |
-| `minemap-math-foundations`                  | `Vector` / `Matrix` / `Quaternion` / `HeadingPitchRoll` / `Cartographic` 等数学基础 |
-| `minemap-lighting-and-shadows`              | 光照开关、太阳时间、灯光对象与阴影控制                                              |
-| `minemap-material-system-and-shading`       | Standard / Phong / Physical / Lambert / Polyline 等材质选型与调参                   |
-| `minemap-primitive-adapt-terrain`           | Primitive 贴地、分类联动、栅格深度测试与低层贴地约束                                |
-| `minemap-screen-space-reflection`           | SSR 开关、调参边界、与水面/模型反射的关系                                           |
-| `minemap-water-surface-and-refraction`      | 水面材质、水体 fill layer、折射/反射控制与渲染模式                                  |
-| `minemap-events-and-picking`                | 事件系统、图层事件代理、GPU 拾取                                                    |
-| `minemap-terrain-and-analysis`              | 地形、DEM 查询、空间分析容器                                                        |
-| `minemap-performance-and-backend`           | WebGL 后端选择、降级策略、性能实践                                                  |
-| `minemap-post-process-and-render-pipeline`  | 后处理阶段、效果链编排与运行时启停                                                  |
-| `minemap-anti-aliasing`                     | MSAA / FXAA / TAA / `fill-antialias` 的入口、取舍与画质约束                         |
-| `minemap-camera-constraints-and-screenshot` | 相机近裁剪面阈值、区域限制、截图导出与相机交互约束                                  |
-| `minemap-plugin-compare-swipe`              | 卷帘对比 Compare 插件、双地图同步与销毁约束                                         |
-| `minemap-plugin-edit`                       | 外挂编辑插件 `minemap.edit.init(...)`、要素绘制编辑、样式覆写与锁定控制             |
-| `minemap-plugin-echarts-integration`        | MineMap + ECharts 叠加层、地理坐标转屏幕坐标、同步更新与交互桥接                    |
-| `minemap-plugin-demo-editor`                | demo `editor-map.html` 在线编辑器、Monaco + iframe 预览、WebGL 模式切换与试跑台组织 |
+| Skill                                       | 说明                                                                                         |
+| ------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| `minemap-fundamentals`                      | Map 初始化、生命周期、控件与相机基础                                                         |
+| `minemap-official-resources-and-onboarding` | 官网入口、账号开通、文档查找、示例查找与版本核对                                             |
+| `minemap-global-configuration`              | `key/solution`、域名配置、sprite/fonts、`minemapCDN` 与启动前配置顺序                        |
+| `minemap-widget-and-controls`               | `IControl` 控件协议、内建 widget、调试/编辑控件与自定义控件组织                              |
+| `minemap-marker-and-popup`                  | `Marker` / `Popup` 的 DOM 覆盖物、高度、拖拽、内容与联动                                     |
+| `minemap-style-and-data`                    | Style、Source、Layer、图像资源与数据更新                                                     |
+| `minemap-layer-system`                      | 图层类型、增删改移、过滤、缩放范围、渲染顺序与图层交互组织                                   |
+| `minemap-style-system`                      | style v8 结构、`setStyle()`、diff/keepUserInfo、sprite/glyphs 与样式工作流                   |
+| `minemap-2d-3d-overlay-and-classification`  | 二三维叠加、贴地、贴模型、自动赋高与分类控制                                                 |
+| `minemap-threejs-integration`               | `ThreeLayer`、threejs 融合、自定义 mesh、OBJ/FBX/IFC/VTK 与 GeoJSON 驱动特效                 |
+| `minemap-scene-components`                  | `addSceneComponent` 体系（3d-model / 3d-tiles / scene-object）                               |
+| `minemap-3d-tiles-runtime-control`          | 3D Tiles 加载完成、TileFeature 样式、按属性显隐/着色、按子 URL 控制与实例拾取                |
+| `minemap-model-runtime-debug`               | 模型爆炸视图、材质/纹理更新、线框显示、属性外挂、运行时调试与可见性控制                      |
+| `minemap-primitives-and-materials`          | Primitive、几何体、材质与低层三维对象                                                        |
+| `minemap-collision-and-bounding`            | AABB/OBB/包围球相交检测、BVH 碰撞、角色碰撞与包围体调试                                      |
+| `minemap-transforms`                        | 坐标系变换、锚点矩阵、姿态矩阵与固定坐标变换                                                 |
+| `minemap-math-foundations`                  | `Vector` / `Matrix` / `Quaternion` / `HeadingPitchRoll` / `Cartographic` 等数学基础          |
+| `minemap-lighting-and-shadows`              | 光照开关、太阳时间、灯光对象与阴影控制                                                       |
+| `minemap-material-system-and-shading`       | Standard / Phong / Physical / Lambert / Polyline 等材质选型与调参                            |
+| `minemap-primitive-adapt-terrain`           | Primitive 贴地、分类联动、栅格深度测试与低层贴地约束                                         |
+| `minemap-screen-space-reflection`           | SSR 开关、调参边界、与水面/模型反射的关系                                                    |
+| `minemap-water-surface-and-refraction`      | 水面材质、水体 fill layer、折射/反射控制与渲染模式                                           |
+| `minemap-events-and-picking`                | 事件系统、图层事件代理、GPU 拾取                                                             |
+| `minemap-terrain-and-analysis`              | 地形、DEM 查询、空间分析容器                                                                 |
+| `minemap-performance-and-backend`           | WebGL 后端选择、降级策略、性能实践                                                           |
+| `minemap-post-process-and-render-pipeline`  | 后处理阶段、效果链编排与运行时启停                                                           |
+| `minemap-anti-aliasing`                     | MSAA / FXAA / TAA / `fill-antialias` 的入口、取舍与画质约束                                  |
+| `minemap-camera-constraints-and-screenshot` | 相机近裁剪面阈值、区域限制、截图导出与相机交互约束                                           |
+| `minemap-plugin-compare-swipe`              | 卷帘对比 Compare 插件、双地图同步与销毁约束                                                  |
+| `minemap-plugin-edit`                       | 外挂编辑插件 `minemap.edit.init(...)`、要素绘制编辑、样式覆写与锁定控制                      |
+| `minemap-plugin-echarts-integration`        | MineMap + ECharts 叠加层、地理坐标转屏幕坐标、同步更新与交互桥接                             |
+| `minemap-plugin-demo-editor`                | demo `editor-map.html` 在线编辑器、Monaco + iframe 预览、WebGL 模式切换与试跑台组织          |
+| `minemap-s3m`                               | 4.25 S3M 倾斜摄影数据源、OSGB / crn 解析、S3M tileset 加载与位置校正                         |
+| `minemap-wms-source`                        | 4.25 WMS 栅格数据源、capabilities 解析、参数校验与瓦片调度                                   |
+| `minemap-volume-rendering`                  | 4.25 3D Tiles 体渲染（`VolumeShellSceneComponent`）、医学 / 地质 / 海洋等场景                |
+| `minemap-kml-source`                        | 4.25 KML 数据源解析、子节点展开、样式继承与图标资源                                          |
+| `minemap-clouds-and-atmosphere`             | 主分支公开云与大气能力：体积云（多层 CloudLayer）、单片实例化云（CloudCollection）、大气散射 |
 
 ## `source/index.js` 对外导出覆盖结论
 
-结论：**主干开发类已基本覆盖，但还不是“逐个导出类都已经有明确落点”的状态。**
+结论：**4.25 时期的主干开发类已基本覆盖；新增的 S3M / WMS / KML / VolumeShell / SkyAtmosphere / PMREM / HeatMap / Billboard 已经按专题单独成包；云与大气（体积云 + 单片实例化云）按主分支公开能力整理为单一技能包。**
 
 当前覆盖情况可分三层理解：
 
@@ -139,6 +163,9 @@
 -   `AnimationTracking`、`AnimationBlender`、关键帧轨迹体系
 -   `ParticleSystem`、`ParticleSystemLoader`、发射器体系
 -   `BeiDouGrid`、`AdminDivision`、`GaussianSplatting`、`AirLine`
+-   4.25 新增 `S3MTileSource` / `KMLSource` 入口（推荐用 `addSource` + 源类型）
+-   4.25 新增 `VolumeShellSceneComponent`（医学 / 地质 / 海洋 体渲染）
+-   主分支已有：体积云（`enableClouds` / `getClouds` / `cloudLayers`）与单片实例化云（`map.cloudCollection.add`）两条独立云路径
 
 ### 已有主题覆盖，但此前不够显式
 
@@ -149,10 +176,12 @@
 -   `TextureLoader`、`TextureCubeLoader`、`Texture`、`TextureCube`
 -   `WMTSCapabilities`、`optionsFromCapabilities`、`setRTLTextPlugin()`、`getRTLTextPluginStatus()`
 -   `PostProcessStageLibrary`、`PostProcessStage`、`PostProcessStageComposite`
+-   4.25：实例化模型 Euler 旋转角（`euler` / `quaternion` 二选一）
+-   4.25：3D Tiles 高度 / 不透明度运行时参数
 
 ### 仍然只做附属说明，不单独拆包
 
-以下导出属于“公开可用，但通常不是业务第一入口”，当前文档只做挂靠说明，不单独扩成独立 skill：
+以下导出属于"公开可用，但通常不是业务第一入口"，当前文档只做挂靠说明，不单独扩成独立 skill：
 
 -   相机 / 视锥 / 包围体 / 数学工具族
 -   光照类型族（`AmbientLight`、`DirectionalLight`、`PointLight`、`SpotLight`、`SunLight`）
@@ -173,8 +202,6 @@
 -   图层、数据源、样式更新 → `minemap-style-and-data`
 -   图层系统与图层顺序控制 → `minemap-layer-system`
 -   style 结构、切换与样式工作流 → `minemap-style-system`
--   MineMap style v8 与 Mapbox v8 差异核对 → `minemap-style-v8-differences`
--   瓦片地址模板、`{r}/{c}` 目录、鉴权与数据安全边界 → `minemap-tile-url-and-data-security`
 -   二维图层与三维场景叠加 → `minemap-2d-3d-overlay-and-classification`
 -   `ThreeLayer` / threejs 融合 / OBJ / FBX / IFC / VTK / 道路围栏雷达特效 → `minemap-threejs-integration`
 -   模型、3D Tiles、场景对象 → `minemap-scene-components`
@@ -199,6 +226,11 @@
 -   编辑插件 → `minemap-plugin-edit`
 -   ECharts 插件叠加 → `minemap-plugin-echarts-integration`
 -   示例编辑器 / 在线试跑台 → `minemap-plugin-demo-editor`
+-   S3M 倾斜摄影 → `minemap-s3m`
+-   WMS 栅格服务 → `minemap-wms-source`
+-   3D Tiles 体渲染 → `minemap-volume-rendering`
+-   KML 数据源 → `minemap-kml-source`
+-   大气、 云、单片实例化云 → `minemap-clouds-and-atmosphere`
 
 业务问题再按专项技能包补充，例如：
 
@@ -222,7 +254,7 @@
 | `minemap-business-particle-and-special-effects` | 粒子系统与特效编排                                   | `docs/src-cn/ParticleSystem.js`、`source/index.js`                                                      | `ParticleSystemClick.html`、`ParticleSystemFire.html`、`ParticleSystemLoader.html`                                                                     |
 | `minemap-business-beidou-grid`                  | 北斗网格码调度与可视化                               | `docs/src-cn/BeiDouGrid.js`                                                                             | `BeiDouGridSceneObject.html`、`BeiDouCodecDemo.html`、`3DTilesWithBeiDouGrid.html`                                                                     |
 | `minemap-business-admin-division`               | 行政区划拉伸、面墙边一体化展示                       | `docs/src-cn/AdminDivision.js`                                                                          | `ThematicMapOfAdministrativeDivisionsExt.html`                                                                                                         |
-| `minemap-business-gaussian-splatting`           | Gaussian Splatting 高斯点渲染                        | `source/webgl/object/GaussianSplatting.js`                                                              | `3DGaussianSplatting.html`、`3DGS-3DTiles.html`                                                                                                        |
+| `minemap-business-gaussian-splatting`           | Gaussian Splatting 高斯点渲染（4.25 含 PLY）         | `source/webgl/object/GaussianSplatting.js`                                                              | `3DGaussianSplatting.html`、`3DGS-3DTiles.html`、`3DGS-PlyDemo.html`                                                                                   |
 | `minemap-business-airline-and-lines`            | 航线、飞线、动态流动轨迹线                           | `docs/src-cn/AirLine.js`                                                                                | `AirLine.html`                                                                                                                                         |
 | `minemap-business-measurement`                  | 三维量算、贴地面积、测距辅助                         | `docs/src-cn/Measurement3D.js`、`source/core/Measurement3D.js`                                          | `Measurement3D.html`、`ClampedMeasurement.html`                                                                                                        |
 
@@ -271,6 +303,7 @@ description: 触发该技能的典型场景
 2. **先判断加载状态**：关键操作挂到 `load` / `style.load` 后执行，避免时序错误。
 3. **围绕渲染后端做兜底**：默认 `auto`，按 `webgpu -> webgl2 -> webgl1` 降级，针对特效做能力判断。
 4. **优先可维护写法**：采用引擎公开类（`minemap.SceneModel`、`minemap.SceneTileset`、`minemap.Primitive` 等）而非内部私有对象。
+5. **版本基线**：所有 skill 仅以 `master` 分支公开源码为准，不引用内部任务编号、临时分支名或未发布特性。
 
 ## 推荐用法
 
@@ -281,6 +314,7 @@ description: 触发该技能的典型场景
 1. 只推荐公开 API，不把 demo 中的私有字段调试写法当正式方案。
 2. 只推荐新三维入口，不继续扩散历史废弃路径。
 3. 凡是已有 demo 证据的能力，优先采用 demo 中已验证的参数组织和交互流程。
+4. 文档面向公众开发者，不展示内部任务编号 / 内部开发分支名 / 私有需求标识。
 
 ## Verification
 
@@ -290,7 +324,7 @@ description: 触发该技能的典型场景
 -   **冗余的删除**：删除与当前版本不符、重复表达、只停留在概念层但无助于编码的内容
 -   **不合理的改掉**：修正错误源码依据、修正把私有字段当公开 API 的表述、修正旧路径继续扩散的问题
 
-主要校验依据：
+主要校验依据（仅取自 `master` 分支公开目录）：
 
 -   `source/api/map.js`
 -   `source/index.js`
@@ -298,14 +332,9 @@ description: 触发该技能的典型场景
 -   `source/core/Measurement3D.js`
 -   `source/webgl/object/GaussianSplatting.js`
 -   `source/renderer/effects/ShadowAnalysis.js`
+-   `source/webgl/object/VolumeShellSceneComponent.js`
+-   `source/data-source/source-cache/S3MTileSource.js`
+-   `source/data-source/source-cache/KMLSource.js`
 -   `demo/html/*.html`
 
 后续若继续扩充，仍按同一规则处理：**先核源码，再核 demo，最后入技能库**。
-
-## 2026-06-12 新增补充
-
-- `minemap-s3m-tiles`：补充 S3M/S3MB/SCP 通过 `map.addSceneComponent({ type: "s3m" })` 加载、CRN 纹理 CDN/WASM 依赖、`readyPromise` 后相机跳转、选择、LOD 与显隐控制。
-- `minemap-compressed-texture-runtime`：补充 KTX2/Basis/CRN/DDS 压缩纹理 mip 链、WebGL1 NPOT 降级、摩尔纹/黑纹理排查与 S3M CRN 诊断。
-- `minemap-tile-url-and-data-security`：补充 `{z}/{r}/{c}/{z}_{x}_{y}`、`{z}/{x}/{y}`、`{TileMatrix}/{TileCol}/{TileRow}` 等瓦片模板，以及内部协议、鉴权参数和加密数据保密边界。
-- `minemap-style-v8-differences`：补充 MineMap style v8 与 Mapbox v8 的 root/source/layer/paint/layout 差异，重点规避 `fill-extrusion-*`、`hillshade`、`sky`、`slot`、`model` 等误用。
-- `minemap-events-and-picking`：补充 `querySourceFeatures`，说明它只查询已加载 source cache 中的 feature，并注意 style layer id 兼容。

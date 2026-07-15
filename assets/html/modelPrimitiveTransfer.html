@@ -30,7 +30,7 @@
 	 */
 	minemap.domainUrl = "https://minemap.minedata.cn";
 	minemap.dataDomainUrl = "https://minemap.minedata.cn";
-	minemap.serverDomainUrl = "https://sd-data.minedata.cn";
+	minemap.serverDomainUrl = "https://ol-data.minedata.cn";
 	minemap.spriteUrl = "http://192.168.152.123/minemapapi/v4.0.0/sprite/sprite";
 	minemap.serviceUrl = "https://service.minedata.cn/service";
 
@@ -80,7 +80,7 @@
 
 	map.on("load", function () {
 
-		map.loadImage('http://192.168.153.225:18899/mine-support/assets/web/support-data/images/arrow2.png', function (error, image) {
+		map.loadImage('http://192.168.152.123:11187/demo-data/3d-ultra/images/arrow2.png', function (error, image) {
 			if (error) throw error;
 			// 添加自定义图标
 			map.addImage('arrow', image);

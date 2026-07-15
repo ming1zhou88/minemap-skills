@@ -187,17 +187,6 @@ map.addPrimitive(primitive);
 -   材质参数改了很多，但场景根本没开光照
 -   高频交互里反复 `TextureLoader.load(...)`
 
-## 压缩纹理说明
-
-压缩纹理不是普通图片。涉及 KTX2 / Basis / CRN / DDS / DXT、多级 mip、远距离摩尔纹或黑纹理时，先看 `minemap-compressed-texture-runtime`，不要在业务材质层绕过 `CompressedTexture` 的 mip-chain 校验和 WebGL1 兼容逻辑。
-
-排查顺序：
-
-- 先确认资源格式和 mip 链是否完整。
-- 再确认 WebGL 后端、NPOT 尺寸、wrap/filter 是否触发降级。
-- S3M 的 CRN 纹理还要确认 `window.minemapCDN` 和 WASM 请求。
-- 最后再改材质参数或 shader。
-
 ## Performance Discipline
 
 -   材质从简到繁：`Standard` → `Phong` → `Physical`
@@ -217,4 +206,3 @@ map.addPrimitive(primitive);
 -   `minemap-lighting-and-shadows`
 -   `minemap-water-surface-and-refraction`
 -   `minemap-primitive-adapt-terrain`
--   `minemap-compressed-texture-runtime`

@@ -1,0 +1,1663 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+	<meta charset="UTF-8"/>
+	<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no"/>
+	<title>🌊 全球海洋温度分析系统</title>
+	<link rel="stylesheet" href="../../dist/minemap.css"/>
+	<script src="../../dist/minemap-dev.js"></script>
+	<script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+	<script src="https://cdn.jsdelivr.net/npm/echarts-gl@2.0.9/dist/echarts-gl.min.js"></script>
+	<style>
+		html, body, #map {
+			margin: 0;
+			padding: 0;
+			width: 100%;
+			height: 100%;
+			background: #0a0e17;
+		}
+
+		/* Copernicus Marine 风格 - 主控制面板 */
+		.control-panel {
+			position: absolute;
+			top: 12px;
+			left: 12px;
+			z-index: 10;
+			width: 300px;
+			padding: 0;
+			border-radius: 4px;
+			background: #1a1f2e;
+			border: 1px solid #2a3a4a;
+			color: #d0d8e0;
+			font-family: "Inter", "Segoe UI", "Microsoft YaHei", sans-serif;
+			font-size: 13px;
+			box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+		}
+
+		.control-panel h3 {
+			margin: 0;
+			padding: 14px 16px;
+			font-size: 14px;
+			font-weight: 600;
+			color: #ffffff;
+			background: linear-gradient(135deg, #0d47a1 0%, #1565c0 100%);
+			border-bottom: 1px solid #2a3a4a;
+			display: flex;
+			align-items: center;
+			gap: 8px;
+		}
+
+		.section {
+			margin: 0;
+			padding: 14px 16px;
+			border-bottom: 1px solid #2a3a4a;
+		}
+
+		.section:last-child {
+			border-bottom: none;
+		}
+
+		.section-title {
+			font-size: 11px;
+			color: #64b5f6;
+			margin-bottom: 10px;
+			text-transform: uppercase;
+			letter-spacing: 0.8px;
+			font-weight: 500;
+		}
+
+		.row {
+			display: grid;
+			grid-template-columns: 85px 1fr;
+			gap: 10px;
+			align-items: center;
+			margin-bottom: 10px;
+		}
+
+		.row:last-child {
+			margin-bottom: 0;
+		}
+
+		.row label {
+			color: #90a4ae;
+			font-size: 12px;
+			font-weight: 400;
+		}
+
+		.row input,
+		.row select,
+		.row button {
+			width: 100%;
+			padding: 7px 10px;
+			border: 1px solid #3a4a5a;
+			border-radius: 3px;
+			background: #252b3a;
+			color: #e0e6ed;
+			font-size: 12px;
+			transition: all 0.15s ease;
+			box-sizing: border-box;
+		}
+
+		.row input:hover,
+		.row select:hover {
+			border-color: #4a6fa5;
+		}
+
+		.row input:focus,
+		.row select:focus {
+			outline: none;
+			border-color: #2196f3;
+			box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.2);
+		}
+
+		/* Slider styling - Copernicus style */
+		.row input[type="range"] {
+			padding: 0;
+			height: 4px;
+			cursor: pointer;
+			background: #3a4a5a;
+			border-radius: 2px;
+			border: none;
+			-webkit-appearance: none;
+		}
+
+		.row input[type="range"]::-webkit-slider-thumb {
+			-webkit-appearance: none;
+			width: 14px;
+			height: 14px;
+			border-radius: 50%;
+			background: #2196f3;
+			cursor: pointer;
+			border: 2px solid #1a1f2e;
+			box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+		}
+
+		.row input[type="range"]::-moz-range-thumb {
+			width: 14px;
+			height: 14px;
+			border-radius: 50%;
+			background: #2196f3;
+			cursor: pointer;
+			border: 2px solid #1a1f2e;
+			box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+		}
+
+		/* Copernicus Marine 风格 - 按钮 */
+		.row button {
+			background: #1565c0;
+			border: 1px solid #1976d2;
+			cursor: pointer;
+			font-weight: 500;
+			color: #ffffff;
+		}
+
+		.row button:hover {
+			background: #1976d2;
+			border-color: #2196f3;
+		}
+
+		.row button.active {
+			background: #0d47a1;
+			border-color: #1565c0;
+			box-shadow: inset 0 1px 3px rgba(0,0,0,0.3);
+		}
+
+		.row button:disabled {
+			background: #3a4a5a;
+			border-color: #4a5a6a;
+			color: #6a7a8a;
+			cursor: not-allowed;
+		}
+
+		.value-display {
+			font-variant-numeric: tabular-nums;
+			color: #64b5f6;
+			font-weight: 600;
+		}
+
+		/* Copernicus Marine 风格 - 配色选择器 */
+		.colormap-selector {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 6px;
+			padding: 2px;
+		}
+
+		.colormap-option {
+			width: 44px;
+			height: 24px;
+			border-radius: 3px;
+			overflow: hidden;
+			cursor: pointer;
+			border: 2px solid transparent;
+			transition: all 0.15s ease;
+		}
+
+		.colormap-option:hover {
+			transform: scale(1.05);
+			border-color: #4a6fa5;
+		}
+
+		.colormap-option.active {
+			border-color: #2196f3;
+			box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.3);
+		}
+
+		.colormap-gradient {
+			width: 100%;
+			height: 100%;
+		}
+
+		/* Copernicus Marine 风格 - 图表面板 */
+		.chart-panel {
+			position: absolute;
+			right: 12px;
+			top: 12px;
+			z-index: 10;
+			width: 600px;
+			height: 320px;
+			padding: 0;
+			border-radius: 4px;
+			background: #1a1f2e;
+			border: 1px solid #2a3a4a;
+			display: none;
+			flex-direction: column;
+			box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+		}
+
+		.chart-panel.visible {
+			display: flex;
+		}
+
+		.chart-header {
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+			padding: 12px 16px;
+			background: linear-gradient(135deg, #0d47a1 0%, #1565c0 100%);
+			border-bottom: 1px solid #2a3a4a;
+		}
+
+		.chart-header h4 {
+			margin: 0;
+			font-size: 13px;
+			color: #ffffff;
+			font-weight: 500;
+		}
+
+		.chart-close {
+			background: none;
+			border: none;
+			color: rgba(255,255,255,0.7);
+			cursor: pointer;
+			font-size: 18px;
+			padding: 0;
+			width: 24px;
+			height: 24px;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			transition: color 0.15s;
+		}
+
+		.chart-close:hover {
+			color: #ffffff;
+		}
+
+		.chart-controls {
+			display: flex;
+			gap: 6px;
+			align-items: center;
+		}
+
+		.chart-btn {
+			padding: 4px 10px;
+			border: 1px solid rgba(255,255,255,0.2);
+			border-radius: 3px;
+			background: rgba(255,255,255,0.1);
+			color: rgba(255,255,255,0.9);
+			font-size: 11px;
+			cursor: pointer;
+			transition: all 0.15s ease;
+		}
+
+		.chart-btn:hover {
+			background: rgba(255,255,255,0.2);
+			border-color: rgba(255,255,255,0.3);
+		}
+
+		.chart-btn.active {
+			background: rgba(255,255,255,0.25);
+			border-color: rgba(255,255,255,0.5);
+			color: #ffffff;
+		}
+
+		#chartContainer {
+			flex: 1;
+			min-height: 0;
+		}
+
+		/* Copernicus Marine 风格 - 轨迹信息面板 */
+		.trajectory-info {
+			position: absolute;
+			left: 12px;
+			bottom: 100px;
+			z-index: 10;
+			width: 280px;
+			padding: 0;
+			border-radius: 4px;
+			background: #1a1f2e;
+			border: 1px solid #2a3a4a;
+			color: #d0d8e0;
+			font-size: 12px;
+			display: none;
+			box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+		}
+
+		.trajectory-info.visible {
+			display: block;
+		}
+
+		.trajectory-info .section-title {
+			padding: 12px 14px;
+			margin: 0;
+			border-bottom: 1px solid #2a3a4a;
+		}
+
+		.info-row {
+			display: flex;
+			justify-content: space-between;
+			padding: 10px 14px;
+			border-bottom: 1px solid #2a3a4a;
+		}
+
+		.info-row:last-child {
+			border-bottom: none;
+		}
+
+		.info-label {
+			color: #90a4ae;
+		}
+
+		.info-value {
+			color: #64b5f6;
+			font-weight: 600;
+		}
+
+		/* Copernicus Marine 风格 - 加载指示器 */
+		.loading-overlay {
+			position: absolute;
+			top: 50%;
+			left: 50%;
+			transform: translate(-50%, -50%);
+			z-index: 100;
+			padding: 20px 40px;
+			border-radius: 4px;
+			background: rgba(26, 31, 46, 0.95);
+			border: 1px solid #2a3a4a;
+			color: #64b5f6;
+			font-size: 13px;
+			display: none;
+			align-items: center;
+			gap: 12px;
+			box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+		}
+
+		.loading-overlay.visible {
+			display: flex;
+		}
+
+		.spinner {
+			width: 18px;
+			height: 18px;
+			border: 2px solid rgba(33, 150, 243, 0.2);
+			border-top-color: #2196f3;
+			border-radius: 50%;
+			animation: spin 1s linear infinite;
+		}
+
+		@keyframes spin {
+			to { transform: rotate(360deg); }
+		}
+
+		/* Copernicus Marine 风格 - 提示信息 */
+		.hint {
+			position: absolute;
+			top: 50%;
+			left: 50%;
+			transform: translate(-50%, -50%);
+			z-index: 50;
+			padding: 14px 22px;
+			border-radius: 4px;
+			background: rgba(26, 31, 46, 0.95);
+			border: 1px solid #2a3a4a;
+			color: #64b5f6;
+			font-size: 13px;
+			display: none;
+			box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+		}
+
+		.hint.visible {
+			display: block;
+		}
+
+		/* Copernicus Marine 风格 - 时间轴控制面板 */
+		.time-control-panel {
+			position: absolute;
+			bottom: 12px;
+			left: 50%;
+			transform: translateX(-50%);
+			z-index: 10;
+			width: 560px;
+			padding: 0;
+			border-radius: 4px;
+			background: #1a1f2e;
+			border: 1px solid #2a3a4a;
+			color: #d0d8e0;
+			font-family: "Inter", "Segoe UI", "Microsoft YaHei", sans-serif;
+			box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+		}
+
+		.time-control-header {
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+			padding: 12px 16px;
+			background: linear-gradient(135deg, #0d47a1 0%, #1565c0 100%);
+			border-bottom: 1px solid #2a3a4a;
+		}
+
+		.time-control-title {
+			font-size: 11px;
+			color: rgba(255,255,255,0.8);
+			text-transform: uppercase;
+			letter-spacing: 0.8px;
+			font-weight: 500;
+		}
+
+		.time-display {
+			font-size: 13px;
+			color: #ffffff;
+			font-weight: 600;
+		}
+
+		.time-slider-container {
+			display: flex;
+			align-items: center;
+			gap: 12px;
+			padding: 14px 16px;
+		}
+
+		.time-slider {
+			flex: 1;
+			height: 4px;
+			border-radius: 2px;
+			background: #3a4a5a;
+			outline: none;
+			-webkit-appearance: none;
+		}
+
+		.time-slider::-webkit-slider-thumb {
+			-webkit-appearance: none;
+			width: 14px;
+			height: 14px;
+			border-radius: 50%;
+			background: #2196f3;
+			cursor: pointer;
+			border: 2px solid #1a1f2e;
+			box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+		}
+
+		.time-slider::-moz-range-thumb {
+			width: 14px;
+			height: 14px;
+			border-radius: 50%;
+			background: #2196f3;
+			cursor: pointer;
+			border: 2px solid #1a1f2e;
+			box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+		}
+
+		.time-buttons {
+			display: flex;
+			gap: 6px;
+		}
+
+		.time-btn {
+			width: 28px;
+			height: 28px;
+			border: 1px solid #3a4a5a;
+			border-radius: 3px;
+			background: #252b3a;
+			color: #d0d8e0;
+			cursor: pointer;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			font-size: 12px;
+			transition: all 0.15s ease;
+		}
+
+		.time-btn:hover {
+			border-color: #4a6fa5;
+			color: #64b5f6;
+		}
+
+		.time-btn.active {
+			background: #1565c0;
+			border-color: #1976d2;
+			color: #ffffff;
+		}
+
+		.time-markers {
+			display: flex;
+			justify-content: space-between;
+			padding: 0 16px 12px;
+			font-size: 10px;
+			color: #6a7a8a;
+		}
+
+		/* Copernicus Marine 风格 - 多时间深度展示面板 */
+		.multi-time-panel {
+			position: absolute;
+			top: 12px;
+			right: 12px;
+			z-index: 10;
+			width: 260px;
+			padding: 0;
+			border-radius: 4px;
+			background: #1a1f2e;
+			border: 1px solid #2a3a4a;
+			color: #d0d8e0;
+			font-family: "Inter", "Segoe UI", "Microsoft YaHei", sans-serif;
+			font-size: 13px;
+			display: none;
+			box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+		}
+
+		.multi-time-panel.visible {
+			display: block;
+		}
+
+		.multi-time-panel .section-title {
+			padding: 12px 14px;
+			margin: 0;
+			border-bottom: 1px solid #2a3a4a;
+		}
+
+		.time-slice-container {
+			display: flex;
+			flex-direction: column;
+			gap: 1px;
+			background: #2a3a4a;
+			max-height: 300px;
+			overflow-y: auto;
+		}
+
+		.time-slice {
+			display: flex;
+			align-items: center;
+			gap: 10px;
+			padding: 10px 14px;
+			background: #1a1f2e;
+			cursor: pointer;
+			transition: all 0.15s ease;
+		}
+
+		.time-slice:hover {
+			background: #252b3a;
+		}
+
+		.time-slice.active {
+			background: rgba(21, 101, 192, 0.2);
+			border-left: 3px solid #2196f3;
+		}
+
+		.time-slice-preview {
+			width: 36px;
+			height: 36px;
+			border-radius: 3px;
+			background: linear-gradient(135deg, #1565c0, #42a5f5, #81d4fa);
+			flex-shrink: 0;
+		}
+
+		.time-slice-info {
+			flex: 1;
+		}
+
+		.time-slice-label {
+			font-size: 12px;
+			color: #d0d8e0;
+			font-weight: 500;
+		}
+
+		.time-slice-depth {
+			font-size: 11px;
+			color: #90a4ae;
+			margin-top: 2px;
+		}
+	</style>
+</head>
+
+<body>
+<div id="map"></div>
+
+<!-- 控制面板 -->
+<div class="control-panel">
+	<h3>🌊 海洋温度分析系统</h3>
+
+	<div class="section">
+		<div class="section-title">体渲染控制</div>
+		<div class="row">
+			<label>数据类型</label>
+			<select id="dataType">
+				<option value="temperature">温度图像</option>
+				<option value="temperature_rgba" selected>温度数值 (Float)</option>
+			</select>
+		</div>
+		<div class="row">
+			<label>时间</label>
+			<select id="timeIndex">
+				<option value="0">2025-12-01 00:00</option>
+				<option value="1">2025-12-01 06:00</option>
+				<option value="2">2025-12-01 12:00</option>
+				<option value="3">2025-12-01 18:00</option>
+				<option value="4">2025-12-02 00:00</option>
+			</select>
+		</div>
+		<div class="row">
+			<label>高度缩放</label>
+			<input id="heightScale" type="range" min="1" max="30" step="1" value="2"/>
+		</div>
+		<div class="row">
+			<label>透明度</label>
+			<input id="alpha" type="range" min="0.1" max="1" step="0.05" value="0.6"/>
+		</div>
+		<div class="row">
+			<label>调试模式</label>
+			<select id="debugMode">
+				<option value="0" selected>正常渲染</option>
+				<option value="1">外层求交</option>
+				<option value="2">原始数值</option>
+			</select>
+		</div>
+		<div class="row">
+			<label>采样模式</label>
+			<select id="mode">
+				<option value="0">取色模式</option>
+				<option value="1" selected>亮度映射</option>
+				<option value="2">数值映射</option>
+			</select>
+		</div>
+		<div class="row">
+			<label>配色方案</label>
+			<div class="colormap-selector" id="colormapSelector">
+				<div class="colormap-option active" data-colors='[[0,"#1c3f95"],[0.2,"#1fa3ff"],[0.4,"#25d18a"],[0.65,"#f6d365"],[0.85,"#f08a5d"],[1,"#b91372"]]' title="海洋温度">
+					<div class="colormap-gradient" style="background: linear-gradient(to right, #1c3f95, #1fa3ff, #25d18a, #f6d365, #f08a5d, #b91372);"></div>
+				</div>
+				<div class="colormap-option" data-colors='[[0,"#313695"],[0.2,"#4575b4"],[0.4,"#74add1"],[0.6,"#fdae61"],[0.8,"#f46d43"],[1,"#d73027"]]' title="蓝红渐变">
+					<div class="colormap-gradient" style="background: linear-gradient(to right, #313695, #4575b4, #74add1, #fdae61, #f46d43, #d73027);"></div>
+				</div>
+				<div class="colormap-option" data-colors='[[0,"#440154"],[0.2,"#3b528b"],[0.4,"#21918c"],[0.6,"#5ec962"],[0.8,"#fde725"],[1,"#ffffff"]]' title="Viridis">
+					<div class="colormap-gradient" style="background: linear-gradient(to right, #440154, #3b528b, #21918c, #5ec962, #fde725, #ffffff);"></div>
+				</div>
+				<div class="colormap-option" data-colors='[[0,"#000000"],[0.2,"#4d004b"],[0.4,"#810f7c"],[0.6,"#8856a7"],[0.8,"#8c96c6"],[1,"#9ebcda"]]' title="紫色系">
+					<div class="colormap-gradient" style="background: linear-gradient(to right, #000000, #4d004b, #810f7c, #8856a7, #8c96c6, #9ebcda);"></div>
+				</div>
+				<div class="colormap-option" data-colors='[[0,"#053061"],[0.25,"#2166ac"],[0.5,"#f7f7f7"],[0.75,"#d6604d"],[1,"#b2182b"]]' title="冷暖对比">
+					<div class="colormap-gradient" style="background: linear-gradient(to right, #053061, #2166ac, #f7f7f7, #d6604d, #b2182b);"></div>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<div class="section">
+		<div class="section-title">轨迹分析</div>
+		<div class="row">
+			<label>操作</label>
+			<button id="drawBtn">开始绘制</button>
+		</div>
+		<div class="row">
+			<label>采样间隔</label>
+			<select id="sampleInterval">
+				<option value="5">5 km</option>
+				<option value="10" selected>10 km</option>
+				<option value="20">20 km</option>
+				<option value="50">50 km</option>
+			</select>
+		</div>
+		<div class="row">
+			<label>插值模式</label>
+			<select id="interpMode">
+				<option value="bilinear" selected>双线性</option>
+				<option value="nearest">最近邻</option>
+			</select>
+		</div>
+		<div class="row">
+			<label></label>
+			<button id="analyzeBtn" disabled>执行分析</button>
+		</div>
+		<div class="row">
+			<label></label>
+			<button id="clearBtn">清除轨迹</button>
+		</div>
+	</div>
+</div>
+
+<!-- 轨迹信息 -->
+<div class="trajectory-info" id="trajectoryInfo">
+	<div class="info-row">
+		<span class="info-label">轨迹点数:</span>
+		<span class="info-value" id="pointCount">0</span>
+	</div>
+	<div class="info-row">
+		<span class="info-label">总距离:</span>
+		<span class="info-value" id="totalDistance">0 km</span>
+	</div>
+	<div class="info-row">
+		<span class="info-label">采样点数:</span>
+		<span class="info-value" id="sampleCount">0</span>
+	</div>
+</div>
+
+<!-- 图表面板 -->
+<div class="chart-panel" id="chartPanel">
+	<div class="chart-header">
+		<h4>📊 温度剖面分析 (Distance × Depth)</h4>
+		<div class="chart-controls">
+			<button id="smoothBtn" class="chart-btn active">平滑</button>
+			<button id="blockBtn" class="chart-btn">色块</button>
+			<button id="3dBtn" class="chart-btn">3D立体</button>
+			<button class="chart-close" id="chartClose">×</button>
+		</div>
+	</div>
+	<div id="chartContainer"></div>
+</div>
+
+<!-- 加载指示 -->
+<div class="loading-overlay" id="loadingOverlay">
+	<div class="spinner"></div>
+	<span id="loadingText">正在分析数据...</span>
+</div>
+
+<!-- 提示 -->
+<div class="hint" id="hint">点击地图开始绘制轨迹，双击结束</div>
+
+<!-- 时间轴控制面板 -->
+<div class="time-control-panel" id="timeControlPanel">
+	<div class="time-control-header">
+		<span class="time-control-title">⏱️ 时间轴控制</span>
+		<span class="time-display" id="timeDisplay">2025-12-01 00:00</span>
+	</div>
+	<div class="time-slider-container">
+		<input type="range" class="time-slider" id="timeSlider" min="0" max="4" step="1" value="0">
+		<div class="time-buttons">
+			<button class="time-btn" id="playBtn" title="播放/暂停">▶</button>
+			<button class="time-btn" id="prevBtn" title="上一个">◀</button>
+			<button class="time-btn" id="nextBtn" title="下一个">▶</button>
+		</div>
+	</div>
+	<div class="time-markers">
+		<span>00:00</span>
+		<span>06:00</span>
+		<span>12:00</span>
+		<span>18:00>
+		<span>+1D</span>
+	</div>
+</div>
+
+<!-- 多时间深度展示面板 -->
+<div class="multi-time-panel" id="multiTimePanel">
+	<div class="section-title">📊 多时间深度展示</div>
+	<div class="row">
+		<label>显示模式</label>
+		<select id="multiTimeMode">
+			<option value="single" selected>单时间</option>
+			<option value="compare">时间对比</option>
+			<option value="animation">动画演变</option>
+		</select>
+	</div>
+	<div class="time-slice-container" id="timeSliceContainer">
+		<!-- 动态生成时间切片 -->
+	</div>
+</div>
+
+<script>
+	// MineMap 配置
+	minemap.domainUrl = "https://minedata.cn";
+	minemap.dataDomainUrl = "https://minedata.cn";
+	minemap.serverDomainUrl = "https://minedata.cn";
+	minemap.spriteUrl = "https://minedata.cn/minemapapi/v4.0.0/sprite/sprite";
+	minemap.serviceUrl = "https://minedata.cn/service/";
+	minemap.key = "0c6ac62182404e5ebc7a789981f6db72";
+	minemap.solution = 11001;
+
+	const style = {
+		glyphs: "minemap://fonts/{fontstack}/{range}",
+		sprite: "minemap://sprite/sprite",
+		sources: {},
+		layers: [],
+		version: 8
+	};
+
+	const map = new minemap.Map({
+		container: "map",
+		style,
+		center: [135.0, 15.0],
+		zoom: 3.5,
+		pitch: 35,
+		bearing: 0,
+		projection: "MERCATOR"
+	});
+
+	map.repaint = true;
+
+	// 时间文件夹列表
+	const timeFolders = [
+		"glo12_rg_6h-i_20251201-00h_3D-thetao_hcst_R20251210",
+		"glo12_rg_6h-i_20251201-06h_3D-thetao_hcst_R20251210",
+		"glo12_rg_6h-i_20251201-12h_3D-thetao_hcst_R20251210",
+		"glo12_rg_6h-i_20251201-18h_3D-thetao_hcst_R20251210",
+		"glo12_rg_6h-i_20251202-00h_3D-thetao_hcst_R20251210"
+	];
+
+	function urlBuilder(timeIndex, dataType, depthIndex) {
+		const folder = timeFolders[timeIndex];
+		const id = String(depthIndex).padStart(3, "0");
+		return `../image/GLOBAL_ANALYSISFORECAST/${folder}/images/${dataType}/depth_${id}_${dataType}.webp`;
+	}
+
+	// 全局变量
+	let shell = null;
+	let analyzer = null;
+	let chart = null;
+	let isDrawing = false;
+	let trajectoryPoints = [];
+	let trajectoryLine = null;
+	let trajectoryMarkers = [];
+
+	map.on("load", () => {
+		// 添加底图
+		map.addSource("satellite", {
+			type: "raster",
+			tiles: [
+				"https://ol-data-inner.minedata.cn:14435/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg?key=anonymous_user_key"
+			],
+			tileSize: 512
+		});
+		map.addLayer({
+			type: "raster",
+			id: "satellite-layer",
+			source: "satellite",
+			minzoom: 1,
+			maxzoom: 20
+		});
+
+		// 初始化体渲染
+		initVolumeShell();
+
+		// 初始化分析器
+		initAnalyzer();
+
+		// 初始化图表
+		chart = echarts.init(document.getElementById("chartContainer"));
+
+		// 绑定事件
+		bindEvents();
+
+		console.log("[OceanAnalysis] System initialized");
+	});
+
+	function initVolumeShell() {
+		const urls = [];
+		for (let i = 0; i < 50; i++) {
+			urls.push(urlBuilder(0, "temperature_rgba", i));
+		}
+
+		shell = new minemap.VolumeShellSceneComponent({
+			id: "ocean-temperature-shell",
+			layerUrls: urls,
+			urlBuilder: urlBuilder,
+			timeFolders: timeFolders,
+			timeIndex: 0,
+			dataType: "temperature_rgba",
+			minHeight: 0,
+			maxHeight: 100000,
+			heightScale: 2,
+			alpha: 0.6,
+			mode: 1, // Float重建模式
+			dataMin: -10,
+			dataMax: 40,
+			interpolationMode: 1,
+			maxTextureBytes: 128 * 1024 * 1024,
+			maxCacheCount: 3,
+			preloadAhead: 1,
+			preloadBehind: 1
+		});
+
+		map.addSceneComponent(shell);
+		console.log("[OceanAnalysis] Volume shell initialized");
+	}
+
+	function initAnalyzer() {
+		analyzer = new minemap.OceanTemperatureAnalyzer({
+			sampleInterval: 10,
+			interpolationMode: "bilinear",
+			onAnalysisComplete: (result) => {
+				showChart(result);
+				hideLoading();
+			},
+			onTrajectoryChange: (trajectory) => {
+				updateTrajectoryInfo();
+			}
+		});
+		analyzer.bind(map, shell);
+	}
+
+	function bindEvents() {
+		// 体渲染控制
+		document.getElementById("dataType").addEventListener("change", (e) => {
+			shell.setDataType(e.target.value);
+		});
+
+		document.getElementById("timeIndex").addEventListener("change", (e) => {
+			shell.setTimeIndex(Number(e.target.value));
+		});
+
+		document.getElementById("heightScale").addEventListener("input", (e) => {
+			shell.setHeightScale(Number(e.target.value));
+		});
+
+		document.getElementById("alpha").addEventListener("input", (e) => {
+			shell.setOpacity(Number(e.target.value));
+		});
+
+		document.getElementById("debugMode").addEventListener("change", (e) => {
+			shell.setDebugMode(Number(e.target.value));
+		});
+
+		document.getElementById("mode").addEventListener("change", (e) => {
+			shell.setMode(Number(e.target.value));
+		});
+
+		// 配色方案选择
+		document.querySelectorAll('.colormap-option').forEach(option => {
+			option.addEventListener('click', function() {
+				document.querySelectorAll('.colormap-option').forEach(o => o.classList.remove('active'));
+				this.classList.add('active');
+				const colors = JSON.parse(this.dataset.colors);
+				shell.setColormap(colors);
+			});
+		});
+
+		// 轨迹绘制
+		document.getElementById("drawBtn").addEventListener("click", toggleDrawing);
+		document.getElementById("analyzeBtn").addEventListener("click", performAnalysis);
+		document.getElementById("clearBtn").addEventListener("click", clearTrajectory);
+		document.getElementById("chartClose").addEventListener("click", hideChart);
+		document.getElementById("smoothBtn").addEventListener("click", () => setChartMode('smooth'));
+		document.getElementById("blockBtn").addEventListener("click", () => setChartMode('block'));
+		document.getElementById("3dBtn").addEventListener("click", () => setChartMode('3d'));
+
+		// 地图交互
+		map.on("click", onMapClick);
+		map.on("contextmenu", onMapRightClick); // 右键结束绘制
+		map.on("mousemove", onMapMouseMove);
+
+		// 窗口调整
+		window.addEventListener("resize", () => {
+			if (chart) chart.resize();
+		});
+	}
+
+	function toggleDrawing() {
+		const btn = document.getElementById("drawBtn");
+		if (!isDrawing) {
+			startDrawing();
+			btn.textContent = "完成绘制";
+			btn.classList.add("active");
+			showHint("点击地图添加轨迹点，右键结束绘制");
+		} else {
+			finishDrawing();
+			btn.textContent = "开始绘制";
+			btn.classList.remove("active");
+			hideHint();
+		}
+	}
+
+	function startDrawing() {
+		isDrawing = true;
+		trajectoryPoints = [];
+		clearTrajectoryVisuals();
+		updateTrajectoryInfo();
+	}
+
+	function finishDrawing() {
+		isDrawing = false;
+		if (trajectoryPoints.length >= 2) {
+			document.getElementById("analyzeBtn").disabled = false;
+			console.log("[OceanAnalysis] Drawing finished, ready for analysis");
+		}
+		hideHint();
+	}
+
+	function onMapClick(e) {
+		if (!isDrawing) return;
+		addTrajectoryPoint(e.lngLat);
+	}
+
+	function onMapRightClick(e) {
+		e.preventDefault(); // 阻止默认右键菜单
+		if (isDrawing) {
+			finishDrawing();
+			document.getElementById("drawBtn").textContent = "开始绘制";
+			document.getElementById("drawBtn").classList.remove("active");
+			hideHint();
+		}
+	}
+
+	function onMapMouseMove(e) {
+		if (!isDrawing || trajectoryPoints.length === 0) return;
+		// 可以在这里添加实时轨迹预览
+	}
+
+	function addTrajectoryPoint(lngLat) {
+		trajectoryPoints.push({
+			lon: lngLat.lng,
+			lat: lngLat.lat
+		});
+
+		// 添加标记点 (使用 CircleGeometry 创建点标记)
+		const positionWorld = minemap.Math.Vector3.fromDegrees(lngLat.lng, lngLat.lat, 100000);
+		const matrix = minemap.Transforms.cartesianToFixedFrame(positionWorld);
+		const pointGeometry = new minemap.Geometries.CircleGeometry({
+			radius: 5000, // 5km 半径
+			segments: 32
+		});
+		const pointMaterial = minemap.StandardMaterial.fromType("Color", {
+			color: "#00ff88"
+		});
+		const marker = new minemap.Primitive({
+			modelMatrix: matrix,
+			geometry: pointGeometry,
+			material: pointMaterial
+		});
+		map.addPrimitive(marker);
+		trajectoryMarkers.push(marker);
+
+		// 更新轨迹线
+		updateTrajectoryLine();
+		updateTrajectoryInfo();
+
+		console.log(`[OceanAnalysis] Added point: ${lngLat.lng.toFixed(3)}, ${lngLat.lat.toFixed(3)}`);
+	}
+
+	function updateTrajectoryLine() {
+		if (trajectoryPoints.length < 2) return;
+
+		// 将轨迹点转换为 Vector3 (需要高度值)
+		const positions = trajectoryPoints.map(p => {
+			// 使用球壳外表面高度
+			const height = shell ? Math.max(...[shell.outerRadii.x, shell.outerRadii.y, shell.outerRadii.z]) - 6378137 : 100000;
+			return minemap.Math.Vector3.fromDegrees(p.lon, p.lat, height);
+		});
+
+		if (trajectoryLine) {
+			// 更新现有几何体
+			trajectoryLine.geometry.setData({
+				positions: positions,
+				arcType: minemap.ARCTYPE.GEODESIC
+			});
+		} else {
+			// 创建新的 PolylineGeometry
+			const geometry = new minemap.Geometries.PolylineGeometry({
+				positions: positions,
+				width: 4,
+				arcType: minemap.ARCTYPE.GEODESIC
+			});
+			const material = new minemap.PolylineMaterial({
+				color: "#00ff88"
+			});
+			trajectoryLine = new minemap.Primitive({
+				geometry: geometry,
+				material: material
+			});
+			map.addPrimitive(trajectoryLine);
+		}
+	}
+
+	function clearTrajectoryVisuals() {
+		if (trajectoryLine) {
+			map.removePrimitive(trajectoryLine);
+			trajectoryLine = null;
+		}
+		trajectoryMarkers.forEach(m => {
+			if (m) {
+				map.removePrimitive(m);
+			}
+		});
+		trajectoryMarkers = [];
+	}
+
+	function clearTrajectory() {
+		trajectoryPoints = [];
+		clearTrajectoryVisuals();
+		updateTrajectoryInfo();
+		document.getElementById("analyzeBtn").disabled = true;
+		hideChart();
+		isDrawing = false;
+		document.getElementById("drawBtn").textContent = "开始绘制";
+		document.getElementById("drawBtn").classList.remove("active");
+	}
+
+	function updateTrajectoryInfo() {
+		const info = document.getElementById("trajectoryInfo");
+		if (trajectoryPoints.length > 0) {
+			info.classList.add("visible");
+			document.getElementById("pointCount").textContent = trajectoryPoints.length;
+
+			let totalDist = 0;
+			for (let i = 1; i < trajectoryPoints.length; i++) {
+				totalDist += haversineDistance(trajectoryPoints[i-1], trajectoryPoints[i]);
+			}
+			document.getElementById("totalDistance").textContent = totalDist.toFixed(1) + " km";
+
+			const interval = parseInt(document.getElementById("sampleInterval").value);
+			const sampleCount = Math.max(2, Math.ceil(totalDist / interval));
+			document.getElementById("sampleCount").textContent = sampleCount;
+		} else {
+			info.classList.remove("visible");
+		}
+	}
+
+	function haversineDistance(p1, p2) {
+		const R = 6371;
+		const dLat = (p2.lat - p1.lat) * Math.PI / 180;
+		const dLon = (p2.lon - p1.lon) * Math.PI / 180;
+		const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+			Math.cos(p1.lat * Math.PI/180) * Math.cos(p2.lat * Math.PI/180) *
+			Math.sin(dLon/2) * Math.sin(dLon/2);
+		const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+		return R * c;
+	}
+
+	async function performAnalysis() {
+		if (trajectoryPoints.length < 2) {
+			console.warn("[OceanAnalysis] Need at least 2 points");
+			return;
+		}
+
+		// 将轨迹点传给分析器
+		analyzer._trajectory = trajectoryPoints.map(p => ({
+			lon: p.lon,
+			lat: p.lat,
+			height: 0
+		}));
+
+		showLoading("正在分析温度数据...");
+
+		try {
+			// 配置分析器
+			analyzer._sampleInterval = parseInt(document.getElementById("sampleInterval").value);
+			analyzer._interpolationMode = document.getElementById("interpMode").value;
+
+			// 执行分析
+			await analyzer._performAnalysis();
+
+		} catch (err) {
+			console.error("[OceanAnalysis] Analysis failed:", err);
+			alert("分析失败: " + err.message);
+			hideLoading();
+		}
+	}
+
+	// 图表显示模式：'smooth'、'block' 或 '3d'
+	let chartMode = 'smooth';
+
+	function setChartMode(mode) {
+		chartMode = mode;
+		document.getElementById('smoothBtn').classList.toggle('active', mode === 'smooth');
+		document.getElementById('blockBtn').classList.toggle('active', mode === 'block');
+		document.getElementById('3dBtn').classList.toggle('active', mode === '3d');
+		// 如果已有图表数据，重新渲染
+		if (chart && lastChartResult) {
+			if (mode === '3d') {
+				render3DChart(lastChartResult);
+			} else {
+				renderChart(lastChartResult);
+			}
+		}
+	}
+
+	let lastChartResult = null;
+
+	function showChart(result) {
+		lastChartResult = result;
+		renderChart(result);
+	}
+
+	function renderChart(result) {
+		console.log("[OceanAnalysis] Showing chart with result:", result);
+
+		const panel = document.getElementById("chartPanel");
+		panel.classList.add("visible");
+
+		// 检查数据有效性
+		if (!result || !result.data || result.data.length === 0) {
+			console.error("[OceanAnalysis] Invalid result data");
+			return;
+		}
+
+		// 使用第一个时间点的数据
+		const data = result.data[0];
+		console.log("[OceanAnalysis] Chart data:", data);
+
+		// 转换为热力图数据
+		const heatmapData = [];
+		for (let i = 0; i < data.length; i++) {
+			for (let j = 0; j < data[i].length; j++) {
+				const val = parseFloat(data[i][j]);
+				if (!isNaN(val)) {
+					heatmapData.push([i, j, val]);
+				}
+			}
+		}
+
+		console.log("[OceanAnalysis] Heatmap data points:", heatmapData.length);
+
+		// 如果没有有效数据，显示提示
+		if (heatmapData.length === 0) {
+			console.warn("[OceanAnalysis] No valid temperature data");
+			return;
+		}
+
+		// 确保ECharts容器有尺寸
+		const chartContainer = document.getElementById("chartContainer");
+		chartContainer.style.width = "100%";
+		chartContainer.style.height = "100%";
+
+		// 如果图表未初始化，重新初始化
+		if (!chart) {
+			chart = echarts.init(chartContainer);
+		}
+
+		// 强制resize确保尺寸正确
+		chart.resize();
+
+		// 格式化深度标签（显示为正值，带单位）
+		const depthLabels = result.depths.map(d => {
+			const depthM = Math.abs(d);
+			if (depthM >= 1000) {
+				return (depthM / 1000).toFixed(1) + 'km';
+			}
+			return depthM.toFixed(0) + 'm';
+		});
+
+		const option = {
+			backgroundColor: 'transparent',
+			tooltip: {
+				position: 'top',
+				formatter: function (params) {
+					const dist = result.distance[params.data[0]]?.toFixed(1) || '0';
+					const depthM = Math.abs(result.depths[params.data[1]] || 0);
+					const depthStr = depthM >= 1000 ? (depthM / 1000).toFixed(2) + 'km' : depthM.toFixed(1) + 'm';
+					const temp = params.data[2]?.toFixed(2) || '0';
+					const point = result.points?.[params.data[0]];
+					const lonStr = point?.lon?.toFixed(3) || '--';
+					const latStr = point?.lat?.toFixed(3) || '--';
+					return `距离: ${dist} km<br>深度: ${depthStr}<br>温度: ${temp}°C<br>经度: ${lonStr}°°<br>纬度: ${latStr}°`;
+				}
+			},
+			grid: {
+				top: 40,
+				bottom: 80,
+				left: 80,
+				right: 40
+			},
+			xAxis: {
+				type: 'category',
+				data: result.distance.map(d => d?.toFixed(0) || '0'),
+				name: '距离 (km)',
+				nameLocation: 'middle',
+				nameGap: 30,
+				axisLine: { lineStyle: { color: '#666' } },
+				axisLabel: { color: '#999', interval: 'auto' }
+			},
+			yAxis: {
+				type: 'category',
+				data: depthLabels,
+				name: '深度',
+				nameLocation: 'middle',
+				nameGap: 50,
+				axisLine: { lineStyle: { color: '#666' } },
+				axisLabel: { color: '#999' },
+				// 反转Y轴，让深度从上到下增加
+				inverse: true
+			},
+			visualMap: {
+				min: -10,
+				max: 40,
+				calculable: true,
+				orient: 'horizontal',
+				left: 'center',
+				bottom: 10,
+				inRange: {
+					color: ['#1c3f95', '#1fa3ff', '#25d18a', '#f6d365', '#f08a5d', '#b91372']
+				},
+				textStyle: { color: '#ccc' }
+			},
+			series: [{
+				name: '温度',
+				type: 'heatmap',
+				data: heatmapData,
+				// 平滑或色块模式
+				itemStyle: {
+					borderWidth: chartMode === 'block' ? 1 : 0,
+					borderColor: chartMode === 'block' ? 'rgba(0,0,0,0.3)' : 'transparent'
+				},
+				// 使用插值实现平滑效果
+				emphasis: {
+					itemStyle: {
+						shadowBlur: 10,
+						shadowColor: 'rgba(0, 255, 136, 0.5)'
+					}
+				}
+			}]
+		};
+
+		chart.setOption(option, true);
+		console.log("[OceanAnalysis] Chart rendered in", chartMode, "mode");
+	}
+
+	// ==================== 3D 立体图表渲染 ====================
+	function render3DChart(result) {
+		console.log("[OceanAnalysis] Showing 3D chart with result:", result);
+
+		const panel = document.getElementById("chartPanel");
+		panel.classList.add("visible");
+
+		// 检查数据有效性
+		if (!result || !result.data || result.data.length === 0) {
+			console.error("[OceanAnalysis] Invalid result data");
+			return;
+		}
+
+		// 构建 3D 数据 [distance, depth, time, temperature]
+		const data3D = [];
+		for (let t = 0; t < result.data.length; t++) {
+			const timeData = result.data[t];
+			for (let i = 0; i < timeData.length; i++) {
+				for (let j = 0; j < timeData[i].length; j++) {
+					const val = parseFloat(timeData[i][j]);
+					if (!isNaN(val)) {
+						// [x=距离, y=深度, z=时间, value=温度]
+						data3D.push([i, j, t, val]);
+					}
+				}
+			}
+		}
+
+		console.log("[OceanAnalysis] 3D data points:", data3D.length);
+
+		// 如果没有有效数据，显示提示
+		if (data3D.length === 0) {
+			console.warn("[OceanAnalysis] No valid temperature data for 3D");
+			return;
+		}
+
+		// 确保ECharts容器有尺寸
+		const chartContainer = document.getElementById("chartContainer");
+		chartContainer.style.width = "100%";
+		chartContainer.style.height = "100%";
+
+		// 如果图表未初始化，重新初始化
+		if (!chart) {
+			chart = echarts.init(chartContainer);
+		}
+
+		// 强制resize确保尺寸正确
+		chart.resize();
+
+		// 格式化深度标签
+		const depthLabels = result.depths.map(d => {
+			const depthM = Math.abs(d);
+			if (depthM >= 1000) {
+				return (depthM / 1000).toFixed(1) + 'km';
+			}
+			return depthM.toFixed(0) + 'm';
+		});
+
+		// 时间标签
+		const timeLabels = result.times.map((t, i) => {
+			const labels = ['00:00', '06:00', '12:00', '18:00', '+1D'];
+			return labels[i] || `T${i}`;
+		});
+
+		const option = {
+			backgroundColor: 'transparent',
+			tooltip: {
+				formatter: function (params) {
+					const dist = result.distance[params.data[0]]?.toFixed(1) || '0';
+					const depthM = Math.abs(result.depths[params.data[1]] || 0);
+					const depthStr = depthM >= 1000 ? (depthM / 1000).toFixed(2) + 'km' : depthM.toFixed(1) + 'm';
+					const timeLabel = timeLabels[params.data[2]] || `T${params.data[2]}`;
+					const temp = params.data[3]?.toFixed(2) || '0';
+					return `时间: ${timeLabel}<br>距离: ${dist} km<br>深度: ${depthStr}<br>温度: ${temp}°C`;
+				}
+			},
+			visualMap: {
+				min: -10,
+				max: 40,
+				calculable: true,
+				orient: 'horizontal',
+				left: 'center',
+				bottom: 10,
+				inRange: {
+					color: ['#1c3f95', '#1fa3ff', '#25d18a', '#f6d365', '#f08a5d', '#b91372']
+				},
+				textStyle: { color: '#ccc' }
+			},
+			xAxis3D: {
+				type: 'category',
+				data: result.distance.map(d => d?.toFixed(0) || '0'),
+				name: '距离 (km)',
+				nameTextStyle: { color: '#999' },
+				axisLabel: { color: '#999', interval: 'auto' },
+				axisLine: { lineStyle: { color: '#666' } }
+			},
+			yAxis3D: {
+				type: 'category',
+				data: depthLabels,
+				name: '深度',
+				nameTextStyle: { color: '#999' },
+				axisLabel: { color: '#999' },
+				axisLine: { lineStyle: { color: '#666' } }
+			},
+			zAxis3D: {
+				type: 'category',
+				data: timeLabels,
+				name: '时间',
+				nameTextStyle: { color: '#999' },
+				axisLabel: { color: '#999' },
+				axisLine: { lineStyle: { color: '#666' } }
+			},
+			grid3D: {
+				boxWidth: 200,
+				boxDepth: 80,
+				boxHeight: 100,
+				viewControl: {
+					projection: 'perspective',
+					autoRotate: false,
+					beta: 30,
+					alpha: 20,
+					distance: 300
+				},
+				light: {
+					main: {
+						intensity: 1.2,
+						shadow: true
+					},
+					ambient: {
+						intensity: 0.3
+					}
+				}
+			},
+			series: [{
+				type: 'bar3D',
+				data: data3D.map(item => ({
+					value: [item[0], item[1], item[2], item[3]]
+				})),
+				shading: 'lambert',
+				label: { show: false },
+				itemStyle: {
+					opacity: 0.8
+				},
+				emphasis: {
+					label: { show: false }
+				}
+			}]
+		};
+
+		chart.setOption(option, true);
+		console.log("[OceanAnalysis] 3D Chart rendered");
+	}
+
+	function hideChart() {
+		document.getElementById("chartPanel").classList.remove("visible");
+	}
+
+	function showLoading(text) {
+		document.getElementById("loadingText").textContent = text;
+		document.getElementById("loadingOverlay").classList.add("visible");
+	}
+
+	function hideLoading() {
+		document.getElementById("loadingOverlay").classList.remove("visible");
+	}
+
+	function showHint(text) {
+		const hint = document.getElementById("hint");
+		hint.textContent = text;
+		hint.classList.add("visible");
+	}
+
+	function hideHint() {
+		document.getElementById("hint").classList.remove("visible");
+	}
+
+	// ==================== 时间轴控制 ====================
+	let isPlaying = false;
+	let playInterval = null;
+	const timeLabels = [
+		"2025-12-01 00:00",
+		"2025-12-01 06:00",
+		"2025-12-01 12:00",
+		"2025-12-01 18:00",
+		"2025-12-02 00:00"
+	];
+
+	function initTimeControl() {
+		const timeSlider = document.getElementById("timeSlider");
+		const playBtn = document.getElementById("playBtn");
+		const prevBtn = document.getElementById("prevBtn");
+		const nextBtn = document.getElementById("nextBtn");
+		const timeDisplay = document.getElementById("timeDisplay");
+
+		// 时间滑块变化
+		timeSlider.addEventListener("input", (e) => {
+			const index = parseInt(e.target.value);
+			updateTimeDisplay(index);
+			shell.setTimeIndex(index);
+			// 同步更新下拉框
+			document.getElementById("timeIndex").value = index;
+		});
+
+		// 播放/暂停按钮
+		playBtn.addEventListener("click", () => {
+			isPlaying = !isPlaying;
+			playBtn.textContent = isPlaying ? "⏸" : "▶";
+			playBtn.classList.toggle("active", isPlaying);
+			if (isPlaying) {
+				startTimeAnimation();
+			} else {
+				stopTimeAnimation();
+			}
+		});
+
+		// 上一个/下一个按钮
+		prevBtn.addEventListener("click", () => {
+			let index = parseInt(timeSlider.value) - 1;
+			if (index < 0) index = timeLabels.length - 1;
+			timeSlider.value = index;
+			updateTimeDisplay(index);
+			shell.setTimeIndex(index);
+			document.getElementById("timeIndex").value = index;
+		});
+
+		nextBtn.addEventListener("click", () => {
+			let index = parseInt(timeSlider.value) + 1;
+			if (index >= timeLabels.length) index = 0;
+			timeSlider.value = index;
+			updateTimeDisplay(index);
+			shell.setTimeIndex(index);
+			document.getElementById("timeIndex").value = index;
+		});
+
+		// 同步下拉框和时间滑块
+		document.getElementById("timeIndex").addEventListener("change", (e) => {
+			const index = parseInt(e.target.value);
+			timeSlider.value = index;
+			updateTimeDisplay(index);
+		});
+	}
+
+	function updateTimeDisplay(index) {
+		document.getElementById("timeDisplay").textContent = timeLabels[index];
+	}
+
+	function startTimeAnimation() {
+		if (playInterval) clearInterval(playInterval);
+		playInterval = setInterval(() => {
+			const timeSlider = document.getElementById("timeSlider");
+			let index = parseInt(timeSlider.value) + 1;
+			if (index >= timeLabels.length) index = 0;
+			timeSlider.value = index;
+			updateTimeDisplay(index);
+			shell.setTimeIndex(index);
+			document.getElementById("timeIndex").value = index;
+		}, 2000); // 每2秒切换一次
+	}
+
+	function stopTimeAnimation() {
+		if (playInterval) {
+			clearInterval(playInterval);
+			playInterval = null;
+		}
+	}
+
+	// ==================== 多时间深度展示 ====================
+	function initMultiTimePanel() {
+		const multiTimeMode = document.getElementById("multiTimeMode");
+		const multiTimePanel = document.getElementById("multiTimePanel");
+
+		// 生成时间切片预览
+		generateTimeSlices();
+
+		multiTimeMode.addEventListener("change", (e) => {
+			const mode = e.target.value;
+			if (mode === "single") {
+				multiTimePanel.classList.remove("visible");
+				shell.setTimeOverlayMode?.(false);
+			} else if (mode === "compare") {
+				multiTimePanel.classList.add("visible");
+				shell.setTimeOverlayMode?.(true);
+			} else if (mode === "animation") {
+				multiTimePanel.classList.remove("visible");
+				startTimeAnimation();
+				document.getElementById("playBtn").textContent = "⏸";
+				document.getElementById("playBtn").classList.add("active");
+				isPlaying = true;
+			}
+		});
+	}
+
+	function generateTimeSlices() {
+		const container = document.getElementById("timeSliceContainer");
+		container.innerHTML = "";
+
+		timeLabels.forEach((label, index) => {
+			const slice = document.createElement("div");
+			slice.className = "time-slice" + (index === 0 ? " active" : "");
+			slice.dataset.timeIndex = index;
+			slice.innerHTML = `
+				<div class="time-slice-preview" style="background: linear-gradient(135deg, #1c3f95, #25d18a, #f08a5d);"></div>
+				<div class="time-slice-info">
+					<div class="time-slice-label">${label}</div>
+					<div class="time-slice-depth">深度: 0-5727m</div>
+				</div>
+			`;
+			slice.addEventListener("click", () => {
+				document.querySelectorAll(".time-slice").forEach(s => s.classList.remove("active"));
+				slice.classList.add("active");
+				// 切换到对应时间
+				document.getElementById("timeSlider").value = index;
+				updateTimeDisplay(index);
+				shell.setTimeIndex(index);
+				document.getElementById("timeIndex").value = index;
+			});
+			container.appendChild(slice);
+		});
+	}
+
+	// 在 bindEvents 中调用初始化
+	const originalBindEvents = bindEvents;
+	bindEvents = function() {
+		originalBindEvents();
+		initTimeControl();
+		initMultiTimePanel();
+	};
+</script>
+</body>
+
+</html>

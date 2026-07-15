@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+  <title>Three.js 水面效果</title>
+  <!-- demo样式文件 -->
+  <link rel="stylesheet" href="https://minedata.cn/nce-static/support/demo/js-3d-ultra/zh/css/demo.css" />
+  <!-- 引入MineMap API插件 -->
+  <link rel="stylesheet" href="http://192.168.152.123/minemap-engine/v4.0.0/minemap.css" />
+  <script src="../../dist/minemap-dev.js"></script>
+  <script src="../js/lil-gui.umd.min.js"></script>
+  <style>
+    #map {
+      width: 100%;
+      height: 100%;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="map"></div>
+  <!-- 新版本threejs要用import方式引入 -->
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.165.0/build/three.module.js",
+      "three/examples/": "https://unpkg.com/three@0.165.0/examples/",
+      "three/addons/": "https://unpkg.com/three@0.165.0/examples/jsm/"
+    }
+  }
+</script>
+  <script type="module">
+    import * as THREE from 'three';
+    window.THREE = THREE;
+	import { ThreeLayer } from '../js/minemap-three-plugin/index.js'
+
+    /**
+     * 全局参数设置
+     */
+    minemap.domainUrl = 'https://minemap.minedata.cn';
+    minemap.dataDomainUrl = 'https://minemap.minedata.cn';
+    minemap.serverDomainUrl = 'https://ol-data.minedata.cn';
+    minemap.spriteUrl = 'https://minemap.minedata.cn/minemapapi/v4.0.0/sprite/sprite';
+    minemap.serviceUrl = 'https://service.minedata.cn/service';
+
+    minemap.key = "fe68957c8e374122a807c146bacc794d";
+    minemap.solution = 11003;
+
+    // 定义空底图样式
+    const style = {
+      glyphs: "minemap://fonts/{fontstack}/{range}",
+      sprite: "minemap://sprite/sprite",
+      sources: {},
+      layers: [],
+      version: 8
+    };
+
+    /**
+     * 初始化地图实例
+     */
+    window.map = new minemap.Map({
+      container: "map",
+      style,
+      position: [120.30102215030331, 28.57483019781855, 44.52508226222104],
+      pitch: 71.69167517525204 /*地图俯仰角度*/,
+      bearing: 19.75459385606422,
+      maxZoom: 24 /*地图最大缩放等级*/,
+      minZoom: 1 /*地图最小缩放等级*/,
+      projection: "MERCATOR",
+      logoControl: false,
+    });
+    map.repaint = true;
+
+    // 环境贴图
+    const cubeTextureLoader = new THREE.CubeTextureLoader();
+    cubeTextureLoader.setPath('./');
+    const environmentMap = await cubeTextureLoader.loadAsync([
+      '../image/cube/water/px.png', // positive x
+      '../image/cube/water/nx.png', // negative x
+      '../image/cube/water/py.png', // positive y
+      '../image/cube/water/ny.png', // negative y
+      '../image/cube/water/pz.png', // positive z
+      '../image/cube/water/nz.png'  // negative z
+    ]);
+
+    const poolTexture = new THREE.TextureLoader().load('../image/pool_tile.jpg');
+
+    map.on("load", function () {
+      map.addSource("IMAGERY_SOURCE", {
+        type: "raster", //数据源类型：栅格数据源
+        tiles: ["https://staticdata-b.minedata.cn:14434/satellite/{z}/{r}/{c}/{z}_{x}_{y}.jpg"], //瓦片服务地址
+        tileSize: 512 //瓦片尺寸
+      });
+
+      map.addLayer({
+        "id": "IMAGERY",
+        "type": "raster",
+        "source": "IMAGERY_SOURCE",
+        "minzoom": 1,
+        "maxzoom": 23,
+        "paint": {
+          "raster-opacity": 1
+        }
+      });
+
+      const threeLayer = new ThreeLayer({
+        id: 'test-scene',
+        refCenter: [120.301663, 28.576329]
+      });
+      map.addLayer(threeLayer);
+
+      // const dirLight = new THREE.DirectionalLight(0xffffff, 4);
+      // dirLight.position.set(100, 200, 300);
+      // threeLayer.addObject(dirLight);
+
+      const waterVertexShader = `
+    uniform float uTime;
+
+uniform float uWavesAmplitude;
+uniform float uWavesSpeed;
+uniform float uWavesFrequency;
+uniform float uWavesPersistence;
+uniform float uWavesLacunarity;
+uniform float uWavesIterations;
+uniform vec2 uFlowDirection;
+
+varying vec2 vUv;
+varying vec3 vNormal;
+varying vec3 vWorldPosition;
+varying float vElevation;
+
+// Simplex 2D noise
+vec3 mod289(vec3 x) {
+  return x - floor(x * (1.0 / 289.0)) * 289.0;
+}
+
+vec2 mod289(vec2 x) {
+  return x - floor(x * (1.0 / 289.0)) * 289.0;
+}
+
+vec3 permute(vec3 x) {
+  return mod289(((x * 34.0) + 1.0) * x);
+}
+
+float snoise(vec2 v) {
+  const vec4 C = vec4(0.211324865405187,  // (3.0-sqrt(3.0))/6.0
+  0.366025403784439,  // 0.5*(sqrt(3.0)-1.0)
+  -0.577350269189626,  // -1.0 + 2.0 * C.x
+  0.024390243902439); // 1.0 / 41.0
+
+  // First corner
+  vec2 i = floor(v + dot(v, C.yy));
+  vec2 x0 = v - i + dot(i, C.xx);
+
+  // Other corners
+  vec2 i1;
+  i1 = (x0.x > x0.y) ? vec2(1.0, 0.0) : vec2(0.0, 1.0);
+  vec4 x12 = x0.xyxy + C.xxzz;
+  x12.xy -= i1;
+
+  // Permutations
+  i = mod289(i); // Avoid truncation effects in permutation
+  vec3 p = permute(permute(i.y + vec3(0.0, i1.y, 1.0)) + i.x + vec3(0.0, i1.x, 1.0));
+
+  vec3 m = max(0.5 - vec3(dot(x0, x0), dot(x12.xy, x12.xy), dot(x12.zw, x12.zw)), 0.0);
+  m = m * m;
+  m = m * m;
+
+  // Gradients: 41 points uniformly over a line, mapped onto a diamond.
+  // The ring size 17*17 = 289 is close to a multiple of 41 (41*7 = 287)
+  vec3 x = 2.0 * fract(p * C.www) - 1.0;
+  vec3 h = abs(x) - 0.5;
+  vec3 ox = floor(x + 0.5);
+  vec3 a0 = x - ox;
+
+  // Normalise gradients implicitly by scaling m
+  m *= 1.79284291400159 - 0.85373472095314 * (a0 * a0 + h * h);
+
+  // Compute final noise value at P
+  vec3 g;
+  g.x = a0.x * x0.x + h.x * x0.y;
+  g.yz = a0.yz * x12.xz + h.yz * x12.yw;
+  return 130.0 * dot(m, g);
+}
+
+// 辅助函数，用于计算任意点的高程
+float getElevation(float x, float z) {
+  vec2 pos = vec2(x, z);
+
+  float elevation = 0.0;
+  float amplitude = 1.0;
+  float frequency = uWavesFrequency;
+  vec2 p = pos.xy;
+  vec2 flowDir = uFlowDirection;
+  if (length(flowDir) < 0.0001) {
+    flowDir = vec2(1.0, 0.0);
+  } else {
+    flowDir = normalize(flowDir);
+  }
+  vec2 flowOffset = flowDir * (uTime * uWavesSpeed);
+
+  for(float i = 0.0; i < uWavesIterations; i++) {
+    float noiseValue = snoise(p * frequency + flowOffset);
+    elevation += amplitude * noiseValue;
+    p *= uWavesLacunarity;
+    amplitude *= uWavesPersistence;
+    frequency *= uWavesLacunarity;
+  }
+
+  elevation *= uWavesAmplitude;
+
+  return elevation;
+}
+
+void main() {
+  vUv = uv;
+
+  vec4 modelPosition = modelMatrix * vec4(position, 1.0);
+
+  float elevation = getElevation(modelPosition.x, modelPosition.y);
+  modelPosition.z += elevation;
+  vElevation = elevation;
+
+  // 使用偏导数计算正态分布
+  float eps = 0.001;
+  vec3 tangent = normalize(vec3(eps, getElevation(modelPosition.x - eps, modelPosition.y) - elevation, 0.0));
+  vec3 bitangent = normalize(vec3(0.0, getElevation(modelPosition.x, modelPosition.y - eps) - elevation, eps));
+  vec3 objectNormal = normalize(cross(tangent, bitangent));
+
+  vNormal = objectNormal;
+  vWorldPosition = modelPosition.xyz;
+
+  vec4 viewPosition = viewMatrix * modelPosition;
+  vec4 projectedPosition = projectionMatrix * viewPosition;
+
+  gl_Position = projectedPosition;
+}
+    `;
+
+      const waterFragmentShader = `
+      uniform float uTime;
+uniform float uOpacity;
+
+uniform vec3 uTroughColor;
+uniform vec3 uSurfaceColor;
+uniform vec3 uPeakColor;
+
+uniform float uPeakThreshold;
+uniform float uPeakTransition;
+uniform float uTroughThreshold;
+uniform float uTroughTransition;
+
+uniform float uFresnelBias;
+uniform float uFresnelScale;
+uniform float uFresnelPower;
+
+varying vec2 vUv;
+varying vec3 vNormal;
+varying vec3 vWorldPosition;
+varying float vElevation;
+
+uniform samplerCube uEnvironmentMap;
+
+void main() {
+  // 计算从相机到顶点的向量
+  vec3 viewDirection = normalize(vWorldPosition - cameraPosition);
+  vec3 reflectedDirection = reflect(viewDirection, vNormal);
+  reflectedDirection.x = -reflectedDirection.x;
+
+  // 采样 cube texture
+  vec4 reflectionColor = textureCube(uEnvironmentMap, reflectedDirection);
+
+  // 计算菲涅尔效果
+  float fresnel = uFresnelBias + uFresnelScale * pow(1.0 - clamp(dot(viewDirection, vNormal), 0.0, 1.0), uFresnelPower);
+
+  // 使用相对波浪位移做分层，避免受整体世界坐标高度影响
+  float elevation = vElevation;
+
+  vec3 baseColor;
+
+  // 使用smoothstep计算过渡因子
+  float peakFactor = smoothstep(uPeakThreshold - uPeakTransition, uPeakThreshold + uPeakTransition, elevation);
+  float troughFactor = smoothstep(uTroughThreshold - uTroughTransition, uTroughThreshold + uTroughTransition, elevation);
+
+  // Mix between trough and surface colors based on trough transition
+  vec3 surfaceMix = mix(uTroughColor, uSurfaceColor, troughFactor);
+
+  // Mix between surface and peak colors based on peak transition
+  baseColor = mix(surfaceMix, uPeakColor, peakFactor);
+
+  vec3 finalColor = mix(baseColor, reflectionColor.rgb, fresnel);
+
+  gl_FragColor = vec4(finalColor, uOpacity);
+}
+    `;
+
+      const scale = 50;
+      const waterGeometry = new THREE.PlaneGeometry(100, 100, 512, 512);
+      const waterMaterial = new THREE.ShaderMaterial({
+        vertexShader: waterVertexShader,
+        fragmentShader: waterFragmentShader,
+        uniforms: {
+          uTime: { value: 0 },
+          uOpacity: { value: 0.9 },
+
+          uEnvironmentMap: { value: environmentMap },
+
+          uWavesAmplitude: { value: 0.39 },
+          uWavesFrequency: { value: 0.1 },
+          uWavesSpeed: { value: 0.25 },
+          uFlowDirection: { value: new THREE.Vector2(1.0, 0.0) },
+          uWavesPersistence: { value: 0.3 },
+          uWavesLacunarity: { value: 1.6 },
+          uWavesIterations: { value: 7 },
+
+          uTroughColor: { value: new THREE.Color('#186691') },
+          uSurfaceColor: { value: new THREE.Color('#9bd8c0') },
+          uPeakColor: { value: new THREE.Color('#b4cff3') },
+          uPeakThreshold: { value: 0.08 },
+          uTroughThreshold: { value: -0.05 },
+          uPeakTransition: { value: 0.05 },
+          uTroughTransition: { value: 0.2 },
+
+          uFresnelBias: { value: 0.25 },
+          uFresnelScale: { value: 0.25 },
+          uFresnelPower: { value: 0.5 }
+        },
+        transparent: true,
+        depthTest: true,
+        side: THREE.DoubleSide
+      });
+
+      const water = new THREE.Mesh(waterGeometry, waterMaterial);
+      // water.rotation.x = -Math.PI * 0.5;
+      water.position.z = 10;
+      // water.position.y = 10;
+      // water.scale.multiplyScalar(scale);
+      threeLayer.addObject(water);
+
+      const causticsVertexShader = `
+      varying vec2 vUv;
+
+      void main() {
+        vUv = uv;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `;
+      const causticsFragmentShader = `
+      uniform float uTime;
+      uniform sampler2D uTexture;
+      uniform float uCausticsIntensity;
+      uniform float uCausticsOffset;
+      uniform float uCausticsScale;
+      uniform float uCausticsSpeed;
+      uniform float uCausticsThickness;
+
+      varying vec2 vUv;
+
+      // Simplex 2D noise
+      vec3 permute(vec3 x) {
+        return mod(((x * 34.0) + 1.0) * x, 289.0);
+      }
+
+      float snoise(vec2 v) {
+        const vec4 C = vec4(0.211324865405187, 0.366025403784439, -0.577350269189626, 0.024390243902439);
+        vec2 i = floor(v + dot(v, C.yy));
+        vec2 x0 = v - i + dot(i, C.xx);
+        vec2 i1;
+        i1 = (x0.x > x0.y) ? vec2(1.0, 0.0) : vec2(0.0, 1.0);
+        vec4 x12 = x0.xyxy + C.xxzz;
+        x12.xy -= i1;
+        i = mod(i, 289.0);
+        vec3 p = permute(permute(i.y + vec3(0.0, i1.y, 1.0)) + i.x + vec3(0.0, i1.x, 1.0));
+        vec3 m = max(0.5 - vec3(dot(x0, x0), dot(x12.xy, x12.xy), dot(x12.zw, x12.zw)), 0.0);
+        m = m * m;
+        m = m * m;
+        vec3 x = 2.0 * fract(p * C.www) - 1.0;
+        vec3 h = abs(x) - 0.5;
+        vec3 ox = floor(x + 0.5);
+        vec3 a0 = x - ox;
+        m *= 1.79284291400159 - 0.85373472095314 * (a0 * a0 + h * h);
+        vec3 g;
+        g.x = a0.x * x0.x + h.x * x0.y;
+        g.yz = a0.yz * x12.xz + h.yz * x12.yw;
+        return 130.0 * dot(m, g);
+      }
+
+      float causticPattern(vec2 uv, float scale, float speed, float timeOffset) {
+        return uCausticsOffset - abs(snoise(uv * scale + timeOffset));
+      }
+
+      void main() {
+        vec4 texColor = texture2D(uTexture, vUv);
+
+        float caustics = 0.0;
+
+          // 多层焦散
+        caustics += 0.5 * causticPattern(vUv.xy, uCausticsScale, uCausticsSpeed, uTime * uCausticsSpeed);
+        caustics += 0.5 * causticPattern(vUv.yx, uCausticsScale, uCausticsSpeed, -uTime * uCausticsSpeed);
+
+          // Shape the caustics
+        caustics = smoothstep(0.5 - uCausticsThickness, 0.5 + uCausticsThickness, caustics) * uCausticsIntensity;
+
+        vec3 finalColor = texColor.rgb + caustics * vec3(0.2, 0.4, 0.6);
+
+        gl_FragColor = vec4(finalColor, 1.0);
+      }
+    `;
+      const groundMaterial = new THREE.ShaderMaterial({
+        vertexShader: causticsVertexShader,
+        fragmentShader: causticsFragmentShader,
+        uniforms: {
+          uTexture: { value: poolTexture },
+          uTime: { value: 0 },
+          uCausticsIntensity: { value: 1.0 },
+          uCausticsScale: { value: 10.0 },
+          uCausticsSpeed: { value: 0.5 },
+          uCausticsThickness: { value: 0.35 },
+          uCausticsOffset: { value: 0.75 }
+        },
+      });
+
+      // 地面平面
+      const groundGeometry = new THREE.PlaneGeometry(100, 100);
+
+      const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+      // ground.scale.multiplyScalar(scale);
+      threeLayer.addObject(ground);
+
+      // 四周侧面：将水体闭合为一个箱体
+      const halfSize = scale;
+      const bottomZ = ground.position.z;
+      const topZ = water.position.z;
+      const wallHeight = Math.abs(topZ - bottomZ);
+      const wallCenterZ = (topZ + bottomZ) * 0.5;
+
+      const sideMaterial = new THREE.MeshStandardMaterial({
+        color: 0x7ec8e3,
+        transparent: true,
+        opacity: 0.28,
+        roughness: 0.2,
+        metalness: 0.0,
+        side: THREE.DoubleSide
+      });
+
+      // 前后侧面（沿 X 方向展开，固定 Y）
+      const wallFront = new THREE.Mesh(new THREE.PlaneGeometry(2 * halfSize, wallHeight), sideMaterial);
+      wallFront.rotation.x = -Math.PI * 0.5;
+      wallFront.position.set(0, halfSize, wallCenterZ);
+      threeLayer.addObject(wallFront);
+
+      const wallBack = new THREE.Mesh(new THREE.PlaneGeometry(2 * halfSize, wallHeight), sideMaterial);
+      wallBack.rotation.x = -Math.PI * 0.5;
+      wallBack.position.set(0, -halfSize, wallCenterZ);
+      threeLayer.addObject(wallBack);
+
+      // 左右侧面（沿 Z 方向展开，固定 X）
+      const wallRight = new THREE.Mesh(new THREE.PlaneGeometry(2 * halfSize, wallHeight), sideMaterial);
+      wallRight.rotation.z = Math.PI * 0.5;
+      wallRight.rotation.y = Math.PI * 0.5;
+      wallRight.position.set(halfSize, 0, wallCenterZ);
+      threeLayer.addObject(wallRight);
+
+      const wallLeft = new THREE.Mesh(new THREE.PlaneGeometry(2 * halfSize, wallHeight), sideMaterial);
+      wallLeft.rotation.z = Math.PI * 0.5;
+      wallLeft.rotation.y = Math.PI * 0.5;
+      wallLeft.position.set(-halfSize, 0, wallCenterZ);
+      threeLayer.addObject(wallLeft);
+
+      // 动画
+      const clock = new THREE.Clock();
+      function animate() {
+        const elapsedTime = clock.getElapsedTime();
+
+        // 更新water
+        waterMaterial.uniforms.uTime.value = elapsedTime;
+
+        // 更新caustics
+        groundMaterial.uniforms.uTime.value = elapsedTime;
+
+        requestAnimationFrame(animate);
+      }
+
+      animate();
+
+      // ---- UI CODE -----
+      const gui = new lil.GUI({ title: '水面参数' });
+
+      const wavesFolder = gui.addFolder('波浪');
+      // 振幅：控制波峰波谷的高度差，值越大起伏越明显
+      wavesFolder.add(waterMaterial.uniforms.uWavesAmplitude, 'value', 0, 5).name('振幅');
+      // 频率：控制单位面积内的波纹密度，值越大波纹越密
+      wavesFolder.add(waterMaterial.uniforms.uWavesFrequency, 'value', 0.01, 1, 0.1).name('频率');
+      // Persistence：分形噪声每层振幅衰减，值越大细节层贡献越多
+      wavesFolder.add(waterMaterial.uniforms.uWavesPersistence, 'value', 0, 1, 0.001).name('Persistence');
+      // Lacunarity：分形噪声每层频率放大倍率，值越大高频细节增长越快
+      wavesFolder.add(waterMaterial.uniforms.uWavesLacunarity, 'value', 0, 3, 0.001).name('Lacunarity');
+      // 迭代次数：分形噪声叠加层数，越高细节越丰富但开销也更高
+      wavesFolder.add(waterMaterial.uniforms.uWavesIterations, 'value', 1, 8, 1).name('迭代次数');
+      // 速度：波纹随时间运动的快慢
+      wavesFolder.add(waterMaterial.uniforms.uWavesSpeed, 'value', 0, 1, 0.001).name('速度');
+      // 流向X/流向Y：控制波纹主流动方向向量（会在着色器内归一化）
+      wavesFolder.add(waterMaterial.uniforms.uFlowDirection.value, 'x', -1, 1, 0.01).name('流向X');
+      wavesFolder.add(waterMaterial.uniforms.uFlowDirection.value, 'y', -1, 1, 0.01).name('流向Y');
+
+      const colorFolder = gui.addFolder('颜色');
+      // 不透明度：整体透明度，越小越通透
+      colorFolder.add(waterMaterial.uniforms.uOpacity, 'value', 0, 1, 0.01).name('不透明度');
+
+      const colorParams = {
+        troughColor: '#186691',
+        surfaceColor: '#9bd8c0',
+        peakColor: '#b4cff3'
+      };
+
+      // 波谷颜色：低于阈值区域的主色
+      colorFolder.addColor(colorParams, 'troughColor').name('波谷颜色').onChange((value) => {
+        waterMaterial.uniforms.uTroughColor.value.set(value);
+      });
+      // 水面颜色：中间过渡区域的主色
+      colorFolder.addColor(colorParams, 'surfaceColor').name('水面颜色').onChange((value) => {
+        waterMaterial.uniforms.uSurfaceColor.value.set(value);
+      });
+      // 波峰颜色：高于阈值区域的主色
+      colorFolder.addColor(colorParams, 'peakColor').name('波峰颜色').onChange((value) => {
+        waterMaterial.uniforms.uPeakColor.value.set(value);
+      });
+      // 波峰阈值：开始向波峰颜色过渡的高度阈值
+      colorFolder.add(waterMaterial.uniforms.uPeakThreshold, 'value', -1, 1).name('波峰阈值');
+      // 波峰过渡：波峰颜色过渡带宽度，越大过渡越平滑
+      colorFolder.add(waterMaterial.uniforms.uPeakTransition, 'value', 0, 0.1).name('波峰过渡');
+      // 波谷阈值：开始向波谷颜色过渡的高度阈值
+      colorFolder.add(waterMaterial.uniforms.uTroughThreshold, 'value', -0.1, 0.1).name('波谷阈值');
+      // 波谷过渡：波谷颜色过渡带宽度，越大过渡越平滑
+      colorFolder.add(waterMaterial.uniforms.uTroughTransition, 'value', 0, 0.1).name('波谷过渡');
+
+      const fresnelFolder = gui.addFolder('Fresnel');
+      // Bias：菲涅尔基础反射强度
+      fresnelFolder.add(waterMaterial.uniforms.uFresnelBias, 'value', 0, 1, 0.01).name('Bias');
+      // Scale：视角变化带来的反射增量
+      fresnelFolder.add(waterMaterial.uniforms.uFresnelScale, 'value', 0, 1, 0.01).name('Scale');
+      // Power：菲涅尔曲线陡峭程度，越大边缘高光越集中
+      fresnelFolder.add(waterMaterial.uniforms.uFresnelPower, 'value', 0, 1, 0.001).name('Power');
+
+      const causticsFolder = gui.addFolder('焦散');
+      // 强度：焦散亮纹明暗强度
+      causticsFolder.add(groundMaterial.uniforms.uCausticsIntensity, 'value', 0, 2, 0.01).name('强度');
+      // 缩放：焦散纹理尺度，越大纹理越密
+      causticsFolder.add(groundMaterial.uniforms.uCausticsScale, 'value', 0, 20, 0.1).name('缩放');
+      // 速度：焦散动画变化速度
+      causticsFolder.add(groundMaterial.uniforms.uCausticsSpeed, 'value', 0, 1, 0.01).name('速度');
+      // 偏移：焦散阈值偏置，影响亮纹覆盖面积
+      causticsFolder.add(groundMaterial.uniforms.uCausticsOffset, 'value', 0, 2, 0.01).name('偏移');
+      // 厚度：焦散线条粗细
+      causticsFolder.add(groundMaterial.uniforms.uCausticsThickness, 'value', 0, 1, 0.01).name('厚度');
+
+    });
+  </script>
+</body>
+
+</html>
