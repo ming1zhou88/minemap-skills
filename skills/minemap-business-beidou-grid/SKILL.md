@@ -46,6 +46,22 @@ map.addSceneComponent(grid);
 -   `freezeFrame` 只对自动生成模式有意义
 -   静态模式下，如果 `gridData` 没有 `cartesianCorners`，引擎会尝试按 `id` 进行北斗码反算
 
+## 视野网格查询
+
+`Map` 提供两种直接按当前相机视野查询的接口，不必先创建 `BeiDouGrid` 场景对象：
+
+```javascript
+const grids3d = map.queryBeiDouGridsInFrustum({ level: 5, maxDistance: 10000 });
+const grids2d = map.queryBeiDouGrids2DInFrustum({ level: 5, maxDistance: 10000, bufferDistance: 100 });
+```
+
+- `queryBeiDouGridsInFrustum()` 返回 3D 视锥内与指定级别网格相交的 `id` / `level` 列表。
+- `queryBeiDouGrids2DInFrustum()` 根据屏幕地面可见多边形查询二维网格，可用 `bufferDistance` 外扩视野边缘。
+- 两个方法都返回 `{ grids, count, elapsed }`，`level` 必须在 1–10 范围内；默认最远距离为 10 km。
+- 视野查询适合临时筛选服务端或显示结果，不会自动创建、绘制或高亮 `BeiDouGrid` 对象。
+
+在高俯仰角或大范围查询时，先收紧 `maxDistance`、控制 `level`，再消费返回数组；不要直接把高层级全国网格全部实例化。
+
 ## Demo-backed Business Patterns
 
 ### 模式 1：全图层动态网格对象
@@ -162,6 +178,8 @@ demo 已明确做了 `maxHeight < minHeight` 的互斥修正。业务 UI 层也�
 -   `demo/html/BeiDouGridSceneObject.html`
 -   `demo/html/BeiDouCodecDemo.html`
 -   `demo/html/3DTilesWithBeiDouGrid.html`
+-   `demo/html/BeiDouGridFrustumQuery.html`
+-   `demo/html/BeiDouGrid2DFrustumQuery.html`
 
 ## See Also
 

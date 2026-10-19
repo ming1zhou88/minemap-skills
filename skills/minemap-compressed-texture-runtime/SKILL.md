@@ -102,5 +102,5 @@ S3M parser 会把 DXT、WebP、CRN、KTX2、CRN_DXT5 等压缩类型映射到内
 
 - `minemap-material-system-and-shading`
 - `minemap-performance-and-backend`
-- `minemap-s3m-tiles`
+- `minemap-s3m`
 - `minemap-model-runtime-debug`

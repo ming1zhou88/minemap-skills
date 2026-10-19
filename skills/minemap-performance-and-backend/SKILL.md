@@ -1,6 +1,6 @@
 ---
 name: minemap-performance-and-backend
-description: MineMap 渲染后端（auto/webgpu/webgl2/webgl1）选择、降级策略、特效开关与性能调优。
+description: MineMap 渲染后端偏好、当前 WebGL2/WebGL1 运行路径、降级策略、特效开关与性能调优；适用于核对设备实际后端和高成本渲染功能。
 ---
 
 # MineMap Performance and Backend
@@ -27,7 +27,7 @@ map.on("load", () => {
 
 ### 1) 后端优先级
 
-默认策略：`webgpu -> webgl2 -> webgl1`（当前 WebGPU 为预留通道，实际以 WebGL2/1 为主）。
+默认偏好数组包含 `webgpu -> webgl2 -> webgl1`，但 4.27.1 的 WebGPU 通道是预留占位，创建上下文时会跳过它；当前实际后端是 WebGL2，或在要求时使用 WebGL1。不要把 `renderBackend: "webgpu"` 描述为已启用 WebGPU 渲染。
 
 构造参数：
 
@@ -42,6 +42,8 @@ map.on("load", () => {
 -   `map.renderBackendResolved`
 -   `map.renderBackendReasons`
 -   `map.requestWebgl1`
+
+业务代码在初始化完成后读取 `map.getRenderBackend()` / `map.renderBackendResolved`，并基于实际后端决定是否开放依赖 WebGL2 的功能。后端选项表示偏好，不代表浏览器与引擎已实现该图形 API。
 
 ### 3) 特效开关与性能成本
 

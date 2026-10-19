@@ -90,8 +90,22 @@ map.addPrimitive(billboardInstance);
 | `imageUrl` | 与 `image` 二选一；URL 形式              |
 | `flipY`    | 翻转纹理 Y（参考 WebGL 纹理属性）        |
 | `color`    | `Vector4` (r, g, b, a) 颜色板            |
+| `pixelResolution` | `[width, height]` 固定屏幕像素尺寸；设置后优先于 `scale` / `center` / `rotation` |
 
 > `image` 是元素，`imageUrl` 是路径。`material.image = newCanvas` 可以热替换纹理。
+### 固定像素尺寸与轨迹公告板
+
+需要让车牌、设备编号等公告板不随地图缩放改变视觉尺寸时，给 `BillboardMaterial` 设置 `pixelResolution`：
+
+```javascript
+const material = new minemap.BillboardMaterial({
+	position: [116.245, 40.063, 0],
+	image: plateCanvas,
+	pixelResolution: [120, 42]
+});
+```
+
+在 `animationManager` 的 `type: "billboard"` 轨迹内容中，把同一配置放到 `extra.pixelResolution`。这个字段是 4.27.1 为轨迹公告板补充的能力；不要把它写成 `BillboardInstance` 或 DOM `Marker` 的参数。实证示例见 `AnimationTrackFixedPlate.html` 与 `AnimationTrackFixedPlate-Canvas.html`。
 
 ## `BillboardGeometry`
 
@@ -203,6 +217,8 @@ map.on("click", (e) => {
 
 -   `demo/html/Billboard.html`：单公告板 + Canvas 实时画板
 -   `demo/html/BillboardInstanceAnimation.html`：车辆 / 设备级 BillboardInstance 动画 + 拾取 + 轨迹
+
+-   `demo/html/AnimationTrackFixedPlate.html`、`demo/html/AnimationTrackFixedPlate-Canvas.html`：轨迹中的固定像素车牌
 
 ## See Also
 

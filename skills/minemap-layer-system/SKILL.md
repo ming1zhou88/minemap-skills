@@ -373,6 +373,7 @@ MineMap 特有层级参数：
 -   `classificationType` 只支持 `minemap.ClassificationType.FORCE_VECTOR_OVER_MODEL`
 -   `symbol-pick-color` 仅在带高程 symbol 做精确点击时才值得打开，否则可能影响性能
 -   `hiddenType` 的场景遮挡不支持沿线文字
+4.27.1 更新了 MVT 矢量要素的沿线文字锚点和字形排布，使用现有 `symbol-placement: "line"` / `"line-center"` 与 `text-rotation-alignment: "map"` 等布局参数即可；这不是新增 style 字段。遇到长标签、急弯或不同缩放级别时，检查实际 MVT 线段、碰撞规则和标签重复间距，不要补造 `text-along-line` 一类配置。
 
 ### 6) `raster`
 

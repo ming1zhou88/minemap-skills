@@ -161,6 +161,35 @@ tiles: ["https://example.com/dem/{z}/{r}/{c}/{z}_{x}_{y}.terrain"];
 map.setTerrain({ tiles: null });
 ```
 
+### 外部 Cesium / ArcGIS 地形服务
+
+4.27.1 的 `setTerrain()` 支持保留默认 MineMap 格式，也可显式选择外部 provider：
+
+```javascript
+// Cesium quantized-mesh：tiles 使用服务返回的瓦片 URL 模板
+map.setTerrain({
+	provider: "cesium",
+	format: "quantized",
+	tiles: [cesiumTerrainTileTemplate],
+	scheme: "tms",
+	zoomOffset: -1,
+	tileSize: 512,
+	maxzoom: 15
+});
+
+// ArcGIS ImageServer：SDK 根据 url 请求对应地形瓦片
+map.setTerrain({
+	provider: "arcgis",
+	format: "lerc",
+	url: arcGisImageServerUrl,
+	tileSize: 256,
+	gridSize: 65,
+	maxzoom: 16
+});
+```
+
+Cesium 服务需由应用按其账号与授权方式取得可用的瓦片 URL；ArcGIS 需要可访问的 ImageServer 地址。不要复制 demo 中的临时 token。`provider` 缺省时仍使用 MineMap 既有地形格式；`format` 应与来源匹配（ArcGIS 为 `lerc`，Cesium / MineMap 为 `quantized`）。外部服务的 `maxParallelRequests` 可用于降低首次加载压力，但也会降低同时取瓦片的速度。
+
 ### `tileSize`
 
 DEM 瓦片大小。
@@ -585,6 +614,23 @@ terrain 开启后，如果 primitive 本身支持：
 
 但这依赖对象本身的 geometry/material 支持，不是 terrain 自动替你完成的。
 
+## 按相机视野查询行政区划地形瓦片
+
+`map.queryVisibleRegionTerrainTiles()` 读取省级区划索引和区域高程元数据，再结合当前相机视野筛选瓦片。它需要与该接口配套的数据服务，不会从任意 `setTerrain()` provider 自动推导完整区域高程索引。
+
+```javascript
+const result = await map.queryVisibleRegionTerrainTiles({
+	baseUrl: "https://your-domain.example/region/",
+	outputZ: 15,
+	maxDistance: 10000,
+	bufferDistance: 100
+});
+
+console.log(result.visibleTiles);
+```
+
+`baseUrl` 应指向由应用部署或获准访问的区域数据服务根目录。当前源码有仅供开发使用的默认服务地址；面向外部开发者的代码必须显式配置自己的 `baseUrl`。接口返回 `inputTiles`、`visibleTiles` 与 `meta`，可选 `withDetails` 返回筛选明细；查询失败时应显示服务和网络错误，不要把空数组解释成区域没有地形。
+
 ## Terrain Analysis
 
 ### 3) 地形分析入口
@@ -827,6 +873,7 @@ map.setTerrain({ tiles: null });
 -   对离线分析（如离线淹没）优先预计算输入
 -   分析阶段暂时禁用不必要后处理（SSR/OIT/阴影）
 -   没有高精度查询需求时，优先用 `queryDEMHeightByPoint()` 而不是总是走 `queryAccurateDEMHeightByPoint()`
+-   `queryVisibleRegionTerrainTiles()` 依赖额外区域索引服务；按需调用并配置缓存 / 网络策略，不要对每帧相机变化都重复请求
 -   `availabilities` 能配就配，尤其是高精度查询和大范围分析
 -   `terrainSkirtHeight` 优先保留动态值，除非你明确在调接缝问题
 -   `TerrainLeveling` 依赖 WebGL2，不要把它当成所有终端都能稳定开启的通用效果
@@ -848,6 +895,8 @@ terrain 相关资料建议交叉看：
 -   `demo/html/TerrainLeveling.html`
 -   `demo/html/MarkerDraggableOnTerrain.html`
 -   `demo/html/RasterTerrainChange.html`
+-   `demo/html/TerrainProvidersSwitch.html`
+-   `demo/html/RegionTerrainVisibleTiles.html`
 
 查 terrain 时推荐顺序：
 

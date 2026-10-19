@@ -76,6 +76,9 @@ MineMap 支持若干内部协议，业务代码可以配置逻辑地址，由 `u
 
 不要在业务层自己拼接一套鉴权参数优先级；统一走引擎配置和 URL 归一化入口。
 
+## 引擎处理的加密模型数据
+
+当前源码包含针对 MineData / MineEarth 二进制格式的 glTF / 3D Tiles 解码路径，`3DTilesEncrypted.html` 示例通过常规 `addSceneComponent({ type: "3d-tiles", urls })` 加载对应数据。这是受支持数据格式在引擎加载链中的处理，不是通用解密 API；当前没有公开的密钥、算法或 `SceneTileset` 解密配置参数。只对数据提供方明确交付的兼容数据使用该路径，不要臆造配置字段或把它扩展成任意文件解密能力。
 ## 数据加密说明
 
 涉及加密数据时，只写接入边界，不写算法细节：
@@ -86,6 +89,22 @@ MineMap 支持若干内部协议，业务代码可以配置逻辑地址，由 `u
 - 不要写加密算法名称、模式、密钥格式、密钥来源、解密伪代码、逆向步骤、抓包还原过程或任何可复现内部实现的描述。
 
 如果用户要求“解释加密算法”或“补解密代码”，应明确拒绝暴露内部实现，并改为提供安全接入检查清单。
+
+## 自定义请求头
+
+请求鉴权或服务要求额外 header 时，优先使用 Map 构造参数 `transformRequest`，或通过 `map.setTransformRequest()` 更新后续请求：
+
+```javascript
+map.setTransformRequest((url, resourceType) => ({
+	url,
+	headers: { "X-Client-Token": token },
+	credentials: "include"
+}));
+```
+
+转换函数可返回请求参数的子集；未指定的参数会沿用默认值，MineData 内置鉴权 header 会与自定义请求合并。它只影响设置后新发起的引擎资源请求，不会改写已经发出的请求。token 应由应用安全地取得和保管，不要硬编码到共享示例或日志。
+
+并非所有数据加载器都走地图的 `transformRequest`。对单独使用 `fetch` 的 layer（例如 `VolumeCloud` 的 `url`），应检查该 layer 是否提供 `requestInit` 或自己的 header 参数，并阅读相应专题技能。
 
 ## 常见错误
 

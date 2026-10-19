@@ -7,7 +7,7 @@ description: MineMap 3D 体渲染（VolumeShell）场景组件。用于医学、
 
 ## 概述
 
-`VolumeShellSceneComponent` 是 MineMap 4.25 公开的体渲染组件，适合"叠片式 3D 体数据"场景：把一系列 2D 切片（通常是 webp / png / 灰度图）按高度堆叠到 WGS84 椭球内壳，运行时按视线做体积积分。
+`VolumeShellSceneComponent` 适合"叠片式 3D 体数据"场景：把一系列 2D 切片（通常是 WebP / PNG / 灰度图）按高度堆叠到 WGS84 椭球内壳，运行时按视线做体积积分。它与规则网格天气数据图层 `VolumeCloud` 是不同的数据入口；后者见 `minemap-volume-cloud`。
 
 典型应用：
 
@@ -61,7 +61,7 @@ map.addSceneComponent(shell);
 ## Architecture Positioning
 
 -   `VolumeShellSceneComponent` 是一个 `scene-object`，**不是** source/layer
--   内部使用 `Texture3D`，所以对 WebGL 2 / WebGPU 后端有要求
+-   内部使用 `Texture3D`，要求 WebGL 2；4.27.1 的 WebGPU 通道仍是预留占位
 -   通过 `urlBuilder(timeIndex, dataType, depthIndex)` 动态拼 URL，因此天然支持多时间 / 多类型切换
 -   数值映射模式（`mode: 1`）会把灰度图按 `dataMin` / `dataMax` 映射到 colormap
 -   取色模式（`mode: 0`）直接使用图像本身颜色
@@ -145,9 +145,9 @@ const shell = new minemap.VolumeShellSceneComponent({
 
 `layerUrls` 只是首帧用的初始 URL，**真正能动态切换的**是 `urlBuilder`。如果两者不匹配，切换时间 / 类型会拿到错图。
 
-### 3. WebGL 2 / WebGPU 后端
+### 3. WebGL 2 后端
 
-`Texture3D` 依赖 WebGL 2 或 WebGPU。如果用户开的是 WebGL 1，会自动降级或失败，需要提示用户切到 WebGL 2。
+`Texture3D` 依赖 WebGL 2。若当前运行后端为 WebGL 1，提示切换到 WebGL 2；不要把 WebGPU 当作可用的替代后端。
 
 ### 4. 不要把 `flipY` 当通用公开 API
 

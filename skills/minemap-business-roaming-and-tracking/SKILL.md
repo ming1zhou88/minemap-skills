@@ -90,6 +90,32 @@ MineMap 轨迹与漫游有两套常用入口，不能混为一谈：
 -   即时生成演示可直接构造 clip
 -   大批量动画统一走 JSON，便于留档和重放
 
+## 实例化模型实时轨迹
+
+增量推送的位置更新与 JSON 关键帧回放是两套接口。对不断收到车辆 / 设备状态的场景，使用 `map.animationManager.addRealtime()`，并让 `sourceId` 指向已初始化的 `3d-model-instance` 场景对象：
+
+```javascript
+const realtime = map.animationManager.addRealtime({
+	id: "fleet-live",
+	sourceId: "fleet-model",
+	duration: 1600,
+	maxInstances: 500
+});
+
+realtime.update([
+	{ trackId: "car-01", position: [116.39, 39.90, 0], rotation: [90, 0, 90], timestamp: Date.now() }
+]);
+```
+
+- `trackId` 是实例名；每次 `update()` 只传本轮变化的实例即可。
+- 默认把 `position` 当作 `[longitude, latitude, height]` 并转成笛卡尔坐标；`update(items, { cartesian: true })` 用于已是 Cartesian 的位置。
+- `duration` 使用毫秒，默认 1000；`easing` 可选 `linear`，其余取 `easeInOut`。
+- `timestamp` 不大于该轨迹已接收时间戳的更新会被忽略，适合过滤乱序数据。
+- 实例数最多 500；超出上限时更新会报错。需要退出时用 `map.animationManager.removeRealtime(id)`，它会销毁控制器并移除其管理的实例。
+- 若启用跟随，把 `animationTracking.name` 设为对应 `trackId`，并使用 `FOLLOW` 模式。
+
+不要对每条实时数据新建一个 JSON animation。也不要让同一 `trackId` 的实例同时由该控制器和业务代码独立销毁或复用；控制器移除轨迹时会从目标 collection 移除对应实例。
+
 ## Demo-backed Patterns
 
 ### 模式 1：批量动画内容一次加入
@@ -118,6 +144,10 @@ MineMap 轨迹与漫游有两套常用入口，不能混为一谈：
 -   轨迹回放常配 `autoHeight: true`
 -   `AnimationBlender` 支持 `play()`、`pause()`、`stop()`、`reset()`、`speed`、`currentTime`
 -   `onPlaying` 可用于驱动时间轴 UI
+
+### 模式 3：实例化车队稀疏更新
+
+对应 demo：`demo/html/RealtimeAnimationTrack.html`。它展示 `addRealtime()`、按 `trackId` 稀疏更新、时间戳过滤、Marker 跟随同步和实例点击选择。这个 demo 的更新队列是业务示例；生产系统应由自己的消息通道提供状态，并按需节流推送。
 
 ## Professional Recommendations
 
@@ -184,6 +214,7 @@ blender.play();
 -   `demo/html/AnimationTrack.html`
 -   `demo/html/AutoHeightAnimation.html`
 -   `demo/html/AutoHeightAnimationInstance.html`
+-   `demo/html/RealtimeAnimationTrack.html`
 
 ## See Also
 

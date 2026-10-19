@@ -20,7 +20,7 @@ description: MineMap 官网、帮助中心、账号开通、文档查找、示�
 1. 先看示例中心，确认能力是否真的存在
 2. 再看开发指南，理解官方推荐工作流
 3. 再看 API 参考，核对类名、参数、实例方法
-4. 最后回到本仓库 `source/`、`docs/src-cn/`、`demo/` 做源码级校验
+4. 最后回到本仓库 `source/` 与 `demo/` 做源码级校验；如果当前 checkout 含有对应 API 文档源，再一并核对
 
 ## Architecture Positioning
 
@@ -286,13 +286,13 @@ API 参考页当前可确认：
 这对本仓库的实际意义是：
 
 -   API 参考可以作为公开命名与注释的辅助来源
--   但本仓库当前引擎基线是 `4.22.1`
+-   但本仓库当前引擎基线是 `4.27.1`
 -   如果 API 参考页版本落后于源码版本，**以源码为准**
 
 因此正确顺序是：
 
 -   API 页确认名字
--   `docs/src-cn/` 确认注释意图
+-   现存 API / 类 JSDoc 确认注释意图（先核对文件确实存在）
 -   `source/` 确认真实行为和默认值
 -   `demo/` 确认官方是否真的这样使用
 
@@ -318,7 +318,7 @@ API 参考页当前可确认：
 #### C. 再按渲染对象查
 
 -   style layer → guide + API + 本地 `source/style`
--   `SceneModel` / `SceneTileset` → guide + API + 本地 `docs/src-cn`
+-   `SceneModel` / `SceneTileset` → guide + API + 当前源码中的类注释与实现
 -   DOM 覆盖物 → guide 覆盖物分类 + 本地 `source/api/Marker.js` / `Popup.js`
 
 #### D. 最后回到仓库 `demo/` 做二次检索
@@ -343,7 +343,7 @@ API 参考页当前可确认：
 
 而本仓库当前整理基线是：
 
--   `minemap-3d-engine@4.22.1`
+-   `minemap-3d-engine@4.27.1`
 
 这意味着：
 
@@ -353,7 +353,7 @@ API 参考页当前可确认：
 
 ### 2) 推荐的版本判定顺序
 
--   第一优先级：`package.json`、`source/`、`docs/src-cn/`
+-   第一优先级：`package.json`、`source/` 与当前 checkout 中存在的 API 文档文件
 -   第二优先级：本地 `demo/`
 -   第三优先级：官网 guide / API / FAQ / changelog
 
@@ -378,7 +378,7 @@ API 参考页当前可确认：
 ## Strict Constraints
 
 -   不要把官网产品介绍当成技术行为定义
--   不要把 API 参考页旧版本内容直接当成 `4.22.1` 的精确行为
+-   不要把 API 参考页旧版本内容直接当成 `4.27.1` 的精确行为
 -   不要写“官网可自助注册”这类未确认事实
 -   不要只看 guide 就下结论，MineMap 很多关键细节必须回 `source/`
 -   不要只依赖官网示例中心，当前仓库 `demo/` 同样是重要证据源

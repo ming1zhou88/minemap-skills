@@ -37,7 +37,7 @@ map.on("load", () => {
 
 -   `3d-model` -> `SceneModel`
 -   `3d-tiles` -> `SceneTileset`
--   `scene-object` -> 场景对象（如 `Earth`、`Skybox`、`Panorama`、`AirLine`）
+-   `scene-object` -> 场景对象（如 `Earth`、`Panorama`、`AirLine`）；旧 `Skybox` 对象的添加入口已弃用
 
 ### 2) 迁移规则
 
@@ -62,6 +62,21 @@ map.on("load", () => {
 -   `map.getSceneComponent()`
 -   `map.removeSceneComponent()`
 
+### 天空盒入口迁移
+
+不要再通过 `map.addSceneComponent(new minemap.Skybox())` 添加天空盒。4.27.1 会发出弃用警告并跳过该对象；改用 `map.setSkyBoxTextures()`，移除时使用 `map.removeSkyBoxTextures()`：
+
+```javascript
+map.setSkyBoxTextures({
+	starry: { nx, px, ny, py, nz, pz },
+	day: { nx, px, ny, py, nz, pz }
+});
+
+map.removeSkyBoxTextures({ starry: true, day: true });
+```
+
+每组贴图都需要按六个立方体方向提供面资源。天空盒不是 `addSceneComponent()` 的推荐新增路径；场景对象列表中出现 `Skybox` 仅用于识别旧代码。
+
 ### 4) SceneModel 和 SceneTileset 的角色边界
 
 `SceneModel`：
@@ -80,7 +95,7 @@ map.on("load", () => {
 
 `source/index.js` 还导出了：
 
--   场景对象：`Sun`、`Earth`、`Skybox`、`Panorama`
+-   场景对象：`Sun`、`Earth`、`Panorama`；`Skybox` 通过 Map 天空盒方法管理
 -   业务对象：`AirLine`、`BeiDouGrid`、`GradientLine`、`GaussianSplatting`、`AdminDivision`
 -   模型辅助：`TerrainLeveling`、`ModelInstance`、`ModelInstanceCollection`
 -   裁剪辅助：`ClippingPlane`、`ClippingPlaneCollection`

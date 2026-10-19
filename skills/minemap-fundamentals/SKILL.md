@@ -26,7 +26,7 @@ const map = new minemap.Map({
 	minZoom: 1,
 	maxZoom: 22,
 	projection: minemap.ProjectionType.MERCATOR,
-	renderBackend: "auto" // auto -> webgpu/webgl2/webgl1
+	renderBackend: "auto" // 4.27.1 实际使用 WebGL2 / WebGL1；WebGPU 当前为预留占位
 });
 
 map.on("load", () => {

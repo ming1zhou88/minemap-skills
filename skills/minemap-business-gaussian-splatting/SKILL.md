@@ -1,6 +1,6 @@
 ---
 name: minemap-business-gaussian-splatting
-description: MineMap Gaussian Splatting 业务规范。用于高保真实景重建、轻量化点场景渲染、照片测量成果展示。
+description: MineMap Gaussian Splatting（3DGS）业务规范。适用于 .splat、PLY、SPZ 资产加载、定位、拾取和大场景选型；Spark 仅作为 demo 插件集成参考。
 ---
 
 # MineMap Business: Gaussian Splatting
@@ -10,7 +10,7 @@ description: MineMap Gaussian Splatting 业务规范。用于高保真实景重�
 MineMap 里的高斯泼溅有两条落地路径，业务上不要混用概念：
 
 1. `new minemap.GaussianSplatting(...)`
-    - 面向单个 `.splat` 资产
+    - 面向单个 `.splat`、`.ply` 或 `.spz` 资产
     - 作为 `scene-object` 挂到场景里
     - 适合单体成果、室内扫描件、文保小场景、设备级演示
 2. 高斯泼溅封装进 3D Tiles
@@ -39,7 +39,9 @@ map.addSceneComponent(gs);
 ## Source-backed Rules
 
 -   `GaussianSplatting` 本质是 `scene-object`
--   当前公开数据入口以 `.splat` 文件地址为主，源码里通过 `getArrayBuffer()` 拉取
+-   `GaussianSplatting.options.data` 按文件后缀支持 `.splat`、`.ply` 和 `.spz`；SPZ 在加载时解码，不提供 SPZ 编码接口
+-   独立高斯对象通过 `map.addSceneComponent()` 添加；高斯 3D Tiles 走 `SceneTileset` 的 tileset 路径
+-   SPZ 与 SPLAT 支持 `requestHeaders`；4.27.1 的 PLY 分支没有把此参数传给请求，不要假设受保护的 PLY 地址可以用它鉴权
 -   内部流程不是“直接画点”，而是：
     1. worker 传输原始 splat 数据
     2. worker 生成高斯纹理
@@ -48,6 +50,14 @@ map.addSceneComponent(gs);
 -   因为存在视角相关排序，所以相机剧烈变化时会不断触发重排
 -   `rotation` 与 `quaternion` 是二选一的旋转输入
 -   `scale` 默认语义是 xyz 独立缩放，严禁写 0
+-   对象颜色拾取默认关闭；需要对象颜色拾取时显式设置 `allowPick: true`。地图手势使用的 GPU 深度坐标拾取是另一条路径
+
+## 数据格式与大场景
+
+- 单体 `.splat`、`.ply` 或 `.spz` 可以由 `GaussianSplatting` 直接读取；检查数据文件的实际后缀，避免把 PLY / SPZ 当成 SPLAT 二进制。
+- 城市级、大文件或需要视点相关分块调度的成果，优先评估 3D Tiles Gaussian 路径。不要把 `GaussianSplatting` 单对象误当作自动分页器。
+- SPZ 是输入格式支持，不代表 MineMap 能从当前场景导出或重新编码 SPZ。
+- 如果使用外部 Spark 处理大型 3DGS，先阅读 [Spark demo adapter reference](references/spark-adapter.md)；它说明的是 `ThreeLayer` 上的 demo 集成，不是 MineMap 内建的 Spark API。
 
 ## Demo-backed Usage Patterns
 
@@ -83,7 +93,7 @@ map.addSceneComponent(gs);
 ## Recommended Workflow
 
 1. 先确认资产边界
-    - 单体成果：直接 `.splat`
+    - 单体成果：按资产格式直接使用 `.splat`、`.ply` 或 `.spz`
     - 大场景成果：优先切成 3D Tiles
 2. 先调 `position`
 3. 再调 `rotation` 或 `quaternion`
@@ -170,7 +180,9 @@ map.addSceneComponent(gs);
 ## Demo References
 
 -   `demo/html/3DGaussianSplatting.html`
+-   `demo/html/3DGS-PlyDemo.html`
 -   `demo/html/3DGS-3DTiles.html`
+-   `demo/html/Threejs-3DGS-Spark.html`（外部 Spark + demo adapter）
 
 ## See Also
 

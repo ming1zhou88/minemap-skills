@@ -138,6 +138,7 @@ MineMap 把一批启动配置直接挂在 `minemap` 顶层对象上。
 #### `minemap.serverDomainUrl`
 
 分析/服务域配置。setter 会联动更新 `SERVER_URL`，同样支持字符串或数组。
+4.27.1 的 `serverDomainUrl` setter 会在每个服务域后追加 `/service/` 来生成 `SERVER_URL`；传入纯域名即可，不要把 `/service/` 再拼进 `serverDomainUrl`。需要自定义服务根路径时，单独设置 `serviceUrl` 并对照最终请求 URL 检查。
 
 #### `minemap.serviceUrl`
 

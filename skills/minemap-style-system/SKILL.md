@@ -173,9 +173,9 @@ style 是地图渲染主状态，不是一般 UI 配置。
 ## Evidence References
 
 -   `source/api/map.js`
--   `docs/src-cn/doc-style.js`
--   `docs/src-cn/doc-source.js`
--   `docs/src-cn/doc-style-layer-migrate.js`
+-   `source/style/style-reference/style-spec/reference/v8.json`
+-   `source/style/style.js`
+-   `source/api/map.js` (`setStyle()` / style 更新入口)
 -   `demo/html/BeiDouCodecDemo.html`
 
 ## See Also

@@ -1,6 +1,6 @@
 ---
 name: minemap-clouds-and-atmosphere
-description: MineMap 云与大气渲染链。用于启用体积云（多层 CloudLayer）、单片实例化云（map.cloudCollection）、大气散射与太阳 / 天空辐照度，重点说明主分支公开参数与禁用字段。
+description: MineMap 云与大气渲染链。用于启用体积云、单片实例化云、云阴影与光束、大气散射和太阳 / 天空辐照度；气象规则网格体数据另见 minemap-volume-cloud。
 ---
 
 # MineMap Clouds and Atmosphere
@@ -18,7 +18,7 @@ MineMap 主分支公开的云与大气能力有两条独立路径，**业务上�
     - 形态：局部放置的单体云（积云）
     - 适合：景点 / 园区上方放置少量写实云朵
 
-> 这两条路径是引擎里**早就存在**的成熟能力，并非 4.25 专属新增，但 4.25 仍是主分支当前推荐使用方式。
+> 体积云与单片实例化云是两条独立的渲染路径。它们不依赖 4.25 特有入口；云阴影和光束参数则应按当前 4.27.1 的大气与云链路共同配置。
 
 ## Quick Start：体积云
 
@@ -156,16 +156,24 @@ map.cloudCollection.removeAll();
 
 这些都属于材质层高级参数，主分支 demo 的 `Clouds.html` 已经把它们放进 GUI 调试面板，对照参考即可。
 
-### 关于 `lightShafts`
+## 云阴影与光束
 
-主分支源码里 `lightShafts` 字段确实存在，但：
+4.27.1 的云渲染链支持云阴影和云光束（丁达尔）开关。两个效果分别由云对象和天空大气对象共同门控；只设置其中一端可能看不到预期效果。
 
--   默认值是 `false`
--   源码注释："用于控制阴影长度，进而控制光照投射效果。先关掉"
--   主分支 `Clouds.html` 没有把它放进调试 GUI
--   与之配套的阴影长度 / 雾霭 / 地面辐照度等参数在 demo 中也是**注释掉**的状态
+```javascript
+map.enableClouds();
+const clouds = map.getClouds();
+const sky = map.getSky();
 
-所以在主分支上，**不要把 `lightShafts` 当成稳定的可调效果**。它和"阴影长度""雾霭""丁达尔 / 太阳光柱"等扩展效果目前在主分支上都没有公开推荐路径。
+sky.setProps({ useCloudShadows: true, useCloudLightShafts: true });
+clouds.cloudShadows = true;
+clouds.lightShafts = true;
+clouds.cloudShadowStrength = 0.72; // 0–1
+clouds.cloudShadowDensity = 180; // 非负
+clouds.screenSpaceShaftStrength = 0.5; // 0–2
+```
+
+`lightShafts` 和 `cloudShadows` 默认关闭或依赖天空配置，不要把它们当成单个开关；效果有明显的渲染成本，按需启用。不要把 `cloudShadowDebugMode` 等调试接口当作业务 API。
 
 ## 单片实例化云 `CloudCollection` 公开 API
 
@@ -295,9 +303,9 @@ clouds.localWeatherVelocity = [0, 0];
 
 不要用 demo 里没公开过的 `enableAnimate` 之类私有变量。
 
-### 5. `lightShafts` 默认关闭
+### 5. 云阴影与光束需同步配置
 
-主分支默认 `false`，**不**对应"丁达尔 / 太阳光柱 / crepuscular rays"等用户可见效果。把 `lightShafts` 视作内部调试字段，而不是业务上的可调功能。
+开启云阴影或光束时，同时检查 `map.getSky().setProps()` 的 `useCloudShadows` / `useCloudLightShafts` 和 `map.getClouds()` 的对应属性。默认设置不能代表业务效果已启用。
 
 ### 6. 单片云 `slice` 范围
 
@@ -319,9 +327,12 @@ demo 推荐 `0.2 ~ 0.7`。低于 0.2 横截面过小会露出椭球体边缘；�
 
 -   `demo/html/Clouds.html`：体积云 + 大气散射 + 调试 GUI（覆盖度 / 时间 / 形状细节 / 散射 / 多重散射 / 步长 / 早退阈值 / 多云层参数等）
 -   `demo/html/CloudCollection.html`：局部单体实例化云（随机生成 20 朵 + 显隐 + 东西向飘动 + 全部删除）
+-   `demo/html/CloudsShafts.html`：4.27.1 云阴影、云光束与云渲染链联动
+-   `demo/html/AtmosphereUnified.html`：天空大气与云参数统一配置
 
 ## See Also
 
 -   `minemap-scene-components`
 -   `minemap-lighting-and-shadows`
 -   `minemap-terrain-and-analysis`
+-   `minemap-volume-cloud`
