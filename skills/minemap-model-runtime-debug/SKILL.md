@@ -1,6 +1,8 @@
 ---
 name: minemap-model-runtime-debug
 description: MineMap 模型运行时调试规范。用于爆炸视图、材质/纹理更新、线框显示、属性外挂、运行时查看与距离可见性控制。
+metadata:
+  minemap-version: 4.28.2
 ---
 
 # MineMap Model Runtime Debug

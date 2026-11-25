@@ -1,6 +1,8 @@
 ---
 name: minemap-camera-constraints-and-screenshot
 description: MineMap 相机限制与截图规范。用于近裁剪面阈值、区域相机限制、截图导出与相机交互约束。
+metadata:
+  minemap-version: 4.28.2
 ---
 
 # MineMap Camera Constraints and Screenshot

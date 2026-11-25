@@ -1,9 +1,15 @@
 ---
 name: minemap-kml-source
-description: MineMap KML 数据源。用于加载 KML / KMZ 文件，解析 LineStyle / IconStyle / LabelStyle / PolyStyle 等样式继承，并把 KML 属性映射为 line / circle / fill / symbol 派生图层。
+description: MineMap KML 数据源。用于加载 KML XML 文件或内容，解析 LineStyle / IconStyle / LabelStyle / PolyStyle 等样式继承，并把 KML 属性映射为 line / circle / fill / symbol 派生图层。
+metadata:
+  minemap-version: 4.28.2
 ---
 
 # MineMap KML Source
+
+## 格式边界
+
+KMLSource 读取 XML 内容或 URL，并走 kml worker；当前没有 KMZ/ZIP 解压入口。KMZ 需应用先解压并重写关联资源地址，不能直接把 .kmz 传给 data。图标自动注册默认开启，可用 loadIcons 控制；核对 iconCatalog 与图标请求失败，避免同名图片覆盖预期。
 
 ## 概述
 

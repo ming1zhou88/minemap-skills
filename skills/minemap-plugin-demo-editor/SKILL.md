@@ -1,6 +1,8 @@
 ---
 name: minemap-plugin-demo-editor
 description: MineMap demo 在线编辑器规范。用于 Monaco 编辑、iframe 预览、WebGL 模式切换与示例试跑台。
+metadata:
+  minemap-version: 4.28.2
 ---
 
 # MineMap Plugin: Demo Editor Workbench

@@ -1,6 +1,8 @@
 ---
 name: minemap-business-particle-and-special-effects
 description: MineMap 粒子系统与特效业务规范。用于火焰、烟雾、喷泉、告警特效、氛围效果。
+metadata:
+  minemap-version: 4.28.2
 ---
 
 # MineMap Business: Particle and Special Effects
@@ -16,6 +18,11 @@ MineMap 粒子系统不是 style layer，而是独立 3D 效果体系，典型�
 因此它更接近“实时特效对象”，而不是普通数据图层。
 
 ## Source-backed Rules
+
+- 新代码使用 ParticleSystem；ParticleSystemV1 的构造器发出废弃警告，RandomBoxEmitter/ConeEmitterV1 属于旧路径，不能混入新系统的参数模板。
+- 行为类从 `minemap.ParticleBehaviors` 获取，值/颜色/曲线生成器从 `minemap.ParticleFunctions` 获取，例如 ConstantValue、IntervalValue、Gradient；不要当成顶层导出类。
+- RenderMode 的真实键名包含 `BillBoard`（大小写如此），不是注释中偶尔出现的 Billboard；EmitterMode 按当前导出与 shape 参数核对。来源 `source/renderer/effects/particleSystem/ParticleSystemV1.js`、`demo/html/ParticleSystemFire.html`。
+- 定时重启任务由应用持有并在卸载时 clearInterval；不能因为 map.remove 了就认为业务定时器也停止。
 
 -   粒子系统由 `ParticleSystem`、发射器、行为器、函数生成器共同构成
 -   地图侧通过 `map.addParticleSystem()` 挂载，不走 `addSceneComponent()`

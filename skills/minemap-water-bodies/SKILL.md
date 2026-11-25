@@ -1,6 +1,8 @@
 ---
 name: minemap-water-bodies
 description: MineMap 水体类选型与使用规范。覆盖 DynamicWater、Ocean、WaterPro、RiverFlowRenderer、FluidRenderer、FloodRenderer 与 ThreeLayer GPGPU 水文分析；按场景选择合适方案并正确接入、调参。当用户需要渲染水面、海面、河流、洪水或做水文分析时调用。
+metadata:
+  minemap-version: 4.28.2
 ---
 
 # MineMap Water Bodies
@@ -8,6 +10,10 @@ description: MineMap 水体类选型与使用规范。覆盖 DynamicWater、Ocea
 MineMap 提供了多套「水体 / 水面」渲染与仿真能力。它们不是同一能力的别名，而是定位、技术栈、性能开销、接入方式都不同的独立实现。本 skill 负责「选型 + 正确接入 + 调参与排查」。
 
 > 注意：本 skill 覆盖的是**场景组件 / 独立渲染器级**的水体类。`WaterMaterial` + `Primitive`、`fill` 图层 + `fill-water`、`waterRenderingMode`、`allowWaterRefract/Reflect` 等内容见 `minemap-water-surface-and-refraction`。
+
+## 河道范围输出示例的边界
+
+`demo/html/GetRiver.html` 是交互拾取多边形与输出范围 PNG 的应用工具，不能据文件名推断存在 GetRiver 引擎类或自动河道提取服务。水文模拟仍按已有 RiverFlowRenderer/FluidRenderer/FloodRenderer 或 ThreeLayer 外部插件区分。
 
 ## 速览与选型
 
@@ -82,7 +88,7 @@ Tessendorf FFT 频谱 + Gerstner 涌浪 + GGX 着色 + 程序化泡沫。依赖 
 
 ```javascript
 const ocean = new minemap.Ocean({
-  positions: [...],               // 单多边形外环，不支持孔洞/MultiPolygon
+  positions: waterOuterRing,      // 业务经纬度外环，不支持孔洞/MultiPolygon
   ocean: { spectrum: 'JONSWAP', windSpeed: 9, windDirection: 43, fetch: 150000,
            fftSize: 128, meshResolution: 256, patchSize: 1200 },
   water: { roughness: 0.09, specular: 0.8, ior: 1.333 },
@@ -102,7 +108,7 @@ Gerstner 波叠加 + 程序化泡沫（白帽/岸线/接触/尾迹）+ 程序化
 
 ```javascript
 const waterPro = new minemap.WaterPro({
-  positions: [...], excludePositions: [[...], [...]], // 支持多孔洞/排除区
+  positions: waterOuterRing, excludePositions: excludedRings, // 业务提供外环及排除区
   waves: { windDirection: 28.8, amplitude: 0.72 },
   foam: { coverage: 0.9, shoreWidth: 3.4 },
   underwater: { fogStrength: 1, causticStrength: 1 },
@@ -152,7 +158,7 @@ const fluid = new minemap.FluidRenderer(map, {
   sourceUv: new minemap.Math.Vector2(0.5, 0.5),
   flowInertia: 0.995, flowForce: 0.25, timeStep: 0.3
 });
-fluid.pause(); fluid.resume(); fluid.reset({ ... }); fluid.destroy();
+fluid.pause(); fluid.resume(); fluid.reset(); fluid.destroy();
 ```
 
 约束：参数较敏感，尽量初始化时调好；视觉偏仿真示意；重建有成本。

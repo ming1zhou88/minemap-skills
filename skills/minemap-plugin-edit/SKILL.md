@@ -1,6 +1,8 @@
 ---
 name: minemap-plugin-edit
 description: MineMap 编辑插件规范。用于要素绘制、选中、样式覆写、锁定、批量写入与叠加编辑。
+metadata:
+  minemap-version: 4.28.2
 ---
 
 # MineMap Plugin: Edit

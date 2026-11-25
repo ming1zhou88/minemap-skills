@@ -1,6 +1,8 @@
 ---
 name: minemap-business-oblique-bim
 description: MineMap 倾斜摄影、BIM、glTF 与 3D Tiles 业务规范。用于园区、城市实景、厂区 BIM、单体模型装载。
+metadata:
+  minemap-version: 4.28.2
 ---
 
 # MineMap Business: Oblique and BIM
@@ -152,7 +154,7 @@ map.addSceneComponent({
 建议：
 
 -   默认先用 `BALANCED`
--   网络差但显存尚可：偏 `EFFECTIVENESS_FIRST`
+-   网络差时先收紧请求并发/质量预算，实测策略；EFFECTIVENESS_FIRST 表示效果优先，不是网络优化开关
 -   大场景稳定浏览：偏 `EFFICIENCY_FIRST`
 
 ### 不建议默认开启的项

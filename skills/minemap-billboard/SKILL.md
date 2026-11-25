@@ -1,6 +1,8 @@
 ---
 name: minemap-billboard
 description: MineMap 3D 公告板（Billboard）专题。覆盖 BillboardMaterial / BillboardGeometry / BillboardInstance 动画、拾取高亮、动态纹理更新与轨迹对象联动；不与 DOM 覆盖物 Marker 混淆。
+metadata:
+  minemap-version: 4.28.2
 ---
 
 # MineMap Billboard（3D 公告板）
@@ -11,7 +13,7 @@ MineMap 的 Billboard 是**面向 3D 场景的 Primitive 体系下的公告板**
 
 -   DOM 标注用 `minemap.Marker` / `minemap.Popup`（见 `minemap-marker-and-popup`）
 -   3D 公告板用 `minemap.BillboardMaterial` + `minemap.Geometries.BillboardGeometry` + `new minemap.Primitive({...})`
--   大量同形态公告板用 `BillboardInstance` 场景组件
+-   大量同形态公告板使用 Primitive 与 billboardInstance 动画内容绑定
 
 它和 sprite 图层（`addLayer({ type: "sprite" })`，见 `minemap-layer-system`）也不是同一回事：sprite 是 style-layer 路径，billboard 是 Primitive 路径。
 
@@ -37,46 +39,19 @@ const primitive = new minemap.Primitive({
 map.addPrimitive(primitive);
 
 // 动态更新纹理
-setInterval(() => {
+const refreshTimer = setInterval(() => {
 	material.image = updateCanvas();
 }, 100);
 
-// 移除
+// 应用卸载时，在 map.remove 前清理（此示例的几何与材质由本应用独占）
+clearInterval(refreshTimer);
 map.removePrimitive(primitive);
+primitive.destroy();
 ```
 
-## Quick Start：BillboardInstance 动画
+## BillboardInstance 动画入口
 
-对应 demo：`demo/html/BillboardInstanceAnimation.html`
-
-`BillboardInstance` 是同一形状下"成百上千个公告板"的高效形式（共享几何 + 实例化），典型场景是车辆 / 人员 / 设备实时位置。
-
-```javascript
-const material = new minemap.BillboardMaterial({
-	position: [119.447, 32.176, 0],
-	scale: [800, 200, 1],
-	center: new minemap.Math.Vector2(0.5, 1),
-	rotation: 0,
-	image: carIconImage
-});
-
-const geometry = new minemap.Geometries.BillboardGeometry({});
-
-const billboardInstance = new minemap.BillboardInstance({
-	name: "vehicles",
-	geometry,
-	material
-});
-
-// 通过 addInstance / setInstances 注入每个公告板的位置 / 状态
-billboardInstance.addInstance({
-	id: "car-1",
-	position: [119.45, 32.18, 0],
-	color: minemap.Color.WHITE.clone()
-});
-
-map.addPrimitive(billboardInstance);
-```
+BillboardInstance 是动画内部类型，未从 source/index.js 导出，不存在公开构造器或 addInstance/setInstances 接口。按 demo/html/BillboardInstanceAnimation.html 创建 Primitive（name 为 billboardInstance），再用 animationManager.add 的 document Animation、contents type billboardInstance、相同 id 绑定轨迹。positions 是每实例的展平经纬高轨迹，times.start/end 为 ISO 时间；add 返回 Promise，完成后对返回动画调用 play。参考 [轨迹动画](../minemap-business-roaming-and-tracking/SKILL.md)，不能虚构类名。
 
 ## `BillboardMaterial` 公开参数
 

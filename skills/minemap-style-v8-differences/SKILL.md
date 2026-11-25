@@ -1,9 +1,15 @@
 ---
 name: minemap-style-v8-differences
-description: "MineMap style v8 与 Mapbox Style Specification v8 的差异检查。适用于编写或迁移 style/source/layer JSON，判断 MineMap 专有字段、Mapbox 专有字段、layer type/source type/paint/layout 差异，避免把 fill-extrusion、hillshade、sky、slot、model、raster-dem、fog、imports 等 Mapbox v8 字段误用于 MineMap。"
+description: MineMap style v8 与 Mapbox Style Specification v8 的差异检查。适用于编写或迁移 style/source/layer JSON，判断 MineMap 专有字段、Mapbox 专有字段、layer type/source type/paint/layout 差异，避免把 fill-extrusion、hillshade、sky、slot、model、raster-dem、fog、imports 等 Mapbox v8 字段误用于 MineMap。
+metadata:
+  minemap-version: 4.28.2
 ---
 
 # MineMap Style V8 差异
+
+## 矢量贴合目标选择
+
+4.28.2 的 vector/geojson source 支持 adaptTerrainTarget: "terrain"（只地形）或 "model"（模型范围贴模型，范围外普通矢量显示）。adaptTerrain: true 的优先级更高，会继续走全部接收面的旧路径；选择目标时不要同时写 true。getter adaptTerrain 在任意 target 下也返回 true，判断目标应读取 adaptTerrainTarget。adaptTerrainPreserveLayerOrder 控制交错图层顺序，与目标选择独立；模型覆盖可能触发额外选瓦，需评估负载。该字段不自动适用于 Primitive、symbol 或 raster。以 `demo/html/Vector3DTilesOrderedAdaptTerrainTarget.html` 对照验证，贴合、深度测试与 before 顺序分别验收。
 
 ## 使用原则
 

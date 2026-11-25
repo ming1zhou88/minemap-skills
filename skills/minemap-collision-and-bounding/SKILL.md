@@ -1,6 +1,8 @@
 ---
 name: minemap-collision-and-bounding
 description: MineMap 包围体与碰撞检测规范。用于 AABB/OBB/包围球相交判断、BVH 碰撞、角色碰撞与调试边界框。
+metadata:
+  minemap-version: 4.28.2
 ---
 
 # MineMap Collision and Bounding

@@ -1,9 +1,15 @@
 ---
 name: minemap-business-gaussian-splatting
 description: MineMap Gaussian Splatting（3DGS）业务规范。适用于 .splat、PLY、SPZ 资产加载、定位、拾取和大场景选型；Spark 仅作为 demo 插件集成参考。
+metadata:
+  minemap-version: 4.28.2
 ---
 
 # MineMap Business: Gaussian Splatting
+
+## 对象与 Tileset 透明度
+
+4.28.2 的 GaussianSplatting 支持构造 opacity 和运行时 gs.opacity（0..1，构造与 shader 均钳制）；3DGS tiles 使用 tileset.opacity 与瓦片 opacity 的组合。不要仅修改网格材质假设能影响高斯着色，也不要把 opacity=0 当成释放内存。对应 demo：`demo/html/3DGaussianSplatting.html`、`demo/html/3DGS-3DTiles.html`。
 
 ## Architecture Positioning
 

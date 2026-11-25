@@ -1,6 +1,8 @@
 ---
 name: minemap-performance-and-backend
 description: MineMap 渲染后端偏好、当前 WebGL2/WebGL1 运行路径、降级策略、特效开关与性能调优；适用于核对设备实际后端和高成本渲染功能。
+metadata:
+  minemap-version: 4.28.2
 ---
 
 # MineMap Performance and Backend
@@ -160,6 +162,9 @@ map.postProcessStages.add(stage);
 -   `demo/html/editor-map.html`
 
 ## See Also
+
+- [minemap-wind-field](../minemap-wind-field/SKILL.md)：浮点 GPU 计算能力与粒子预算。
+- [minemap-framework-lifecycle](../minemap-framework-lifecycle/SKILL.md)：防止重复实例与定时器泄漏。
 
 -   `minemap-scene-components`
 -   `minemap-anti-aliasing`

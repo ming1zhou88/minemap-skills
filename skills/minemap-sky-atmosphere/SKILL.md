@@ -1,6 +1,8 @@
 ---
 name: minemap-sky-atmosphere
 description: MineMap 天空大气（Sky / SkyAtmosphere）专题。覆盖 map.getSky / enableSkyAtmosphere / disableSkyAtmosphere、瑞利散射、米散射、臭氧分布、太阳盘、大气透视 LUT 与天空盒纹理。
+metadata:
+  minemap-version: 4.28.2
 ---
 
 # MineMap Sky and Atmosphere
@@ -97,7 +99,7 @@ const sky = map.getSky(); // 拿 Sky 对象调参
 
 ```javascript
 map.enableLight();                                    // 1. 开启光源
-map.setSunLightTime({ year, month, day, hours, ... }); // 2. 设时间
+map.setSunLightTime({ year, month, day, hours });       // 2. 设时间
 const { sunLight } = map.getLights();
 sunLight.castShadow = true;                            // 3. 投影
 sunLight.intensity = 1.5;                              // 4. 强度

@@ -1,6 +1,8 @@
 ---
 name: minemap-business-visibility-analysis
 description: MineMap 可视域与通视分析业务规范。用于安防、选址、观测点视域评估、遮挡判定。
+metadata:
+  minemap-version: 4.28.2
 ---
 
 # MineMap Business: Visibility Analysis

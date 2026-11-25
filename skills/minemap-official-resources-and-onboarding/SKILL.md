@@ -1,6 +1,8 @@
 ---
 name: minemap-official-resources-and-onboarding
 description: MineMap 官网、帮助中心、账号开通、文档查找、示例查找与版本核对规范。用于新项目接入前的资料定位和官方入口导航。
+metadata:
+  minemap-version: 4.28.2
 ---
 
 # MineMap Official Resources And Onboarding

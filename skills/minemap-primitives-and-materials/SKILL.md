@@ -1,6 +1,8 @@
 ---
 name: minemap-primitives-and-materials
 description: MineMap Primitive 体系、几何与材质组合、PointPrimitiveCollection 与渲染顺序控制。
+metadata:
+  minemap-version: 4.28.2
 ---
 
 # MineMap Primitives and Materials
@@ -69,6 +71,14 @@ map.addPrimitive(primitive);
 这些对象仍然属于同一低层渲染面：只有在图层和 scene component 都不合适时再使用。
 
 ## Common Patterns
+
+### 几何合并与资源所有权
+
+`GeometryMergeUtil.process({ map, geometries, mergeType, destroyGeometries })` 是公开合并工具；实现读取 `map`，不能根据过时注释只传 `painter`。`MERGE_TYPE.ALL` 合并绘制指令，`BUFFER` 共享缓冲但保留几何对象，后者不会减少为一次 draw call。BUFFER 的资源共享意味着销毁一个图元可能影响其他图元，不能照搬“每个对象都 destroy”的独占资源清理模板。源文件 `source/webgl/geometry/GeometryMergeUtil.js`。
+
+单体 `map.removePrimitive(primitive)` 从集合移除而不传 destroyItem；应用独占的几何/材质需要随后 `primitive.destroy()`。共享资源先核对所有权。PointPrimitiveCollection 与 SceneComponent 的移除路径不同，不能统一再次 destroy。
+
+补充几何按同一 Primitive 路径使用：BoxOutlineGeometry、CylinderGeometry、PlaneOutlineGeometry、PolygonOutlineGeometry、SimplePolylineGeometry、GradientColorBoxGeometry、WallOutlineGeometry、RegionOutlineGeometry、RadarHemisphereOutlineGeometry。材质变体 DynamicWaterMaterial/CausticsMaterial 见水面专题，不需要为每个导出单独建 skill。
 
 ### 批量点图元
 

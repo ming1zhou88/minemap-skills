@@ -1,6 +1,8 @@
 ---
 name: minemap-business-beidou-grid
 description: MineMap 北斗网格码业务规范。用于网格编码可视化、动态调度、网格高亮与空间索引表达。
+metadata:
+  minemap-version: 4.28.2
 ---
 
 # MineMap Business: BeiDou Grid
@@ -47,6 +49,8 @@ map.addSceneComponent(grid);
 -   静态模式下，如果 `gridData` 没有 `cartesianCorners`，引擎会尝试按 `id` 进行北斗码反算
 
 ## 视野网格查询
+
+二维/三维编码器 `BeiDouCodec2D` / `BeiDouCodec3D` 已从 index 导出，使用其 static 方法；输入结构按当前源码的 lngDegree/latDegree 等字段核对，不能直接套用 `[lng, lat]` 参数。二维码和三维码的长度、高度编码语义分别核对。证据 `source/third-party/beidou-grid/BeiDouCodec2D.js`、`source/third-party/beidou-grid/BeiDouCodec3D.js` 与 `demo/html/BeiDouCodecDemo.html`。
 
 `Map` 提供两种直接按当前相机视野查询的接口，不必先创建 `BeiDouGrid` 场景对象：
 

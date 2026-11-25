@@ -19,10 +19,12 @@ minemap-clouds-and-atmosphere :: MineMap 云与大气渲染链。用于启用体
 minemap-collision-and-bounding :: MineMap 包围体与碰撞检测规范。用于 AABB/OBB/包围球相交判断、BVH 碰撞、角色碰撞与调试边界框。
 minemap-compressed-texture-runtime :: MineMap 压缩纹理运行时排查。适用于 KTX2、Basis、CRN、DDS/DXT、压缩纹理 mip 层级、WebGL1/WebGL2 纹理兼容、摩尔纹、黑纹理、TextureLoader 压缩资源，以及 S3M/glTF 压缩纹理问题定位。
 minemap-events-and-picking :: MineMap 事件订阅模型、图层事件代理、once/off 管理、矢量与三维对象拾取。
+minemap-framework-lifecycle :: MineMap 在 React/Vue 等框架中的挂载、resize、异步请求与销毁。用于路由切换、重复挂载、底图重载、监听和资源泄漏排查。
 minemap-fundamentals :: MineMap 地图初始化、基础相机参数、生命周期事件、控件添加与清理。用于新建地图、初始化交互、规范化启动流程。
+minemap-geojson-clustering-and-feature-state :: MineMap GeoJSON 聚合与 feature-state。用于大量点聚合、展开/分页查询、稳定要素 ID 和 hover 高亮，避免用 setData 重建数据表达选择状态。
 minemap-global-configuration :: MineMap 全局配置、key/solution、域名地址、sprite/fonts、minemapCDN 与启动前配置顺序。用于指导用户正确完成地图初始化前的配置，不再把 accessToken 作为主推荐路径。
 minemap-heatmap :: MineMap 热力图（heatmap）专题。用于二维 / 三维热力图、贴地热力、聚合权重、热力色阶与 3D 显示模式，重点说明 paint/layout 参数边界与典型失败场景。
-minemap-kml-source :: MineMap KML 数据源。用于加载 KML / KMZ 文件，解析 LineStyle / IconStyle / LabelStyle / PolyStyle 等样式继承，并把 KML 属性映射为 line / circle / fill / symbol 派生图层。
+minemap-kml-source :: MineMap KML 数据源。用于加载 KML XML 文件或内容，解析 LineStyle / IconStyle / LabelStyle / PolyStyle 等样式继承，并把 KML 属性映射为 line / circle / fill / symbol 派生图层。
 minemap-layer-system :: MineMap 图层系统规范。用于图层类型选型、各类 layer 参数展开、增删改移、过滤、缩放范围与渲染顺序控制。
 minemap-lighting-and-shadows :: MineMap 光照与阴影规范。覆盖 `enableLight()`、`enableShadow()`、太阳时间、灯光对象、以及 `castShadow` / `receiveShadow` 的工程边界。
 minemap-marker-and-popup :: MineMap 的 Marker 与 Popup 规范。涵盖 DOM 覆盖物、三维高度、distanceDisplayCondition、拖拽、内容 API、地形场景与常见失败场景。
@@ -35,10 +37,11 @@ minemap-plugin-compare-swipe :: MineMap 卷帘对比插件规范。用于双地�
 minemap-plugin-demo-editor :: MineMap demo 在线编辑器规范。用于 Monaco 编辑、iframe 预览、WebGL 模式切换与示例试跑台。
 minemap-plugin-echarts-integration :: MineMap 与 ECharts 集成规范。用于散点、飞线、饼图、雷达图、3D 柱图等地图叠加可视化。
 minemap-plugin-edit :: MineMap 编辑插件规范。用于要素绘制、选中、样式覆写、锁定、批量写入与叠加编辑。
-minemap-pmrem-and-environment :: MineMap 环境贴图（environment）与 PMREM 预过滤辐射度专题。覆盖 map.environment、TextureLoader / TextureCubeLoader、PMREMGenerator.fromEquirectangular / fromCubemap、fromScene 与 compile*Shader 预编译。
+minemap-pmrem-and-environment :: MineMap environment 环境贴图、HDR/cubemap 输入与内部 PMREM 边界。用于全局 PBR 环境配置和资源管理，不推荐内部 PMREM 构造器。
 minemap-post-process-and-render-pipeline :: MineMap 后处理阶段与渲染效果链规范。用于夜视、黑白、雨雪、雾效、描边、天际线等屏幕后处理。
 minemap-primitive-adapt-terrain :: MineMap Primitive 贴地规范。覆盖 `primitive.adaptTerrain`、几何前提、`classificationType` 联动、以及 raster `depth-test` 对贴地结果的影响。
 minemap-primitives-and-materials :: MineMap Primitive 体系、几何与材质组合、PointPrimitiveCollection 与渲染顺序控制。
+minemap-release-skill-maintenance :: 从 MineMap master 发布源码审计并更新技能库。用于生成新版本 skills、版本同步、覆盖和误用审查；不用于普通业务地图开发。
 minemap-s3m :: MineMap S3M 倾斜摄影数据源。用于加载城市级三维模型（OSGB / S3M 切片 / 锦江示例）、S3M tileset 位置校正、太阳光联动与场景组件生命周期管理。
 minemap-scene-components :: MineMap 三维场景组件体系：SceneModel、SceneTileset、SceneObject（Earth/Skybox/AirLine 等），重点补全 glTF/glb 与 3D Tiles 参数边界。
 minemap-screen-space-reflection :: MineMap 屏幕空间反射（SSR）规范。覆盖 `map.SSR` 开关、运行时调参边界、与水面材质和反射对象的关系。
@@ -56,4 +59,6 @@ minemap-volume-rendering :: MineMap 3D 体渲染（VolumeShell）场景组件。
 minemap-water-bodies :: MineMap 水体类选型与使用规范。覆盖 DynamicWater、Ocean、WaterPro、RiverFlowRenderer、FluidRenderer、FloodRenderer 与 ThreeLayer GPGPU 水文分析；按场景选择合适方案并正确接入、调参。当用户需要渲染水面、海面、河流、洪水或做水文分析时调用。
 minemap-water-surface-and-refraction :: MineMap 水面效果规范。覆盖 `WaterMaterial`、fill 水面图层、`waterRenderingMode`、以及对象是否允许水面折射/反射的控制。
 minemap-widget-and-controls :: MineMap 控件与 widget 体系。涵盖 IControl 协议、map.addControl/removeControl/hasControl、自定义控件，以及 Navigation/Scale/Fullscreen/Geolocate/Attribution、Thumbnail、FPSControl、ModelTransformationControl、BatchAddInstanceControl 的使用边界。
-minemap-wms-source :: MineMap WMS 栅格数据源。用于通过 capabilities URL 自动构建 WMS 数据源、手工配置 GetMap 参数、瓦片调度、参数校验以及把 WMS 当作底图 / 图层使用。
+minemap-wind-field :: MineMap 规则网格风场和 GPU 粒子轨迹。用于 WindRenderer 数据转换、色带、粒子预算、启停和清理；体标量数据使用 volume-cloud。
+minemap-wms-source :: MineMap WMS 接入与请求排查。用于 raster source 的 scheme wms、GetMap URL、投影和范围；不承诺自动解析 WMS capabilities。
+minemap-wmts-source :: MineMap WMTS capabilities 接入。用于解析 XML、选择图层和矩阵集、配置 raster source，并排查 REST/KVP 模板与层级不匹配。

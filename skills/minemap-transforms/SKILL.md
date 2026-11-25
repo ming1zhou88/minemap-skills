@@ -1,6 +1,8 @@
 ---
 name: minemap-transforms
 description: MineMap 坐标变换规范。覆盖 `cartographicToCartesian3()`、`cartographicToFixedFrame()`、`headingPitchRollToFixedFrame()`、`fixedFrameToHeadingPitchRoll()` 等高频变换入口。
+metadata:
+  minemap-version: 4.28.2
 ---
 
 # MineMap Transforms
@@ -98,7 +100,7 @@ map.addPrimitive(primitive);
 
 标准做法是：
 
-1. 用 `minemap.Math.Vector3([lng, lat, height])` 组织锚点
+1. 用 `new minemap.Math.Vector3(lng, lat, height)` 组织锚点，不能省略 new 或把数组当作 x
 2. 用 `minemap.Transforms.cartographicToFixedFrame(...)` 生成 `modelMatrix`
 3. 把矩阵交给 primitive
 
@@ -139,6 +141,8 @@ map.addPrimitive(primitive);
 -   `cartesianToFixedFrame` 吃笛卡尔坐标
 
 不要混用。
+
+Transforms 的 cartographicToCartesian3 / cartographicToFixedFrame 接收度制经纬高 Vector3，cartesian3ToCartographic 返回度制数组；底层 Cartographic 则使用弧度。Vector3.fromDegrees 创建 ECEF 点，不能再把结果作为经纬高二次转换。headingPitchRollToFixedFrame 的 origin 为笛卡尔坐标，不是经纬高；HeadingPitchRoll 是弧度。来源 `source/api/Transforms.js`。
 
 ### 2. 不要把 `Transforms` 当普通数学库
 

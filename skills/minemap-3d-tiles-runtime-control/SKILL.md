@@ -1,6 +1,8 @@
 ---
 name: minemap-3d-tiles-runtime-control
 description: MineMap 3D Tiles 运行时控制规范。用于 TileFeature 着色/显隐、实例拾取、加载完成检查与按子 URL 控制。
+metadata:
+  minemap-version: 4.28.2
 ---
 
 # MineMap 3D Tiles Runtime Control

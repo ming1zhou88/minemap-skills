@@ -1,6 +1,8 @@
 ---
 name: minemap-math-foundations
 description: MineMap 数学基础规范。覆盖 `Vector2/3/4`、`Matrix3/4`、`Quaternion`、`HeadingPitchRoll`、`Cartographic`、以及角度弧度转换的实际用法。
+metadata:
+  minemap-version: 4.28.2
 ---
 
 # MineMap Math Foundations

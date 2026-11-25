@@ -1,6 +1,8 @@
 ---
 name: minemap-tile-url-and-data-security
-description: "MineMap 瓦片请求地址模板、内部协议归一化、鉴权参数与数据安全边界。适用于配置 raster/vector/terrain tiles，处理 {z}/{x}/{y}、{z}/{r}/{c}/{z}_{x}_{y}、{TileMatrix}/{TileCol}/{TileRow}、WMTS/TMS/WMS、cloudservice/minemapdata/mineservice 等地址，以及说明数据加密接入要求但不能暴露加解密算法。"
+description: MineMap 瓦片请求地址模板、内部协议归一化、鉴权参数与数据安全边界。适用于配置 raster/vector/terrain tiles，处理 {z}/{x}/{y}、{z}/{r}/{c}/{z}_{x}_{y}、{TileMatrix}/{TileCol}/{TileRow}、WMTS/TMS/WMS、cloudservice/minemapdata/mineservice 等地址，以及说明数据加密接入要求但不能暴露加解密算法。
+metadata:
+  minemap-version: 4.28.2
 ---
 
 # MineMap 瓦片地址与数据安全

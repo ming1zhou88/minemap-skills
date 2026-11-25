@@ -1,6 +1,8 @@
 ---
 name: minemap-business-roaming-and-tracking
 description: MineMap 轨迹动画、模型漫游、相机跟踪业务规范。用于巡检、车辆行驶、无人机路径回放、数字孪生漫游。
+metadata:
+  minemap-version: 4.28.2
 ---
 
 # MineMap Business: Roaming and Tracking

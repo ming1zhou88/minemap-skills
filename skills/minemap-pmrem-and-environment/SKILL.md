@@ -1,6 +1,8 @@
 ---
 name: minemap-pmrem-and-environment
-description: MineMap 环境贴图（environment）与 PMREM 预过滤辐射度专题。覆盖 map.environment、TextureLoader / TextureCubeLoader、PMREMGenerator.fromEquirectangular / fromCubemap、fromScene 与 compile*Shader 预编译。
+description: MineMap environment 环境贴图、HDR/cubemap 输入与内部 PMREM 边界。用于全局 PBR 环境配置和资源管理，不推荐内部 PMREM 构造器。
+metadata:
+  minemap-version: 4.28.2
 ---
 
 # MineMap PMREM and Environment
@@ -10,9 +12,9 @@ description: MineMap 环境贴图（environment）与 PMREM 预过滤辐射度�
 MineMap 的"环境贴图"分两层：
 
 1. **`map.environment`**：业务层最常用接口，直接喂一张 `Texture` 或 `TextureCube` 给全局 PBR 材质
-2. **`PMREMGenerator`**：把原始环境图做预过滤（多级 mipmap + 各 mipmap 切比雪夫近似），得到更适合 IBL 用的输入
+2. **`PMREMGenerator`**：把原始环境图做预过滤（面向不同粗糙度的卷积预过滤），得到更适合 IBL 用的输入
 
-业务上**绝大多数场景**用 `map.environment = texture` 就够了；只有需要"模糊半径 / 视角响应很精细"时才上 `PMREMGenerator`。
+业务入口是 map.environment，内部 PMREM 不作为公共 API 推荐。
 
 ## Quick Start：用一张等距柱状投影（HDR）做环境光
 
@@ -74,41 +76,9 @@ map.environment = texture; // 设置
 map.environment = null; // 清除（回退到自动抓帧）
 ```
 
-## `PMREMGenerator` 类
+## 内部 PMREM 边界
 
-来源：`source/third-party/threejs/pmrem/PMREMGenerator.js`
-
-```javascript
-const pmrem = new minemap.PMREMGenerator(painter); // 通常用引擎内置实例
-```
-
-> 源码注释明确说明：PMREMGenerator 是"静态类"，**通常不需要多个实例**。业务上一般拿引擎已经创建好的 `pmrem`，不要自己 new。
-
-### 公开方法
-
-| 方法                                                  | 说明                                              |
-| ----------------------------------------------------- | ------------------------------------------------- |
-| `fromEquirectangular(equirectangular, renderTarget?)` | 从等距柱状投影纹理生成 PMREM（推荐 1k：1024x512） |
-| `fromCubemap(cubemap, renderTarget?)`                 | 从立方体贴图生成 PMREM（推荐 256x256 / 面）       |
-| `fromScene(scene, sigma?, near?, far?, options?)`     | 直接把场景烘焙成 PMREM（适合 scene-level IBL）    |
-| `compileEquirectangularShader()`                      | 预编译等距柱状投影 shader（用于网络并发预热）     |
-| `compileCubemapShader()`                              | 预编译 cubemap shader（用于网络并发预热）         |
-| `dispose()`                                           | 释放内部显存                                      |
-
-### `fromScene` 选项
-
-| 选项       | 说明                            |
-| ---------- | ------------------------------- |
-| `size`     | 输出 PMREM 立方体尺寸，默认 256 |
-| `position` | 内部 cube camera 位置，默认原点 |
-
-`sigma` 是预模糊半径（弧度），> 0 会在生成 PMREM 前对 scene 做预模糊。
-
-### 性能建议
-
--   `fromEquirectangular` / `fromCubemap` 是**同步**操作（GPU 端），业务上放在纹理 `loaded` 回调里
--   `compileEquirectangularShader()` / `compileCubemapShader()` 是**预编译**接口；可以在网络下载纹理**期间**调用，节省首帧卡顿
--   `dispose()` 必须在替换或销毁 PMREM 时调用；漏掉会持续占显存
+PMREMGenerator 位于 source/third-party/threejs/pmrem/PMREMGenerator.js，未公开导出；不能构造 minemap.PMREMGenerator，也不能依赖 painter._pmremGenerator。设置 map.environment 后，引擎内部调用 PMREM，业务无需手动 fromScene/fromCubemap 或 dispose 引擎实例。PMREM 是卷积预过滤辐射环境贴图，不是“切比雪夫近似”。自行创建的输入纹理在确认无人引用后释放；引擎内部帧缓冲由引擎管理。
 
 ## Architecture Positioning
 
@@ -159,26 +129,16 @@ const tex = minemap.TextureCubeLoader.load({
 });
 ```
 
-### 模式 3：预编译 shader 减少首帧卡顿
+### 模式 3：纹理加载后交由引擎预过滤
 
-```javascript
-// 启动早期
-const pmrem = painter._pmremGenerator;
-pmrem.compileEquirectangularShader();
-pmrem.compileCubemapShader();
+使用 TextureLoader 的 loaded 回调设置 map.environment，不直接访问 painter 的内部实例或回调字段。
 
-// 等纹理下载完再喂
-tex.onLoaded = () => {
-	map.environment = tex;
-};
-```
-
-### 模式 4：动态开关环境光（用于性能调优）
+### 模式 4：替换自定义环境图与恢复自动环境
 
 ```javascript
 // 开
 map.environment = envTexture;
-// 关
+// 回到引擎自动环境路径（不是关闭 IBL）
 map.environment = null;
 ```
 
@@ -191,23 +151,25 @@ map.environment = null;
 ### 2. HDR 纹理必须用 `HALF_FLOAT`
 
 ```javascript
-pixelDatatype: minemap.WebGLConstants.HALF_FLOAT,
-resourceFormat: "HDR"
+const hdrTextureOptions = {
+  pixelDatatype: minemap.WebGLConstants.HALF_FLOAT,
+  resourceFormat: "HDR"
+};
 ```
 
 否则 LDR 数据被钳制到 0..1，金属反射会丢高光。
 
 ### 3. 等距柱状投影推荐 1k（1024 x 512）
 
-`PMREMGenerator.fromEquirectangular` 注释：理想尺寸 1k，与 256x256 立方体输出最匹配。再大会更慢但不会更清晰。
+`PMREMGenerator.fromEquirectangular` 注释：理想尺寸 1k，与 256x256 立方体输出最匹配。更大输入增加成本，最终质量还受输出分辨率与材质采样限制，应按资产实测。
 
 ### 4. 立方体贴图推荐 256x256 / 面
 
 `fromCubemap` 注释：理想大小 256x256，与 256x256 立方体输出最匹配。
 
-### 5. PMREMGenerator 是静态类
+### 5. PMREMGenerator 是内部实例工具
 
-`source/third-party/threejs/pmrem/PMREMGenerator.js` 注释：
+`source/third-party/threejs/pmrem/PMREMGenerator.js` 有共享资源生命周期提醒；这不表示公开静态类：
 
 > "你通常不需要多个 PMREMGenerator 对象。如果你确实创建了多个对象，对其中一个调用 dispose() 方法会导致其他对象也无法使用。"
 
@@ -217,9 +179,9 @@ resourceFormat: "HDR"
 
 ## Failure Cases
 
--   金属反射全是黑 → 没设 `map.environment`（或设了但 LDR 钳制）
+-   金属反射黑 → 检查输入加载、HDR 格式、材质参数和自动环境内容，未设置自定义 environment 并不必然黑屏
 -   HDR 加载后材质不变化 → `pixelDatatype` / `resourceFormat` 不是 HDR
--   PMREM 内存爆炸 → 没在替换 / 销毁时 `dispose()`
+-   环境纹理占用持续上涨 → 检查应用拥有的输入纹理生命周期，不手工销毁引擎 PMREM 实例
 -   多 `PMREMGenerator` 互相破坏 → 没遵守"静态类"约束
 -   `map.environment` 设了但天空没变 → 预期行为，environment 不控制天空盒
 

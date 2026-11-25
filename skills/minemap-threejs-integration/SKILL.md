@@ -1,6 +1,8 @@
 ---
 name: minemap-threejs-integration
 description: MineMap 与 threejs 融合规范。覆盖 ThreeLayer、自定义 three 场景接入、OBJ/FBX/IFC/VTK 等多种数据加载，以及 GeoJSON 驱动的道路/围栏/雷达特效。
+metadata:
+  minemap-version: 4.28.2
 ---
 
 # MineMap Threejs Integration

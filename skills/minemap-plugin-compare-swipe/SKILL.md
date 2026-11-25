@@ -1,6 +1,8 @@
 ---
 name: minemap-plugin-compare-swipe
 description: MineMap 卷帘对比插件规范。用于双地图 Compare 卷帘、同步视角与插件销毁。
+metadata:
+  minemap-version: 4.28.2
 ---
 
 # MineMap Plugin: Compare Swipe

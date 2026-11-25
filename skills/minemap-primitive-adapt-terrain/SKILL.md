@@ -1,6 +1,8 @@
 ---
 name: minemap-primitive-adapt-terrain
 description: MineMap Primitive 贴地规范。覆盖 `primitive.adaptTerrain`、几何前提、`classificationType` 联动、以及 raster `depth-test` 对贴地结果的影响。
+metadata:
+  minemap-version: 4.28.2
 ---
 
 # MineMap Primitive Adapt Terrain

@@ -1,6 +1,8 @@
 ---
 name: minemap-post-process-and-render-pipeline
 description: MineMap 后处理阶段与渲染效果链规范。用于夜视、黑白、雨雪、雾效、描边、天际线等屏幕后处理。
+metadata:
+  minemap-version: 4.28.2
 ---
 
 # MineMap Post-process and Render Pipeline

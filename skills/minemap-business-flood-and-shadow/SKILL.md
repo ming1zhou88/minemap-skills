@@ -1,6 +1,8 @@
 ---
 name: minemap-business-flood-and-shadow
 description: MineMap 淹没分析与阴影分析业务规范。用于防灾、排涝、日照评估、园区环境分析。
+metadata:
+  minemap-version: 4.28.2
 ---
 
 # MineMap Business: Flood and Shadow

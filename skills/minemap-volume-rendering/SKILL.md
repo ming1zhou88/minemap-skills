@@ -1,6 +1,8 @@
 ---
 name: minemap-volume-rendering
 description: MineMap 3D 体渲染（VolumeShell）场景组件。用于医学、地质、海洋等场景的多时次 / 多数据类型体渲染，叠加 2D 切片堆叠并支持 urlBuilder 动态切换数据源。
+metadata:
+  minemap-version: 4.28.2
 ---
 
 # MineMap Volume Rendering
@@ -19,7 +21,7 @@ description: MineMap 3D 体渲染（VolumeShell）场景组件。用于医学、
 入口：
 
 ```javascript
-const shell = new minemap.VolumeShellSceneComponent({ ... });
+const shell = new minemap.VolumeShellSceneComponent(shellOptions);
 map.addSceneComponent(shell);
 ```
 
@@ -97,7 +99,7 @@ shell.setMode(1);
 shell.setInterpolation(0);
 shell.setDebugMode(true);
 shell.setFlipVertical(false);
-shell.flipY = true; // 修改后需调用 _initTextures 重新加载（私有，按需使用）
+// 不调用私有 _initTextures；方向变更按公开方法或重新创建组件处理。
 ```
 
 ## Common Patterns
@@ -130,7 +132,7 @@ shell.dataMax = 100;
 ```javascript
 // 限制纹理内存占用，超过会自动降级
 const shell = new minemap.VolumeShellSceneComponent({
-	...
+	...shellOptions,
 	maxTextureBytes: 96 * 1024 * 1024 // 96MB
 });
 ```
@@ -165,6 +167,8 @@ demo 中直接 `shell.flipY = true` 后调 `_initTextures` 重新加载纹理，
 -   数值模式全黑 / 全亮 → `dataMin` / `dataMax` 与实际数据范围不匹配
 
 ## See Also
+
+- [OceanTemperatureAnalyzer 的适用和限制](references/ocean-temperature-analyzer.md)：需要从海洋体数据提取轨迹温度时阅读，包含当前实现的固定深度与清理边界。
 
 -   `minemap-scene-components`
 -   `minemap-material-system-and-shading`

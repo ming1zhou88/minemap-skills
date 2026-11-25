@@ -1,6 +1,8 @@
 ---
 name: minemap-global-configuration
 description: MineMap 全局配置、key/solution、域名地址、sprite/fonts、minemapCDN 与启动前配置顺序。用于指导用户正确完成地图初始化前的配置，不再把 accessToken 作为主推荐路径。
+metadata:
+  minemap-version: 4.28.2
 ---
 
 # MineMap Global Configuration

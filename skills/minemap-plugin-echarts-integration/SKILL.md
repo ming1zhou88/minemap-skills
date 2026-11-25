@@ -1,6 +1,8 @@
 ---
 name: minemap-plugin-echarts-integration
 description: MineMap 与 ECharts 集成规范。用于散点、飞线、饼图、雷达图、3D 柱图等地图叠加可视化。
+metadata:
+  minemap-version: 4.28.2
 ---
 
 # MineMap Plugin: ECharts Integration

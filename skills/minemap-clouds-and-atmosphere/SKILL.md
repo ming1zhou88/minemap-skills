@@ -1,6 +1,8 @@
 ---
 name: minemap-clouds-and-atmosphere
 description: MineMap 云与大气渲染链。用于启用体积云、单片实例化云、云阴影与光束、大气散射和太阳 / 天空辐照度；气象规则网格体数据另见 minemap-volume-cloud。
+metadata:
+  minemap-version: 4.28.2
 ---
 
 # MineMap Clouds and Atmosphere
@@ -217,7 +219,7 @@ const cloud = map.cloudCollection.add({
 ```javascript
 map.enableLight();
 map.enableClouds();
-map.setTerrain({...});
+map.setTerrain(terrainOptions); // 业务提供已核对的地形配置
 
 map.on("load", () => {
 	const clouds = map.getClouds();

@@ -1,6 +1,8 @@
 ---
 name: minemap-lighting-and-shadows
 description: MineMap 光照与阴影规范。覆盖 `enableLight()`、`enableShadow()`、太阳时间、灯光对象、以及 `castShadow` / `receiveShadow` 的工程边界。
+metadata:
+  minemap-version: 4.28.2
 ---
 
 # MineMap Lighting and Shadows

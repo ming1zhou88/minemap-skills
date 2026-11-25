@@ -1,6 +1,8 @@
 ---
 name: minemap-business-measurement
 description: MineMap 三维量算业务规范。用于面积、贴地面积、辅助测量与规划校核。
+metadata:
+  minemap-version: 4.28.2
 ---
 
 # MineMap Business: Measurement

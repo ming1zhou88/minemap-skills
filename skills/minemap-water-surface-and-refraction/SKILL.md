@@ -1,6 +1,8 @@
 ---
 name: minemap-water-surface-and-refraction
 description: MineMap 水面效果规范。覆盖 `WaterMaterial`、fill 水面图层、`waterRenderingMode`、以及对象是否允许水面折射/反射的控制。
+metadata:
+  minemap-version: 4.28.2
 ---
 
 # MineMap Water Surface and Refraction

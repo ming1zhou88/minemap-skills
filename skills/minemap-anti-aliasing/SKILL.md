@@ -1,6 +1,8 @@
 ---
 name: minemap-anti-aliasing
 description: MineMap 抗锯齿与边缘平滑规范。用于 MSAA、FXAA、TAA、fill-antialias 的选型、启停与性能取舍。
+metadata:
+  minemap-version: 4.28.2
 ---
 
 # MineMap Anti-aliasing

@@ -1,6 +1,8 @@
 ---
 name: minemap-business-video-projection
 description: MineMap 视频投射与视频管理业务规范。用于监控视域、摄像头覆盖模拟、视频贴投到模型/地表/3D Tiles。
+metadata:
+  minemap-version: 4.28.2
 ---
 
 # MineMap Business: Video Projection

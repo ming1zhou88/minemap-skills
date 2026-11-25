@@ -1,6 +1,8 @@
 ---
 name: minemap-s3m
 description: MineMap S3M 倾斜摄影数据源。用于加载城市级三维模型（OSGB / S3M 切片 / 锦江示例）、S3M tileset 位置校正、太阳光联动与场景组件生命周期管理。
+metadata:
+  minemap-version: 4.28.2
 ---
 
 # MineMap S3M

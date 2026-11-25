@@ -1,6 +1,8 @@
 ---
 name: minemap-compressed-texture-runtime
-description: "MineMap 压缩纹理运行时排查。适用于 KTX2、Basis、CRN、DDS/DXT、压缩纹理 mip 层级、WebGL1/WebGL2 纹理兼容、摩尔纹、黑纹理、TextureLoader 压缩资源，以及 S3M/glTF 压缩纹理问题定位。"
+description: MineMap 压缩纹理运行时排查。适用于 KTX2、Basis、CRN、DDS/DXT、压缩纹理 mip 层级、WebGL1/WebGL2 纹理兼容、摩尔纹、黑纹理、TextureLoader 压缩资源，以及 S3M/glTF 压缩纹理问题定位。
+metadata:
+  minemap-version: 4.28.2
 ---
 
 # MineMap 压缩纹理运行时

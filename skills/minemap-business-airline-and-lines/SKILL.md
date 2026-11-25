@@ -1,6 +1,8 @@
 ---
 name: minemap-business-airline-and-lines
 description: MineMap 航线、飞线、动态流光线业务规范。用于空中航线、物流飞线、态势连线、流向表达。
+metadata:
+  minemap-version: 4.28.2
 ---
 
 # MineMap Business: Airline and Lines

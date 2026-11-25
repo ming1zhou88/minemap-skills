@@ -1,6 +1,8 @@
 ---
 name: minemap-material-system-and-shading
 description: MineMap 材质与着色规范。覆盖 `StandardMaterial`、`PhongMaterial`、`PhysicalMaterial`、`LambertMaterial`、`PolylineMaterial` 等主流材质的选型与调参。
+metadata:
+  minemap-version: 4.28.2
 ---
 
 # MineMap Material System and Shading

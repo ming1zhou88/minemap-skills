@@ -1,6 +1,8 @@
 ---
 name: minemap-vector-clipping
 description: MineMap style 矢量图层的 Polygon / MultiPolygon 区域裁剪。适用于按地理边界显示或排除矢量图层内容；不用于裁剪栅格、3D Tiles 或独立场景对象。
+metadata:
+  minemap-version: 4.28.2
 ---
 
 # MineMap Vector Clipping

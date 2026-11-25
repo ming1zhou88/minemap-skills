@@ -1,9 +1,15 @@
 ---
 name: minemap-style-and-data
 description: MineMap 样式规范（style v8）、source/layer 管理、图标资源、GeoJSON 更新与数据源组织，重点补全 VectorTileSource 参数与约束。
+metadata:
+  minemap-version: 4.28.2
 ---
 
 # MineMap Style and Data
+
+## 矢量贴合目标选择
+
+4.28.2 的 vector/geojson source 支持 adaptTerrainTarget: "terrain"（只地形）或 "model"（模型范围贴模型，范围外普通矢量显示）。adaptTerrain: true 的优先级更高，会继续走全部接收面的旧路径；选择目标时不要同时写 true。getter adaptTerrain 在任意 target 下也返回 true，判断目标应读取 adaptTerrainTarget。adaptTerrainPreserveLayerOrder 控制交错图层顺序，与目标选择独立；模型覆盖可能触发额外选瓦，需评估负载。该字段不自动适用于 Primitive、symbol 或 raster。以 `demo/html/Vector3DTilesOrderedAdaptTerrainTarget.html` 对照验证，贴合、深度测试与 before 顺序分别验收。
 
 ## Quick Start
 
@@ -419,6 +425,9 @@ minemap.setRTLTextPlugin("https://example.com/rtl-text.js");
 -   `loadImages` 批量图标场景优先用 `maxConcurrent`、`timeout`、`retryCount` 做受控加载，不要手搓一层并发队列
 
 ## See Also
+
+- [minemap-wmts-source](../minemap-wmts-source/SKILL.md)：WMTS capabilities 与模板边界。
+- [minemap-geojson-clustering-and-feature-state](../minemap-geojson-clustering-and-feature-state/SKILL.md)：聚合和状态更新。
 
 -   `minemap-fundamentals`
 -   `minemap-anti-aliasing`

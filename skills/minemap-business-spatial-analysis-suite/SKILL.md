@@ -1,6 +1,8 @@
 ---
 name: minemap-business-spatial-analysis-suite
 description: MineMap 空间分析补充能力规范。覆盖地形专题分析、剖面、限高、挖填方、地形开挖、开敞度、干扰分析等非可视域/淹没/量算类分析。
+metadata:
+  minemap-version: 4.28.2
 ---
 
 # MineMap Business: Spatial Analysis Suite

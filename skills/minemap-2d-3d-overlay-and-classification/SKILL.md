@@ -1,9 +1,15 @@
 ---
 name: minemap-2d-3d-overlay-and-classification
 description: MineMap 二三维叠加规范。覆盖矢量贴地、贴模型、对象接受/拒绝贴合、symbol 自动赋高、以及 raster 深度测试与图层顺序控制。
+metadata:
+  minemap-version: 4.28.2
 ---
 
 # MineMap 2D/3D Overlay and Classification
+
+## 矢量贴合目标选择
+
+4.28.2 的 vector/geojson source 支持 adaptTerrainTarget: "terrain"（只地形）或 "model"（模型范围贴模型，范围外普通矢量显示）。adaptTerrain: true 的优先级更高，会继续走全部接收面的旧路径；选择目标时不要同时写 true。getter adaptTerrain 在任意 target 下也返回 true，判断目标应读取 adaptTerrainTarget。adaptTerrainPreserveLayerOrder 控制交错图层顺序，与目标选择独立；模型覆盖可能触发额外选瓦，需评估负载。该字段不自动适用于 Primitive、symbol 或 raster。以 `demo/html/Vector3DTilesOrderedAdaptTerrainTarget.html` 对照验证，贴合、深度测试与 before 顺序分别验收。
 
 ## Quick Start
 

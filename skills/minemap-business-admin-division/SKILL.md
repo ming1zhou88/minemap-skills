@@ -1,6 +1,8 @@
 ---
 name: minemap-business-admin-division
 description: MineMap 行政区划业务规范。用于区域拉伸、边界墙体、专题区划展示。
+metadata:
+  minemap-version: 4.28.2
 ---
 
 # MineMap Business: Admin Division

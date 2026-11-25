@@ -1,6 +1,8 @@
 ---
 name: minemap-heatmap
 description: MineMap 热力图（heatmap）专题。用于二维 / 三维热力图、贴地热力、聚合权重、热力色阶与 3D 显示模式，重点说明 paint/layout 参数边界与典型失败场景。
+metadata:
+  minemap-version: 4.28.2
 ---
 
 # MineMap HeatMap
@@ -217,7 +219,9 @@ map.addLayer({
 ### 模式 1：按字段权重（人口 / 流量 / 评分）
 
 ```javascript
-"heatmap-weight": { property: "mag", stops: [[0, 0], [10, 1]] }
+map.setPaintProperty("heatmap-layer", "heatmap-weight", {
+  property: "mag", stops: [[0, 0], [10, 1]]
+});
 ```
 
 字段名 `mag` 跟数据保持一致；切换权重字段要同步改 source。

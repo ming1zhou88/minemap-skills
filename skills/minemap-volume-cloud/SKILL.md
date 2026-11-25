@@ -1,9 +1,13 @@
 ---
 name: minemap-volume-cloud
 description: MineMap 气象规则网格三维体渲染。适用于加载体数据 JSON 或内存网格、设置颜色映射和阈值、裁切或沿线剖切体数据。
+metadata:
+  minemap-version: 4.28.2
 ---
 
 # MineMap VolumeCloud
+
+风速 U/V 规则网格与粒子轨迹使用 [minemap-wind-field](../minemap-wind-field/SKILL.md)；本专题处理标量体数据，不替代风场 renderer。
 
 ## 入口
 

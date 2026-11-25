@@ -1,9 +1,15 @@
 ---
 name: minemap-events-and-picking
 description: MineMap 事件订阅模型、图层事件代理、once/off 管理、矢量与三维对象拾取。
+metadata:
+  minemap-version: 4.28.2
 ---
 
 # MineMap Events and Picking
+
+## 异步与事件边界
+
+对象拾取与深度位置拾取分开：getFeatureByGPUPick 返回对象，getPositionByGPUPick 返回地理位置，不能互换。异步拾取用请求序号丢弃 mousemove 的过期结果，卸载前 off 并标记 disposed。解绑需保持 type、layerId 和处理器引用；外部属性用 setText 或已净化 DOM。聚合与要素状态见 [minemap-geojson-clustering-and-feature-state](../minemap-geojson-clustering-and-feature-state/SKILL.md)，组件清理见 [minemap-framework-lifecycle](../minemap-framework-lifecycle/SKILL.md)。
 
 ## Quick Start
 
@@ -13,7 +19,7 @@ map.on("click", "poi-layer", (e) => {
 	if (!f) return;
 	new minemap.Popup()
 		.setLngLat(e.lngLat)
-		.setHTML(f.properties?.name || "-")
+		.setText(String(f.properties?.name ?? "-"))
 		.addTo(map);
 });
 ```
@@ -101,7 +107,7 @@ map.on("mousemove", "building-layer", (e) => {
 ## Performance Tips
 
 -   高频事件（`mousemove`）里避免重计算
--   `queryRenderedFeatures` 必须传 `layers` 限定范围
+-   `queryRenderedFeatures` 在已知目标图层时传 `layers` 减少范围；全图查询是有效用法
 -   `mouseenter/leave` 优于每帧全量命中检测
 
 ## Failure Cases

@@ -1,9 +1,15 @@
 ---
 name: minemap-style-system
 description: MineMap style 系统规范。用于 style v8 结构、`setStyle()`、diff/keepUserInfo、sprite/glyphs 与样式切换工作流。
+metadata:
+  minemap-version: 4.28.2
 ---
 
 # MineMap Style System
+
+## 幂等恢复与相机保持
+
+load 主要用于初次加载，style.load 用于样式重建/差量更新后的恢复。恢复先 getSource/getLayer/hasImage 判重，keepUserInfo 可能已经保留业务内容；feature-state 在 source 重建后按稳定业务 ID 重放。useCustomCamera 默认 true，忽略 style 自带相机时显式设 false。triggerRepaint 在 4.28.2 同步执行渲染，不能在 render 回调中递归调用。见 [组件生命周期](../minemap-framework-lifecycle/SKILL.md)。
 
 ## Architecture Positioning
 

@@ -1,6 +1,8 @@
 ---
 name: minemap-screen-space-reflection
 description: MineMap 屏幕空间反射（SSR）规范。覆盖 `map.SSR` 开关、运行时调参边界、与水面材质和反射对象的关系。
+metadata:
+  minemap-version: 4.28.2
 ---
 
 # MineMap Screen Space Reflection
